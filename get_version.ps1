@@ -1,7 +1,9 @@
 $env:TERM="msys";
 
-$version = ([int](git rev-list --count HEAD)+8613-2391)
+$version = "0x" + (git log --format="%H" -n 1).substring(0,8);
 
-$githash = git log --format="%H" -n 1
-$gitinfo = git describe --tags
-$gitbranch = git rev-parse --abbrev-ref HEAD
+$githash = git log --format="%H" -n 1;
+$gitinfo = git describe --tags;
+$gitbranch = git rev-parse --abbrev-ref HEAD;
+
+$revcount=[int](git rev-list --count master) - [int](git rev-list --count master ^HEAD);
