@@ -69,7 +69,7 @@ INCLUDEPATH *= retroshare-gui
 ################################# Linux ##########################################
 # Put lib dir in QMAKE_LFLAGS so it appears before -L/usr/lib
 linux-* {
-	CONFIG += version_detail_bash_script
+	#CONFIG += version_detail_bash_script
 	QMAKE_CXXFLAGS *= -D_FILE_OFFSET_BITS=64
 
 	PRE_TARGETDEPS *= ../../libretroshare/src/lib/libretroshare.a
@@ -162,7 +162,7 @@ win32 {
 		CONFIG += console
 	}
 
-	CONFIG += version_detail_ps_script
+	#CONFIG += version_detail_ps_script
 
 	# Switch on extra warnings
 	QMAKE_CFLAGS += -Wextra

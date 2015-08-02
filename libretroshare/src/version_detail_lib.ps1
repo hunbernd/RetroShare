@@ -10,4 +10,5 @@ New-Item $headerfile -type file -force;
 "#define RS_GIT_BRANCH `"$gitbranch`"" | Out-File $headerfile -Encoding ASCII -Append;
 "#define RS_GIT_INFO `"$gitinfo`"" | Out-File $headerfile -Encoding ASCII -Append;
 "#define RS_GIT_HASH `"$githash`"" | Out-File $headerfile -Encoding ASCII -Append;
-
+"#define RS_REVISION `"$revcount`"" | Out-File $headerfile -Encoding ASCII -Append;
+"#define RS_BUILD_DATE `"" + (Get-Date -Format g) + "`"" | Out-File $headerfile -Encoding ASCII -Append;

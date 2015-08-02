@@ -10,6 +10,8 @@ echo "#define RS_REVISION_NUMBER $version" > retroshare/rsautoversion.h
 echo "#define RS_GIT_BRANCH \"$gitbranch\"" >> retroshare/rsautoversion.h
 echo "#define RS_GIT_INFO \"$gitinfo\"" >> retroshare/rsautoversion.h
 echo "#define RS_GIT_HASH \"$githash\"" >> retroshare/rsautoversion.h
+echo "#define RS_REVISISON \"$revcount\"" >> retroshare/rsautoversion.h
+echo "#define RS_BUILD_DATE \"$(date)\"" >> retroshare/rsautoversion.h
 
 echo "version_detail_lib.sh script finished"
 exit 0

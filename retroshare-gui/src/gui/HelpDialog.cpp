@@ -24,10 +24,12 @@
 
 #include <retroshare/rsiface.h>
 #include <retroshare/rsplugin.h>
+#include <retroshare/rsautoversion.h>
 #include <microhttpd.h>
 
 #include <QFile>
 #include <QTextStream>
+#include <QStringList>
 
 static void addLibraries(QGridLayout *layout, const std::string &name, const std::list<RsLibraryInfo> &libraries)
 {
@@ -81,14 +83,6 @@ HelpDialog::HelpDialog(QWidget *parent) :
 		ui->thanks->setText(in.readAll());
 	}
 
-	QFile versionFile(QLatin1String(":/help/version.html"));
-	if (versionFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-		QTextStream in(&versionFile);
-		QString version = in.readAll();
-
-		ui->version->setText(version);
-	}
-
 	/* Add version numbers of libretroshare */
 	std::list<RsLibraryInfo> libraries;
 	RsControl::instance()->getLibraries(libraries);
@@ -111,6 +105,20 @@ HelpDialog::HelpDialog(QWidget *parent) :
 			}
 		}
 	}
+
+	/* Version and other GIT information */
+	QStringList sl;
+	sl << "<html><body>Revision number: " + QString::number(RS_REVISION_NUMBER);
+	sl << "Branch: " + QString(RS_GIT_BRANCH);
+	sl << "Commit hash: " + QString(RS_GIT_HASH);
+	sl << "Git info: " + QString(RS_GIT_INFO);
+	sl << "Linear revision number: " + QString(RS_REVISION);
+	sl << "Build date: " + QString(RS_BUILD_DATE);
+	sl << "";
+	sl << "Source code available from:";
+	sl << "<a href=\"https://github.com/RetroShare/RetroShare\">https://github.com/RetroShare/RetroShare</a>";
+	sl << "</body></html>";
+	ui->version->setHtml(sl.join("<br />"));
 }
 
 HelpDialog::~HelpDialog()
