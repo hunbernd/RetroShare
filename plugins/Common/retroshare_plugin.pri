@@ -53,8 +53,8 @@ win32 {
 	DEFINES += USE_CMD_ARGS
 
 	#miniupnp implementation files
-	HEADERS += upnp/upnputil.h
-	SOURCES += upnp/upnputil.c
+	#HEADERS += upnp/upnputil.h
+	#SOURCES += upnp/upnputil.c
 
 	LIBS_DIR = $$PWD/../../../libs
 
