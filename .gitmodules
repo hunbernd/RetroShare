@@ -1,3 +1,6 @@
 [submodule "plugins/SocialCompass"]
 	path = plugins/SocialCompass
 	url = https://github.com/chozabu/RsSocialCompass.git
+[submodule "plugins/Lua4RS"]
+	path = plugins/Lua4RS
+	url = git@github.com:hunbernd/Lua4RS.git
