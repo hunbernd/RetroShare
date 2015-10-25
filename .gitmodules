@@ -1,0 +1,3 @@
+[submodule "plugins/SocialCompass"]
+	path = plugins/SocialCompass
+	url = https://github.com/chozabu/RsSocialCompass.git
