@@ -35,8 +35,9 @@ win32 {
 
 	OPENCV_VERSION = "249"
 	USE_PRECOMPILED_LIBS =
-	for(lib, LIB_DIR) {
-#message(Scanning $$lib)
+#	for(lib, LIB_DIR) {
+	lib = $$LIBS_DIR/lib
+	message(Scanning $$lib)
 		exists( $$lib/opencv/libopencv_core249.a) {
 			isEmpty(USE_PRECOMPILED_LIBS) {
 				message(Get pre-compiled opencv 249 libraries here:)
@@ -69,7 +70,7 @@ win32 {
 			message($$lib)
 			LIBS += -lopencv_videoio
 		}
-	}
+#	}
 	isEmpty(USE_PRECOMPILED_LIBS) {
 		message(Use system opencv libraries.)
 		LIBS += -lopencv_core -lopencv_highgui -lopencv_imgproc
