@@ -5,3 +5,4 @@ SUBDIRS += \
 		FeedReader \
 		SocialCompass \
 		Lua4RS \
+		PaintChat \

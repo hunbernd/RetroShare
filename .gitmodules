@@ -4,3 +4,7 @@
 [submodule "plugins/Lua4RS"]
 	path = plugins/Lua4RS
 	url = git@github.com:hunbernd/Lua4RS.git
+[submodule "plugins/PaintChat"]
+	path = plugins/PaintChat
+	url = git@github.com:hunbernd/Retroshare-Paintchat-Plugin.git
+
