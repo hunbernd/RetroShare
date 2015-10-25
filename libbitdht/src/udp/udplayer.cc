@@ -32,7 +32,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
+
+#ifdef __HAIKU__
 #include <sys/select.h>
+#endif
 
 /***
  * #define UDP_ENABLE_BROADCAST		1
