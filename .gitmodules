@@ -7,4 +7,7 @@
 [submodule "plugins/PaintChat"]
 	path = plugins/PaintChat
 	url = git@github.com:hunbernd/Retroshare-Paintchat-Plugin.git
-
+[submodule "plugins/FriendMap"]
+	path = plugins/FriendMap
+	url = git@github.com:hunbernd/FriendMap.git
+	

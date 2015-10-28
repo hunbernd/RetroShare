@@ -6,3 +6,4 @@ SUBDIRS += \
 		SocialCompass \
 		Lua4RS \
 		PaintChat \
+		FriendMap \
