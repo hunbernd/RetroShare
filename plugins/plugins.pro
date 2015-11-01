@@ -1,5 +1,9 @@
 TEMPLATE = subdirs
 
 SUBDIRS += \
-		VOIP \
-		FeedReader
+#		VOIP \
+		FeedReader \
+		SocialCompass \
+		Lua4RS \
+		PaintChat \
+		FriendMap \
