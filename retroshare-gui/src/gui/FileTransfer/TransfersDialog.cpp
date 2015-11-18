@@ -414,6 +414,8 @@ TransfersDialog::TransfersDialog(QWidget *parent)
 	connect(chunkProgressiveAct, SIGNAL(triggered()), this, SLOT(chunkProgressive()));
 	playAct = new QAction(QIcon(IMAGE_PLAY), tr( "Play" ), this );
 	connect( playAct , SIGNAL( triggered() ), this, SLOT( openTransfer() ) );
+	playStreamAct = new QAction(QIcon(IMAGE_PLAY), tr( "Play stream" ), this );
+	connect( playStreamAct , SIGNAL( triggered() ), this, SLOT( playStream() ) );
 		renameFileAct = new QAction(QIcon(IMAGE_RENAMEFILE), tr("Rename file..."), this);
 		connect(renameFileAct, SIGNAL(triggered()), this, SLOT(renameFile()));
 		specifyDestinationDirectoryAct = new QAction(QIcon(IMAGE_SEARCH),tr("Specify..."),this) ;
@@ -622,6 +624,7 @@ void TransfersDialog::downloadListCustomPopupMenu( QPoint /*point*/ )
 	bool atLeastOne_Paused = false ;
 
 	bool add_PlayOption = false ;
+	bool add_PlayStreamOption = false ;
 	bool add_PreviewOption=false ;
 	bool add_OpenFileOption = false ;
 	bool add_CopyLink = false ;
@@ -705,6 +708,7 @@ void TransfersDialog::downloadListCustomPopupMenu( QPoint /*point*/ )
 						if (misc::isPreviewable(info.fname.substr(pos + 1).c_str())) {
 							add_PreviewOption = (info.downloadStatus != FT_STATE_COMPLETE) ;
 							add_PlayOption = !add_PreviewOption ;
+							add_PlayStreamOption = true;
 						}// if (misc::isPreviewable(info.fname.substr(pos + 1).c_str()))
 						// Check if the file is a collection
 						if (RsCollectionFile::ExtensionString == info.fname.substr(pos + 1).c_str()) {
@@ -769,7 +773,11 @@ void TransfersDialog::downloadListCustomPopupMenu( QPoint /*point*/ )
 		contextMnu.addAction(playAct) ;
 	}//if (add_PlayOption)
 
-	if (atLeastOne_Paused || atLeastOne_Downloading || atLeastOne_Complete || add_PlayOption) {
+	if (add_PlayStreamOption) {
+		contextMnu.addAction(playStreamAct) ;
+	}
+
+	if (atLeastOne_Paused || atLeastOne_Downloading || atLeastOne_Complete || add_PlayOption || add_PlayStreamOption) {
 		contextMnu.addSeparator() ;//------------------------------------------------
 	}//if (atLeastOne_Paused ||
 
@@ -1775,6 +1783,26 @@ void TransfersDialog::previewTransfer()
 			}
 		}
 	}
+}
+
+void TransfersDialog::playStream()
+{
+	FileInfo info;
+
+	std::set<RsFileHash> items;
+	std::set<RsFileHash>::iterator it;
+	getSelectedItems(&items, NULL);
+	for (it = items.begin(); it != items.end(); ++it) {
+		if (!rsFiles->FileDetails(*it, RS_FILE_HINTS_DOWNLOAD | RS_FILE_HINTS_EXTRA | RS_FILE_HINTS_LOCAL | RS_FILE_HINTS_NETWORK_WIDE, info)) continue;
+		break;
+	}
+
+	QFileInfo fileNameInfo(QString::fromUtf8(info.fname.c_str()));
+
+	/* check if the file is a media file */
+	if (!misc::isPreviewable(fileNameInfo.suffix())) return;
+
+	misc::streamMediaFile(info.hash);
 }
 
 void TransfersDialog::openTransfer()

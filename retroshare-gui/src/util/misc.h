@@ -28,6 +28,7 @@
 #include <QPair>
 #include <QThread>
 #include <QFileDialog>
+#include <retroshare/rsfiles.h>
 
 #include "gui/settings/rsharesettings.h"
 
@@ -104,6 +105,7 @@ class misc : public QObject
     static QString friendlyUnit(float val);
 
     static bool isPreviewable(QString extension);
+	static void streamMediaFile(RsFileHash hash);
 
 	 static QString fingerPrintStyleSplit(const QString& in) ;
 

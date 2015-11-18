@@ -518,7 +518,16 @@ void ApiServerMHD::stop()
     if(mDaemon == 0)
         return;
     MHD_stop_daemon(mDaemon);
-    mDaemon = 0;
+	mDaemon = 0;
+}
+
+std::string ApiServerMHD::getStreamUrl(RsFileHash hash)
+{
+	std::string url("http://localhost:");
+	url += ntohs(mListenAddr.sin_port);
+	url += FILESTREAMER_ENTRY_PATH;
+	url += hash.toStdString();
+	return url;
 }
 
 int ApiServerMHD::static_acceptPolicyCallback(void *cls, const sockaddr *addr, socklen_t addrlen)

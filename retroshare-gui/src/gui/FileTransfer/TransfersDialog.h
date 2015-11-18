@@ -108,6 +108,7 @@ private slots:
     void openFolderTransfer();
     void openTransfer();
     void previewTransfer();
+	void playStream();
 
     void ulOpenFolder();
     void ulCopyLink();
@@ -172,6 +173,7 @@ private:
     /** Defines the actions for the context menu */
     QAction *showdownInfoAct;
     QAction *playAct;
+	QAction *playStreamAct;
     QAction *cancelAct;
     QAction *forceCheckAct;
     QAction *clearCompletedAct;

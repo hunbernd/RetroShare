@@ -25,8 +25,12 @@
 #include <QFileDialog>
 #include <QByteArray>
 #include <QBuffer>
+#include <QMessageBox>
+#include <QProcess>
 
 #include "misc.h"
+#include <retroshare/rstypes.h>
+#include "gui/settings/rsettings.h"
 
 // return best userfriendly storage unit (B, KiB, MiB, GiB, TiB)
 // use Binary prefix standards from IEC 60027-2
@@ -104,7 +108,47 @@ bool misc::isPreviewable(QString extension)
     if(extension == "SWA") return true;
     if(extension == "MPC") return true;
     if(extension == "MPP") return true;
-    return false;
+	if(extension == "WEBM") return true;
+	return false;
+}
+
+void misc::streamMediaFile(RsFileHash hash)
+{
+	FileInfo info;
+	std::list<RsFileHash> dls;
+	rsFiles->FileDownloads(dls);
+	if(!(rsFiles->alreadyHaveFile(hash, info) || std::find(dls.begin(), dls.end(), hash) != dls.end()))
+	{
+		QMessageBox::warning(NULL, QString("Playing file stream"), QString("File not existing on local peer and not downloading. Start the download before streaming it."));
+		return;
+	}
+
+	Settings->beginGroup(QString("FileStreaming"));
+	QString prog = Settings->value(QString("prog"), QString("")).toString();
+	Settings->endGroup();
+	if(!Settings->getWebinterfaceEnabled())
+	{
+		QMessageBox::warning(NULL, QString("Playing file stream"), QString("Enable the webinterface before using this function!"));
+		return;
+	}
+	prog = "\"c:\\Program Files (x86)\\Real Alternative\\Media Player Classic\\mplayerc.exe\" %1";
+	if(prog.isEmpty() || !prog.contains("%1"))
+	{
+		QMessageBox::warning(NULL, QString("Playing file stream"), QString("Set the media player in the settings!"));
+		return;
+	}
+
+	rsFiles->setChunkStrategy(hash, FileChunksInfo::CHUNK_STRATEGY_STREAMING);
+	rsFiles->changeDownloadSpeed(hash, SPEED_HIGH);
+	rsFiles->changeQueuePosition(hash, QUEUE_TOP);
+
+	QString url("http://localhost:%1/fstream/%2");
+	url = url.arg(Settings->getWebinterfacePort()).arg(QString::fromStdString(hash.toStdString()));
+
+	if(!QProcess::startDetached(prog.arg(url)))
+	{
+		QMessageBox::warning(NULL, QString("Playing file stream"), QString("Mediaplayer cennot be started."));
+	}
 }
 
 // return qBittorrent config path

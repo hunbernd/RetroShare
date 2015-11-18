@@ -6,6 +6,7 @@
 #include <stdarg.h>
 #include <microhttpd.h>
 #include <string>
+#include <retroshare/rsfiles.h>
 
 #ifndef WINDOWS_SYS
 #include <netinet/in.h>
@@ -34,6 +35,7 @@ public:
     bool configure(std::string docroot, uint16_t port, std::string bind_address, bool allow_from_all);
     bool start();
     void stop();
+	std::string getStreamUrl(RsFileHash hash);
 
 private:
     // static callbacks for libmicrohttpd, they call the members below
