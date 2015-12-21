@@ -7,3 +7,5 @@ SUBDIRS += \
 		Lua4RS \
 		PaintChat \
 		FriendMap \
+		ExportImport \
+

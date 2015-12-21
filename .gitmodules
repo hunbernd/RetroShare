@@ -11,3 +11,6 @@
 	path = plugins/FriendMap
 	url = git@github.com:hunbernd/FriendMap.git
 	
+[submodule "plugins/ExportImport"]
+	path = plugins/ExportImport
+	url = https://github.com/sehraf/ExportImport.git
