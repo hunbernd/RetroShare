@@ -509,5 +509,5 @@ void CreateGxsForumMsg::loadRequest(const TokenQueue *queue, const TokenRequest 
 
 void CreateGxsForumMsg::insertPastedText(QString msg)
 {
-	ui.forumMessage->append(msg);
+	//ui.forumMessage->append(msg);
 }
