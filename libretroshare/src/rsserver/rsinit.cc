@@ -1258,6 +1258,9 @@ int RsServer::StartupRetroShare()
 
 #ifndef WINDOWS_SYS
 	plugins_directories.push_back(std::string(PLUGIN_DIR)) ;
+#else
+	std::string extensions_dir2 = rsAccounts->PathDataDirectory() + "/extensions6/" ;
+	plugins_directories.push_back(extensions_dir2) ;
 #endif
 	std::string extensions_dir = rsAccounts->PathBaseDirectory() + "/extensions6/" ;
 	plugins_directories.push_back(extensions_dir) ;
