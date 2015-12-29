@@ -40,7 +40,7 @@ void Emoticons::load()
     QString sm_codes;
     bool internalEmoticons = true;
 
-#if defined(Q_OS_WIN)
+//#if defined(Q_OS_WIN)
     // first try external emoticons
     QFile sm_file(QApplication::applicationDirPath() + "/emoticons/emotes.acs");
     if(sm_file.open(QIODevice::ReadOnly))
@@ -55,14 +55,14 @@ void Emoticons::load()
             return ;
         }
     }
-#else
-    QFile sm_file(QString(":/smileys/emotes.acs"));
-    if(!sm_file.open(QIODevice::ReadOnly))
-    {
-        std::cout << "error opening ressource file" << std::endl ;
-        return ;
-    }
-#endif
+//#else
+//    QFile sm_file(QString(":/smileys/emotes.acs"));
+//    if(!sm_file.open(QIODevice::ReadOnly))
+//    {
+//        std::cout << "error opening ressource file" << std::endl ;
+//        return ;
+//    }
+//#endif
 
     sm_codes = sm_file.readAll();
     sm_file.close();
