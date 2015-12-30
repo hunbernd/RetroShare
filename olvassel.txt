@@ -1,0 +1,56 @@
+----------------------------------
+Figyelmeztetés:
+----------------------------------
+Mindig csinálj biztonsági mentést az adat mappádról!
+Ez a verzió módosításokat tartalmaz, de mindenben kompatibilis a hivatalos verzióval egy dolog kivételével.
+Nem mûködik a távoli cset a legfrissebb instabil verziókkal, de mûködik ezzel, a hivatalos stabil verzióval, illetve minden egyéb régebbi verzióval.
+
+----------------------------------
+Megváltoztatott dolgok a hivataloshoz verzióhoz képest:
+----------------------------------
+*azon a verzión alapszik, aminél még nem lett elbarmolva a távoli cset és egyéb más
++visszaportolt cuccok az újabb verziókból:
+	!összeomlás újabb kliensek távoli chetjétõl
+	!dupla kijelölés a beállítás ablakban vista stílus esetén
+	+/me
+	+>zöldszöveg
+	+szöveg idézése a cseten
+	+spoiler szöveg posztolása
+	+képek mentése csetrõl és fórumokról
+	*a régi és legújabb verzióban megtalálható emotikonokat is tartalmazza
+	*emotikon választó ablak mérete az emotikonok számához illeszkedik
+	
+-elõzõ poszt automatikus idézése posztoláskor a fórumba	
++külsõ emotikonok betöltése nem csak Windows esetén
++kiegészítõk betöltése a RetroShare\extensions6 mappából is
+-VoIP kiegészítõ
++PaintChat kiegészítõ
++ExportImport kiegészítõ
++FriendMap kiegészítõ
++SocialCompass kiegészítõ
++Lua4RS kiegészítõ
+
+
++hozzáadva, -eltávolítva, *megváltoztatva, !fixálva
+
+----------------------------------
+Telepítési útmutató:
+----------------------------------
+Windows (hordozható):
+	1. Távolíts el minden .dll-t a RetrosShare mappából és a Data\extensions6 mappából is, ha valamit meghagysz instabil lehet tõle
+	2. Csomagold ki a RetroShare-Windows-Portable-dátum-v0.6.0-Qt-5.5.0-Base-anmo.7z fájlt a RetroShare mappába, nagyjából 200 MB
+	3. Csomagold ki a RetroShare-Windows-Portable-dátum-v0.6.0-RC2-xxx-verzió-Qt-5.5.0-Diff-anmo.7z fájlt a RetroShare mappába
+	
+	Frissítés esetén elég csak a 3. pontot megismételni és felülírni a fájlokat
+	
+Windows (telepített verzió):
+	1. Távolíts el minden dll-t a ProgramFiles\RetrosShare mappából és a %appdata%\RetroShare\extensions6 mappából is, ha valamit meghagysz instabil lehet tõle
+	2. Csomagold ki a RetroShare-Windows-Portable-dátum-v0.6.0-Qt-5.5.0-Base-anmo.7z fájlt a ProgramFiles\RetroShare mappádba, nagyjából 200 MB
+	3. Töröld a "portable" nevû fájlt
+	4. Csomagold ki a RetroShare-Windows-Portable-dátum-v0.6.0-RC2-xxx-verzió-Qt-5.5.0-Diff-anmo.7z fájlt a ProgramFiles\RetroShare mappába
+	
+	Frissítés esetén elég csak a 4. pontot megismételni és felülírni a fájlokat
+	
+Linux
+	1. Fordítsd le magadnak, a forráskód itt található: https://github.com/hunbernd/RetroShare.git
+	2. Ha kellenek az extra emotikonok, akkor másold az emoticons mappát a RetrosShare06 futtatható állomány mellé innen: RetroShare-Windows-Portable-dátum-v0.6.0-Qt-5.5.0-Base-anmo.7z
