@@ -49,3 +49,24 @@ bool ImageUtil::checkImage(QTextCursor cursor)
 	QString imagestr = cursor.selection().toHtml();
 	return imagestr.indexOf("base64,") != -1;
 }
+
+void ImageUtil::cropBorders(QImage &img)
+{
+	//Cropping algoritmh from here: http://stackoverflow.com/questions/10678015/how-to-auto-crop-an-image-white-border-in-java
+	QRgb bc = img.pixel(0,0); //The top left pixel is the border color
+	int l=img.width(), r=-1, t=img.height(), b=-1;
+	for(int y=0; y<img.height(); ++y) {
+		for(int x=0; x<img.width(); ++x) {
+			if(bc != img.pixel(x, y)) {
+				if(x<l) l=x;
+				if(x>r) r=x;
+				if(y<t) t=y;
+				if(y>b) b=y;
+			}
+		}
+	}
+	if(r == -1)
+		img = QImage();
+	else
+		img = img.copy(l, t, r-l+1, b-t+1);
+}

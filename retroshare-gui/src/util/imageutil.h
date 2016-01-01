@@ -3,6 +3,7 @@
 
 #include <QTextCursor>
 #include <QWidget>
+#include <QImage>
 
 
 class ImageUtil
@@ -12,6 +13,8 @@ public:
 
 	static void extractImage(QWidget *window, QTextCursor cursor);
 	static bool checkImage(QTextCursor cursor);
+
+	static void cropBorders(QImage& img);
 };
 
 #endif // IMAGEUTIL_H
