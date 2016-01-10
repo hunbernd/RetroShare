@@ -32,8 +32,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
-
-#ifdef __HAIKU__
+#ifndef WIN32
 #include <sys/select.h>
 #endif
 
@@ -263,6 +262,7 @@ void UdpLayer::recv_loop()
 #ifdef DEBUG_UDP_LAYER
 				std::cerr << "UdpLayer::recv_loop() stopping thread" << std::endl;
 #endif
+                free(inbuf) ;
 				stop();
 			}
 
@@ -302,9 +302,6 @@ void UdpLayer::recv_loop()
 #endif
 		}
 	}
-
-	free(inbuf) ;
-	return;
 }
 
 

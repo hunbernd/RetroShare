@@ -103,17 +103,14 @@ void p3HistoryMgr::addMessage(const ChatMessage& cm)
             enabled = true;
         }
 
-        if (cm.chat_id.isGxsId() && mPrivateEnable == true) {
-            if (cm.incoming) {
-                peerName = cm.chat_id.toGxsId().toStdString();
-            } else {
-                uint32_t status;
-                RsGxsId from_gxs_id;
-                if (rsMsgs->getDistantChatStatus(cm.chat_id.toGxsId(), status, &from_gxs_id))
-                    peerName = from_gxs_id.toStdString();
-            }
-            enabled = true;
-        }
+        if(cm.chat_id.isDistantChatId())
+	{
+		uint32_t status;
+		DistantChatPeerInfo dcpinfo;
+		if (rsMsgs->getDistantChatStatus(cm.chat_id.toDistantChatId(), dcpinfo))
+			peerName = cm.chat_id.toPeerId().toStdString();
+		enabled = true;
+	}
 
         if(enabled == false)
             return;
@@ -310,7 +307,8 @@ bool p3HistoryMgr::loadList(std::list<RsItem*>& load)
 	RsHistoryMsgItem *msgItem;
 	std::list<RsItem*>::iterator it;
 
-	for (it = load.begin(); it != load.end(); ++it) {
+	for (it = load.begin(); it != load.end(); ++it) 
+   	 {
 		if (NULL != (msgItem = dynamic_cast<RsHistoryMsgItem*>(*it))) {
 
 			std::map<RsPeerId, std::map<uint32_t, RsHistoryMsgItem*> >::iterator mit = mMessages.find(msgItem->chatPeerId);
@@ -384,6 +382,7 @@ bool p3HistoryMgr::loadList(std::list<RsItem*>& load)
 		delete (*it);
 	}
 
+    load.clear() ;
 	return true;
 }
 
@@ -411,8 +410,8 @@ bool p3HistoryMgr::chatIdToVirtualPeerId(ChatId chat_id, RsPeerId &peer_id)
         return true;
     }
 
-    if (chat_id.isGxsId()) {
-        peer_id = RsPeerId(chat_id.toGxsId());
+    if (chat_id.isDistantChatId()) {
+        peer_id = RsPeerId(chat_id.toDistantChatId());
         return true;
     }
 
@@ -450,7 +449,7 @@ bool p3HistoryMgr::getMessages(const ChatId &chatId, std::list<HistoryMsg> &msgs
     if (chatId.isLobbyId() && mLobbyEnable == true) {
         enabled = true;
     }
-    if (chatId.isGxsId() && mPrivateEnable == true) {
+    if (chatId.isDistantChatId() && mPrivateEnable == true) {
         enabled = true;
     }
 

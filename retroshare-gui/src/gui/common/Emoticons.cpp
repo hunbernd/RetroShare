@@ -48,7 +48,7 @@ void Emoticons::load()
         internalEmoticons = false;
     } else {
         // then embedded emotions
-        sm_file.setFileName(":/smileys/emotes.acs");
+        sm_file.setFileName(":/emojione/emotes.acs");
         if(!sm_file.open(QIODevice::ReadOnly))
         {
             std::cout << "error opening ressource file" << std::endl ;

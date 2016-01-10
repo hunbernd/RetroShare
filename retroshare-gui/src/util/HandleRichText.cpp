@@ -105,7 +105,33 @@ void RsHtml::initEmoticons(const QHash< QString, QString >& hash)
 				continue;
 			}
 			defEmbedImg.smileys.insert(smile, it.value());
-			newRE += "(" + QRegExp::escape(smile) + ")|";
+			// add space around smileys
+			newRE += "(?:^|\\s)(" + QRegExp::escape(smile) + ")(?:$|\\s)|";
+			// explanations:
+			//	(?:^|\s)(*smiley*)(?:$|\s)
+			//
+			//	(?:^|\s) Non-capturing group
+			//		1st Alternative: ^
+			//			^ assert position at start of the string
+			//		2nd Alternative: \s
+			//			\s match any white space character [\r\n\t\f ]
+			//
+			//	1st Capturing group (*smiley*)
+			//		*smiley* matches the characters *smiley* literally (case sensitive)
+			//
+			//	(?:$|\s) Non-capturing group
+			//		1st Alternative: $
+			//			$ assert position at end of the string
+			//		2nd Alternative: \s
+			//			\s match any white space character [\r\n\t\f ]
+
+			/*
+			 * TODO
+			 * a better version is:
+			 * (?<=^|\s)(*smile*)(?=$|\s) using the lookbehind/lookahead operator instead of non-capturing groups.
+			 * This solves the problem that spaces are matched, too (see workaround in RsHtml::embedHtml)
+			 * This is not supported by Qt4!
+			 */
 		}
 	newRE.chop(1);	// remove last |
 	defEmbedImg.myRE.setPattern(newRE);
@@ -239,6 +265,8 @@ void RsHtml::embedHtml(QTextDocument *textDocument, QDomDocument& doc, QDomEleme
 			QDomElement element = node.toElement();
 			if(element.tagName().toLower() == "head") {
 				// skip it
+			} else if(element.tagName().toLower() == "style") {
+				// skip it
 			} else if (element.tagName().toLower() == "a") {
 				// skip it
 				if (embedInfos.myType == Ahref) {
@@ -310,7 +338,21 @@ void RsHtml::embedHtml(QTextDocument *textDocument, QDomDocument& doc, QDomEleme
 							{
 								insertedTag = doc.createElement("img");
 								const EmbedInHtmlImg& embedImg = static_cast<const EmbedInHtmlImg&>(embedInfos);
-								insertedTag.setAttribute("src", embedImg.smileys[embedInfos.myRE.cap(0)]);
+								// embedInfos.myRE.cap(0) may include spaces at the end/beginning -> trim!
+								insertedTag.setAttribute("src", embedImg.smileys[embedInfos.myRE.cap(0).trimmed()]);
+								/*
+								 * NOTE
+								 * Trailing spaces are matched, too. This leads to embedInfos.myRE.matchedLength() being incorrect.
+								 * This hack reduces nextPos by one so that the new value of currentPos is calculated corretly.
+								 * This is needed to match multiple smileys since the leading whitespace in front of a smiley is required!
+								 *
+								 * This can be avoided by using Qt5 (see comment in RsHtml::initEmoticons)
+								 *
+								 * NOTE
+								 * Preceding spaces are also matched and removed.
+								 */
+								if(embedInfos.myRE.cap(0).endsWith(' '))
+									nextPos--;
 							}
 							break;
 				}
@@ -585,9 +627,9 @@ static void optimizeHtml(QDomDocument& doc
 				if (pair.length()!=2) return; //Malformed style list so a bad message or last item.
 				QString keyvalue = pair.at(1);
 				keyvalue.replace(";","");
-				QStringList* classUsingIt = new QStringList(pair.at(0).split(','));
+				QStringList classUsingIt(pair.at(0).split(','));
 				QStringList* exported = new QStringList();
-				foreach (QString keyVal, *classUsingIt) {
+				foreach (QString keyVal, classUsingIt) {
 					if(!keyVal.trimmed().isEmpty()) {
 						exported->append(keyVal.trimmed().replace(".",""));
 					}

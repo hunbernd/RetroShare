@@ -235,7 +235,7 @@ static bool trimAnonIds(std::list<RsGxsId>& lst)
     RsIdentityDetails idd ;
 
     for(std::list<RsGxsId>::iterator it = lst.begin();it!=lst.end();)
-	    if(!rsIdentity->getIdDetails(*it,idd) || !idd.mPgpLinked)
+	    if(!rsIdentity->getIdDetails(*it,idd) || !(idd.mFlags & RS_IDENTITY_FLAGS_PGP_LINKED))
 	    {
 		    it = lst.erase(it) ;
 		    removed= true ;
@@ -269,7 +269,7 @@ void ChatLobbyWidget::lobbyTreeWidgetCustomPopupMenu(QPoint)
         {
             QTreeWidgetItem *item = ui.lobbyTreeWidget->currentItem();
 
-	    ChatLobbyId id = item->data(COLUMN_DATA, ROLE_ID).toULongLong();
+	    //ChatLobbyId id = item->data(COLUMN_DATA, ROLE_ID).toULongLong();
         ChatLobbyFlags flags(item->data(COLUMN_DATA, ROLE_FLAGS).toUInt());
 
             bool removed = false ;
@@ -501,10 +501,7 @@ void ChatLobbyWidget::updateDisplay()
 #endif
 
 
-		bool subscribed = false;
-		if (rsMsgs->getVirtualPeerId(lobby.lobby_id, vpid)) {
-			subscribed = true;
-		}
+        bool subscribed = std::find(lobbies.begin(), lobbies.end(), lobby.lobby_id) != lobbies.end();
 
 		QTreeWidgetItem *item = NULL;
 		QTreeWidgetItem *lobby_item =NULL;
@@ -725,7 +722,7 @@ void ChatLobbyWidget::subscribeChatLobbyAs()
         return ;
 
     RsGxsId gxs_id(action->data().toString().toStdString());
-        uint32_t error_code ;
+        //uint32_t error_code ;
 
     if(rsMsgs->joinVisibleChatLobby(id,gxs_id))
         ChatDialog::chatFriend(ChatId(id),true) ;
@@ -795,7 +792,7 @@ void ChatLobbyWidget::subscribeChatLobbyAtItem(QTreeWidgetItem *item)
         if(!rsIdentity->getIdDetails(gxs_id,idd))
             return ;
         
-        if( (flags & RS_CHAT_LOBBY_FLAGS_PGP_SIGNED) && !idd.mPgpLinked)
+        if( (flags & RS_CHAT_LOBBY_FLAGS_PGP_SIGNED) && !(idd.mFlags & RS_IDENTITY_FLAGS_PGP_LINKED))
         {
             QMessageBox::warning(NULL,tr("Default identity is anonymous"),tr("You cannot join this lobby with your default identity, since it is anonymous and the lobby forbids it.")) ;
             return ;
@@ -844,11 +841,13 @@ void ChatLobbyWidget::showBlankPage(ChatLobbyId id)
 
             QString text = tr("You're not subscribed to this lobby; Double click-it to enter and chat.") ;
             
-            if(my_ids.empty())
-               if( (*it).lobby_flags & RS_CHAT_LOBBY_FLAGS_PGP_SIGNED)
-		       text += "\n\n"+tr("You will need to create a non anonymous identity in order to join this chat lobby.") ;
-            else
-		       text += "\n\n"+tr("You will need to create an identity in order to join chat lobbies.") ;
+				if(my_ids.empty())
+				{
+					if( (*it).lobby_flags & RS_CHAT_LOBBY_FLAGS_PGP_SIGNED)
+						text += "\n\n"+tr("You will need to create a non anonymous identity in order to join this chat lobby.") ;
+					else
+						text += "\n\n"+tr("You will need to create an identity in order to join chat lobbies.") ;
+				}
 
             ui.lobbyInfoLabel->setText(text);
 			return ;
@@ -1099,13 +1098,10 @@ void ChatLobbyWidget::readChatLobbyInvites()
             continue ;
         }
 
-        rsMsgs->acceptLobbyInvite((*it).lobby_id,chosen_id);
-
-        RsPeerId vpid;
-        if(rsMsgs->getVirtualPeerId((*it).lobby_id,vpid ))
+        if(rsMsgs->acceptLobbyInvite((*it).lobby_id,chosen_id))
             ChatDialog::chatFriend(ChatId((*it).lobby_id),true);
         else
-            std::cerr << "No lobby known with id 0x" << std::hex << (*it).lobby_id << std::dec << std::endl;
+            std::cerr << "Can't join lobby with id 0x" << std::hex << (*it).lobby_id << std::dec << std::endl;
 
     }
 }
