@@ -8,22 +8,10 @@ Distant chat does not work with the most recent unstable versions, but works wit
 ----------------------------------
 Changed things from the official version:
 ----------------------------------
-*based on a version where distant chat and some other things were not fucked yet
-+backported from recent version:
-	!crash from distant chat request from new clients
-	!double selection bug in settings window when vista style is active
-	+/me
-	+>greentext
-	+quote text in chat
-	+spoiler text
-	+save images from chat and forums
-	*contains the emoticons from both the old and recent versions
-	*emoticon selector widget size adapts to the number of emoticons
-	
+*contains the emoticons from both the old and recent versions
 -quoting the content of the last post when making a new comment in forums
-+loading external emoticons
++loading external emoticons on other platforms too
 +loading extensions from RetroShare\extensions6 folder too
--VoIP extension
 +PaintChat extension
 +ExportImport extension
 +FriendMap extension

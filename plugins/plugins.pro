@@ -1,7 +1,7 @@
 TEMPLATE = subdirs
 
 SUBDIRS += \
-#		VOIP \
+		VOIP \
 		FeedReader \
 		SocialCompass \
 		Lua4RS \

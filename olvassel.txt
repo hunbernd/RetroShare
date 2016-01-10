@@ -8,22 +8,10 @@ Nem mûködik a távoli cset a legfrissebb instabil verziókkal, de mûködik ezzel, a
 ----------------------------------
 Megváltoztatott dolgok a hivataloshoz verzióhoz képest:
 ----------------------------------
-*azon a verzión alapszik, aminél még nem lett elbarmolva a távoli cset és egyéb más
-+visszaportolt cuccok az újabb verziókból:
-	!összeomlás újabb kliensek távoli chetjétõl
-	!dupla kijelölés a beállítás ablakban vista stílus esetén
-	+/me
-	+>zöldszöveg
-	+szöveg idézése a cseten
-	+spoiler szöveg posztolása
-	+képek mentése csetrõl és fórumokról
-	*a régi és legújabb verzióban megtalálható emotikonokat is tartalmazza
-	*emotikon választó ablak mérete az emotikonok számához illeszkedik
-	
+*a régi és legújabb verzióban megtalálható emotikonokat is tartalmazza
 -elõzõ poszt automatikus idézése posztoláskor a fórumba	
 +külsõ emotikonok betöltése nem csak Windows esetén
 +kiegészítõk betöltése a RetroShare\extensions6 mappából is
--VoIP kiegészítõ
 +PaintChat kiegészítõ
 +ExportImport kiegészítõ
 +FriendMap kiegészítõ
