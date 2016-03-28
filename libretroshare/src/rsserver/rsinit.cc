@@ -1258,6 +1258,9 @@ int RsServer::StartupRetroShare()
 
 	std::vector<std::string> plugins_directories ;
 
+#ifdef __APPLE__
+	plugins_directories.push_back(rsAccounts->PathDataDirectory()) ;
+#endif
 #ifndef WINDOWS_SYS
 	plugins_directories.push_back(std::string(PLUGIN_DIR)) ;
 #else
@@ -1334,21 +1337,32 @@ int RsServer::StartupRetroShare()
         RsGxsNetService* gxsid_ns = new RsGxsNetService(
                         RS_SERVICE_GXS_TYPE_GXSID, gxsid_ds, nxsMgr,
 			mGxsIdService, mGxsIdService->getServiceInfo(), 
-			mGxsIdService, mGxsCircles,
+			mGxsIdService, mGxsCircles,mGxsIdService,
 			pgpAuxUtils,
             false,false); // don't synchronise group automatic (need explicit group request)
                         // don't sync messages at all.
 
+        // Normally we wouldn't need this (we do in other service):
+        //	mGxsIdService->setNetworkExchangeService(gxsid_ns) ;
+        // ...since GxsIds are propagated manually. But that requires the gen exchange of GXSids to
+        // constantly test that mNetService is not null. The call below is to make the service aware of the
+        // netService so that it can request the missing ids. We'll need to fix this.
+
         mGxsIdService->setNes(gxsid_ns);
+
         /**** GxsCircle service ****/
 
         // create GXS Circle service
         RsGxsNetService* gxscircles_ns = new RsGxsNetService(
                         RS_SERVICE_GXS_TYPE_GXSCIRCLE, gxscircles_ds, nxsMgr,
                         mGxsCircles, mGxsCircles->getServiceInfo(), 
-			mGxsIdService, mGxsCircles,
-			pgpAuxUtils);
+			mGxsIdService, mGxsCircles,mGxsIdService,
+			pgpAuxUtils,
+	            true,false); // synchronise group automatic 
+			// don't sync messages at all.
 
+	mGxsCircles->setNetworkExchangeService(gxscircles_ns) ;
+    
         /**** Posted GXS service ****/
 
 
@@ -1363,7 +1377,7 @@ int RsServer::StartupRetroShare()
         RsGxsNetService* posted_ns = new RsGxsNetService(
                         RS_SERVICE_GXS_TYPE_POSTED, posted_ds, nxsMgr, 
 			mPosted, mPosted->getServiceInfo(), 
-			mGxsIdService, mGxsCircles,
+			mGxsIdService, mGxsCircles,mGxsIdService,
 			pgpAuxUtils);
 
     mPosted->setNetworkExchangeService(posted_ns) ;
@@ -1403,7 +1417,7 @@ int RsServer::StartupRetroShare()
         RsGxsNetService* gxsforums_ns = new RsGxsNetService(
                         RS_SERVICE_GXS_TYPE_FORUMS, gxsforums_ds, nxsMgr,
                         mGxsForums, mGxsForums->getServiceInfo(),
-			mGxsIdService, mGxsCircles,
+			mGxsIdService, mGxsCircles,mGxsIdService,
 			pgpAuxUtils);
 
     mGxsForums->setNetworkExchangeService(gxsforums_ns) ;
@@ -1419,7 +1433,7 @@ int RsServer::StartupRetroShare()
         RsGxsNetService* gxschannels_ns = new RsGxsNetService(
                         RS_SERVICE_GXS_TYPE_CHANNELS, gxschannels_ds, nxsMgr,
                         mGxsChannels, mGxsChannels->getServiceInfo(), 
-			mGxsIdService, mGxsCircles,
+			mGxsIdService, mGxsCircles,mGxsIdService,
 			pgpAuxUtils);
 
     mGxsChannels->setNetworkExchangeService(gxschannels_ns) ;
@@ -1436,7 +1450,7 @@ int RsServer::StartupRetroShare()
         RsGxsNetService* photo_ns = new RsGxsNetService(
                         RS_SERVICE_GXS_TYPE_PHOTO, photo_ds, nxsMgr, 
 			mPhoto, mPhoto->getServiceInfo(), 
-			mGxsIdService, mGxsCircles,
+			mGxsIdService, mGxsCircles,mGxsIdService,
 			pgpAuxUtils);
 #endif
 
@@ -1452,7 +1466,7 @@ int RsServer::StartupRetroShare()
         RsGxsNetService* wire_ns = new RsGxsNetService(
                         RS_SERVICE_GXS_TYPE_WIRE, wire_ds, nxsMgr, 
 			mWire, mWire->getServiceInfo(), 
-			mGxsIdService, mGxsCircles,
+			mGxsIdService, mGxsCircles,mGxsIdService,
 			pgpAuxUtils);
 #endif
         // now add to p3service

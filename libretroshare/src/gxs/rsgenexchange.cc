@@ -156,6 +156,11 @@ RsGenExchange::~RsGenExchange()
 
 }
 
+bool RsGenExchange::getGroupServerUpdateTS(const RsGxsGroupId& gid, time_t& grp_server_update_TS, time_t& msg_server_update_TS) 
+{
+    return mNetService->getGroupServerUpdateTS(gid,grp_server_update_TS,msg_server_update_TS) ;
+}
+
 void RsGenExchange::data_tick()
 {
 
@@ -170,7 +175,7 @@ void RsGenExchange::tick()
 	// Meta Changes should happen first.
 	// This is important, as services want to change Meta, then get results.
 	// Services shouldn't rely on this ordering - but some do.
-    processGrpMetaChanges();
+	processGrpMetaChanges();
 	processMsgMetaChanges();
 
 	mDataAccess->processRequests();
@@ -183,9 +188,9 @@ void RsGenExchange::tick()
 
 	processGroupDelete();
 
-    processRecvdData();
+	processRecvdData();
 
-    processRoutingClues() ;
+	processRoutingClues() ;
 
 	if(!mNotifications.empty())
 	{
@@ -234,6 +239,11 @@ void RsGenExchange::tick()
 
 					RsGxsGroupChange* gc = new RsGxsGroupChange(RsGxsNotify::TYPE_PROCESSED, false);
 					gc->mGrpIdList = grpIds;
+#ifdef GEN_EXCH_DEBUG
+                    			std::cerr << "  adding the following grp ids to notification: " << std::endl;
+                                	for(std::list<RsGxsGroupId>::const_iterator it(grpIds.begin());it!=grpIds.end();++it)
+                                        	std::cerr << "    " << *it << std::endl;
+#endif
 					mNotifications.push_back(gc);
 				}
 
@@ -1137,8 +1147,13 @@ void RsGenExchange::receiveChanges(std::vector<RsGxsNotify*>& changes)
                 out.mGrps.splice(out.mGrps.end(), gc->mGrpIdList);
             }
         }
+        else
+            std::cerr << "(EE) Unknown changes type!!" << std::endl;
+        
         delete n;
     }
+    changes.clear() ;
+    
     RsServer::notify()->notifyGxsChange(out);
 }
 
@@ -1153,6 +1168,8 @@ bool RsGenExchange::subscribeToGroup(uint32_t& token, const RsGxsGroupId& grpId,
 
     if(mNetService != NULL)
         mNetService->subscribeStatusChanged(grpId,subscribe) ;
+    else
+        std::cerr << "(EE) No mNetService in RsGenExchange for service 0x" << std::hex << mServType << std::dec << std::endl;
 
     return true;
 }
@@ -1814,6 +1831,11 @@ void RsGenExchange::processGrpMetaChanges()
         RsGxsGroupChange* gc = new RsGxsGroupChange(RsGxsNotify::TYPE_PROCESSED, true);
         gc->mGrpIdList = grpChanged;
         mNotifications.push_back(gc);
+#ifdef GEN_EXCH_DEBUG
+                    			std::cerr << "  adding the following grp ids to notification: " << std::endl;
+                                	for(std::list<RsGxsGroupId>::const_iterator it(grpChanged.begin());it!=grpChanged.end();++it)
+                                        	std::cerr << "    " << *it << std::endl;
+#endif
     }
 }
 
@@ -2013,8 +2035,12 @@ void RsGenExchange::publishMsgs()
 				grpId = msg->grpId;
 				msg->metaData->recvTS = time(NULL);
                 
-				mRoutingClues[msg->metaData->mAuthorId].insert(rsPeers->getOwnId()) ;
-				mTrackingClues.push_back(std::make_pair(msg->msgId,rsPeers->getOwnId())) ;
+                // FIXTESTS global variable rsPeers not available in unittests!
+                if(rsPeers)
+                {
+                    mRoutingClues[msg->metaData->mAuthorId].insert(rsPeers->getOwnId()) ;
+                    mTrackingClues.push_back(std::make_pair(msg->msgId,rsPeers->getOwnId())) ;
+                }
                 
 				computeHash(msg->msg, msg->metaData->mHash);
 				mDataAccess->addMsgData(msg);
@@ -2327,7 +2353,6 @@ void RsGenExchange::publishGrps()
 			{
 				grp->metaData = new RsGxsGrpMetaData();
 				grpItem->meta.mPublishTs = time(NULL);
-                //grpItem->meta.mParentGrpId = std::string("empty");
 				*(grp->metaData) = grpItem->meta;
 
 				// TODO: change when publish key optimisation added (public groups don't have publish key
@@ -2365,7 +2390,10 @@ void RsGenExchange::publishGrps()
 						if(ggps.mIsUpdate)
 							mDataAccess->updateGroupData(grp);
 						else
-							mDataAccess->addGroupData(grp);
+                            mDataAccess->addGroupData(grp);
+
+                        if(mNetService!=NULL)
+                mNetService->subscribeStatusChanged(grpId,true) ;
 					}
 					else
 					{
@@ -2452,6 +2480,11 @@ void RsGenExchange::publishGrps()
     	RsGxsGroupChange* gc = new RsGxsGroupChange(RsGxsNotify::TYPE_PUBLISH, false);
     	gc->mGrpIdList = grpChanged;
     	mNotifications.push_back(gc);
+#ifdef GEN_EXCH_DEBUG
+                    			std::cerr << "  adding the following grp ids to notification: " << std::endl;
+                                	for(std::list<RsGxsGroupId>::const_iterator it(grpChanged.begin());it!=grpChanged.end();++it)
+                                        	std::cerr << "    " << *it << std::endl;
+#endif
     }
 
 }
@@ -2749,30 +2782,30 @@ void RsGenExchange::processRecvdMessages()
 
 void RsGenExchange::processRecvdGroups()
 {
-					RS_STACK_MUTEX(mGenMtx) ;
+	RS_STACK_MUTEX(mGenMtx) ;
 
-    if(mReceivedGrps.empty())
-        return;
+	if(mReceivedGrps.empty())
+		return;
 
-    NxsGrpPendValidVect::iterator vit = mReceivedGrps.begin();
-    std::vector<RsGxsGroupId> existingGrpIds;
-    std::list<RsGxsGroupId> grpIds;
+	NxsGrpPendValidVect::iterator vit = mReceivedGrps.begin();
+	std::vector<RsGxsGroupId> existingGrpIds;
+	std::list<RsGxsGroupId> grpIds;
 
-    std::map<RsNxsGrp*, RsGxsGrpMetaData*> grps;
+	std::map<RsNxsGrp*, RsGxsGrpMetaData*> grps;
 
-    mDataStore->retrieveGroupIds(existingGrpIds);
+	mDataStore->retrieveGroupIds(existingGrpIds);
 
-    while( vit != mReceivedGrps.end())
-    {
-    	GxsPendingItem<RsNxsGrp*, RsGxsGroupId>& gpsi = *vit;
-        RsNxsGrp* grp = gpsi.mItem;
-        RsGxsGrpMetaData* meta = new RsGxsGrpMetaData();
-        bool deserialOk = false;
+	while( vit != mReceivedGrps.end())
+	{
+		GxsPendingItem<RsNxsGrp*, RsGxsGroupId>& gpsi = *vit;
+		RsNxsGrp* grp = gpsi.mItem;
+		RsGxsGrpMetaData* meta = new RsGxsGrpMetaData();
+		bool deserialOk = false;
 
-        if(grp->meta.bin_len != 0)
-        	deserialOk = meta->deserialise(grp->meta.bin_data, grp->meta.bin_len);
+		if(grp->meta.bin_len != 0)
+			deserialOk = meta->deserialise(grp->meta.bin_data, grp->meta.bin_len);
 
-        bool erase = true;
+		bool erase = true;
 
         if(deserialOk)
         {
@@ -2782,30 +2815,36 @@ void RsGenExchange::processRecvdGroups()
         	grp->metaData = meta;
         	uint8_t ret = validateGrp(grp);
 
-
-        	if(ret == VALIDATE_SUCCESS)
-        	{
+			if(ret == VALIDATE_SUCCESS)
+			{
 				meta->mGroupStatus = GXS_SERV::GXS_GRP_STATUS_UNPROCESSED | GXS_SERV::GXS_GRP_STATUS_UNREAD;
-				meta->mSubscribeFlags = GXS_SERV::GROUP_SUBSCRIBE_NOT_SUBSCRIBED;
 
 				computeHash(grp->grp, meta->mHash);
 
-                // group has been validated. Let's notify the global router for the clue
+				// group has been validated. Let's notify the global router for the clue
 
+		    		if(!meta->mAuthorId.isNull())
+		    		{
 #ifdef GEN_EXCH_DEBUG
-                    std::cerr << "  Group routage info: Identity=" << meta->mAuthorId << " from " << grp->PeerId() << std::endl;
+				    std::cerr << "Group routage info: Identity=" << meta->mAuthorId << " from " << grp->PeerId() << std::endl;
 #endif
 
-            if(!meta->mAuthorId.isNull())
-                mRoutingClues[meta->mAuthorId].insert(grp->PeerId()) ;
+			    		mRoutingClues[meta->mAuthorId].insert(grp->PeerId()) ;
+		    		}
+                                
+                                // This has been moved here (as opposed to inside part for new groups below) because it is used to update the server TS when updates
+                                // of grp metadata arrive.
+                                
+				meta->mRecvTS = time(NULL);
 
 				// now check if group already existss
 				if(std::find(existingGrpIds.begin(), existingGrpIds.end(), grp->grpId) == existingGrpIds.end())
 				{
-					meta->mRecvTS = time(NULL);
 					if(meta->mCircleType == GXS_CIRCLE_TYPE_YOUREYESONLY)
 						meta->mOriginator = grp->PeerId();
 
+					meta->mSubscribeFlags = GXS_SERV::GROUP_SUBSCRIBE_NOT_SUBSCRIBED;
+                    
 					grps.insert(std::make_pair(grp, meta));
 					grpIds.push_back(grp->grpId);
 				}
@@ -2816,17 +2855,17 @@ void RsGenExchange::processRecvdGroups()
 					mGroupUpdates.push_back(update);
 				}
 				erase = true;
-        	}
-        	else if(ret == VALIDATE_FAIL)
-        	{
+			}
+			else if(ret == VALIDATE_FAIL)
+			{
 #ifdef GEN_EXCH_DEBUG
 				std::cerr << "  failed to validate incoming meta, grpId: " << grp->grpId << ": wrong signature" << std::endl;
 #endif
 				delete grp;
 				erase = true;
-        	}
-        	else  if(ret == VALIDATE_FAIL_TRY_LATER)
-        	{
+			}
+			else  if(ret == VALIDATE_FAIL_TRY_LATER)
+			{
 
 #ifdef GEN_EXCH_DEBUG
 				std::cerr << "  failed to validate incoming grp, trying again. grpId: " << grp->grpId << std::endl;
@@ -2834,11 +2873,11 @@ void RsGenExchange::processRecvdGroups()
 
         		if(gpsi.mAttempts == VALIDATE_MAX_ATTEMPTS)
         		{
-        			delete grp;
-        			erase = true;
 #ifdef GEN_EXCH_DEBUG
 				std::cerr << "  max attempts " << VALIDATE_MAX_ATTEMPTS << " reached. Will delete group " << grp->grpId << std::endl;
 #endif
+        			delete grp;
+        			erase = true;
         		}
         		else
         		{
@@ -2852,21 +2891,26 @@ void RsGenExchange::processRecvdGroups()
         	delete grp;
 			delete meta;
 			erase = true;
-        }
+		}
 
-        if(erase)
-        	vit = mReceivedGrps.erase(vit);
-        else
-        	++vit;
-    }
+		if(erase)
+			vit = mReceivedGrps.erase(vit);
+		else
+			++vit;
+	}
 
-    if(!grpIds.empty())
-    {
-        RsGxsGroupChange* c = new RsGxsGroupChange(RsGxsNotify::TYPE_RECEIVE, false);
-        c->mGrpIdList = grpIds;
-        mNotifications.push_back(c);
-        mDataStore->storeGroup(grps);
-    }
+	if(!grpIds.empty())
+	{
+		RsGxsGroupChange* c = new RsGxsGroupChange(RsGxsNotify::TYPE_RECEIVE, false);
+		c->mGrpIdList = grpIds;
+		mNotifications.push_back(c);
+		mDataStore->storeGroup(grps);
+#ifdef GEN_EXCH_DEBUG
+                    			std::cerr << "  adding the following grp ids to notification: " << std::endl;
+                                	for(std::list<RsGxsGroupId>::const_iterator it(grpIds.begin());it!=grpIds.end();++it)
+                                        	std::cerr << "    " << *it << std::endl;
+#endif
+	}
 }
 
 void RsGenExchange::performUpdateValidation()
@@ -2916,17 +2960,47 @@ void RsGenExchange::performUpdateValidation()
 			if(gu.newGrp->metaData->mCircleType == GXS_CIRCLE_TYPE_YOUREYESONLY)
 				gu.newGrp->metaData->mOriginator = gu.newGrp->PeerId();
 
+            		// Keep subscriptionflag to what it was. This avoids clearing off the flag when updates to group meta information
+            		// is received.
+            
+            		gu.newGrp->metaData->mSubscribeFlags = gu.oldGrpMeta->mSubscribeFlags ;
+            
 			grps.insert(std::make_pair(gu.newGrp, gu.newGrp->metaData));
 		}
 		else
 		{
 			delete gu.newGrp;
+            		gu.newGrp = NULL ;
 		}
 
 		delete gu.oldGrpMeta;
+        	gu.oldGrpMeta = NULL ;
 	}
-
+    	// notify the client
+    
+        RsGxsGroupChange* c = new RsGxsGroupChange(RsGxsNotify::TYPE_RECEIVE, true);
+        
+        for(uint32_t i=0;i<mGroupUpdates.size();++i)
+            if(mGroupUpdates[i].newGrp != NULL)
+	    {
+		    c->mGrpIdList.push_back(mGroupUpdates[i].newGrp->grpId) ;
+#ifdef GEN_EXCH_DEBUG
+		    std::cerr << "    " << mGroupUpdates[i].newGrp->grpId << std::endl;
+#endif
+	    }
+        
+        mNotifications.push_back(c);
+ 
+        // Warning: updateGroup will destroy the objects in grps. Dont use it afterwards!
+        
 	mDataStore->updateGroup(grps);
+    
+#ifdef GEN_EXCH_DEBUG
+                    			std::cerr << "  adding the following grp ids to notification: " << std::endl;
+#endif
+       
+        // cleanup
+        
 	mGroupUpdates.clear();
 }
 

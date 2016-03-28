@@ -315,7 +315,11 @@ int	pqistreamer::queue_outpqi_locked(RsItem *pqi,uint32_t& pktsize)
 	/* decide which type of packet it is */
 
 	pktsize = mRsSerialiser->size(pqi);
-	void *ptr = malloc(pktsize);
+	void *ptr = rs_malloc(pktsize);
+    
+    	if(ptr == NULL)
+            return 0 ;
+            
 
 #ifdef DEBUG_PQISTREAMER
 	std::cerr << "pqistreamer::queue_outpqi() serializing packet with packet size : " << pktsize << std::endl;
@@ -471,6 +475,7 @@ int	pqistreamer::handleoutgoing_locked()
 		    return 0;
 	    }
 #define GROUP_OUTGOING_PACKETS 1
+#define PACKET_GROUPING_SIZE_LIMIT 32768
 	    // send a out_pkt., else send out_data. unless
 	    // there is a pending packet.
 	    if (!mPkt_wpending)
@@ -480,7 +485,7 @@ int	pqistreamer::handleoutgoing_locked()
 		    mPkt_wpending_size = 0 ;
 		    int k=0;
             
-		    while(mPkt_wpending_size < maxbytes && (dta = locked_pop_out_data())!=NULL )
+		    while(mPkt_wpending_size < (uint32_t)maxbytes && mPkt_wpending_size < PACKET_GROUPING_SIZE_LIMIT && (dta = locked_pop_out_data())!=NULL )
 		    {
 			    uint32_t s = getRsItemSize(dta);
 			    mPkt_wpending = realloc(mPkt_wpending,s+mPkt_wpending_size) ;
@@ -818,8 +823,6 @@ continue_packet:
 		std::cerr << "[" << (void*)pthread_self() << "] " << "deserializing. Size=" << pktlen << std::endl ;
 #endif
 
-        inReadBytes_locked(pktlen);	// only count deserialised packets, because that's what is actually been transfered.
-
         RsItem *pkt = mRsSerialiser->deserialise(block, &pktlen);
 
 		if ((pkt != NULL) && (0  < handleincomingitem_locked(pkt,pktlen)))
@@ -827,6 +830,7 @@ continue_packet:
 #ifdef DEBUG_PQISTREAMER
 			pqioutput(PQL_DEBUG_BASIC, pqistreamerzone, "Successfully Read a Packet!");
 #endif
+			inReadBytes_locked(pktlen);	// only count deserialised packets, because that's what is actually been transfered.
 		}
 		else
 		{
@@ -947,7 +951,7 @@ int     pqistreamer::inAllowedBytes_locked()
 static const float AVG_PERIOD = 5; // sec
 static const float AVG_FRAC = 0.8; // for low pass filter.
 
-void    pqistreamer::outSentBytes_locked(int outb)
+void    pqistreamer::outSentBytes_locked(uint32_t outb)
 {
 #ifdef DEBUG_PQISTREAMER
 	{
@@ -1017,7 +1021,7 @@ void    pqistreamer::outSentBytes_locked(int outb)
 	return;
 }
 
-void    pqistreamer::inReadBytes_locked(int inb)
+void    pqistreamer::inReadBytes_locked(uint32_t inb)
 {
 #ifdef DEBUG_PQISTREAMER
 	{
@@ -1040,7 +1044,10 @@ void pqistreamer::allocate_rpend_locked()
         return;
 
     mPkt_rpend_size = getRsPktMaxSize();
-    mPkt_rpending = malloc(mPkt_rpend_size);
+    mPkt_rpending = rs_malloc(mPkt_rpend_size);
+    
+    if(mPkt_rpending == NULL)
+        return ;
 
     // avoid uninitialized (and random) memory read.
     memset(mPkt_rpending,0,mPkt_rpend_size) ;

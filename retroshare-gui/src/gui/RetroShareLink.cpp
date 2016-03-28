@@ -38,7 +38,7 @@
 #include "MainWindow.h"
 #include "gui/gxsforums/GxsForumsDialog.h"
 #include "gui/gxschannels/GxsChannelDialog.h"
-#include "SearchDialog.h"
+#include "gui/FileTransfer/SearchDialog.h"
 #include "msgs/MessageComposer.h"
 #include "util/misc.h"
 #include "common/PeerDefs.h"
@@ -65,7 +65,7 @@
 #define HOST_SEARCH      "search"
 #define HOST_CERTIFICATE "certificate"
 #define HOST_PUBLIC_MSG  "public_msg"
-#define HOST_REGEXP      "file|person|forum|channel|search|message|certificate|private_chat|public_msg"
+#define HOST_REGEXP      "file|extra|person|forum|channel|search|message|certificate|private_chat|public_msg"
 
 #define FILE_NAME       "name"
 #define FILE_SIZE       "size"

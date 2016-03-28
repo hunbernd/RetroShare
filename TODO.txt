@@ -55,6 +55,9 @@ GXS
 VOIP
      H  [ ] use proper video encoding. What we have now is decent for video, but sound should be prioritized. Experiments 
             with QtAV seem to work nicely. Finish and integrate!
+     M  [ ] Deactivate Voip Buttons, when Friend has no Voip plugin enabled.    
+     M  [ ] Implement Voice for Video Chat
+     M  [ ] Improve Voice and Video Quality    
      M  [ ] Video Quality/Resolution Settings (High, Medium, Low) HD, HQ, SD )
      M  [ ] Video Device: WebCam(s) or Desktop Selection
      M  [ ] Audio Input Device Selection (Microphone)
@@ -62,12 +65,15 @@ VOIP
      M  [ ] Video Snapshots https://support.skype.com/en/faq/FA1222/what-is-video-snapshot
      M  [ ] Voice Messaging (record and send a voice message)
      M  [ ] Video Messages (send a video greeting to multiple friends/coworkers/developers at once.)
+     M  [ ] Add Call status (when im on the phone changes my status with phone icon)
      H  [ ] Audio Conference
      H  [ ] Video Conference
 
 Messages
     H  [X] make the mail system re-send failed emails notified by the global router. This is hard because it needs a proper management of duplicate messages
     E  [X] add flags to allow distant messaging from contact list only / everyone / noone / only signed ids.
+    M  [ ] add Signature feature to messages
+    M  [ ] add vacation responser for messages (automatic replies) 
 
 Chat
     E  [X] add flags to allow distant chat from contact list only / everyone / noone / only signed ids.

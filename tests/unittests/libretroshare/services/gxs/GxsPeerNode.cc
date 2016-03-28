@@ -18,6 +18,8 @@
 	#include "RsGxsNetServiceTester.h"
 #endif
 
+#include <unistd.h>
+
 
 GxsPeerNode::GxsPeerNode(const RsPeerId &ownId, const std::list<RsPeerId> &friends, int testMode, bool useIdentityService)
 	:PeerNode(ownId, friends, false),
@@ -65,7 +67,7 @@ GxsPeerNode::GxsPeerNode(const RsPeerId &ownId, const std::list<RsPeerId> &frien
 		mGxsIdNs = new RsGxsNetService(
 				RS_SERVICE_GXS_TYPE_GXSID, mGxsIdDs, nxsMgr,
 				mGxsIdService, mGxsIdService->getServiceInfo(),
-				mGxsIdService, mGxsCircles,
+				mGxsIdService, mGxsCircles,mGxsIdService,
 				mPgpAuxUtils,
 				false); // don't synchronise group automatic (need explicit group request)
 
@@ -79,7 +81,7 @@ GxsPeerNode::GxsPeerNode(const RsPeerId &ownId, const std::list<RsPeerId> &frien
 #endif
 				(RS_SERVICE_GXS_TYPE_GXSCIRCLE, mGxsCirclesDs, nxsMgr,
 				mGxsCircles, mGxsCircles->getServiceInfo(),
-				mGxsIdService, mGxsCircles,
+				mGxsIdService, mGxsCircles,NULL,
 				mPgpAuxUtils);
 	}
 	else
@@ -105,7 +107,7 @@ GxsPeerNode::GxsPeerNode(const RsPeerId &ownId, const std::list<RsPeerId> &frien
 #endif
 			(RS_SERVICE_GXS_TYPE_TEST, mTestDs, nxsMgr,
 			mTestService, mTestService->getServiceInfo(),
-			mGxsIdService, mGxsCircles,
+			mGxsIdService, mGxsCircles,mGxsIdService,
 			mPgpAuxUtils);
 
 	if (mUseIdentityService)
@@ -262,8 +264,8 @@ bool GxsPeerNode::createCircle(const std::string &name,
 		uint32_t circleType, 
 		const RsGxsCircleId &circleId, 
 		const RsGxsId &authorId,
-		std::list<RsPgpId> localMembers,
-		std::list<RsGxsId> externalMembers,
+        std::set<RsPgpId> localMembers,
+        std::set<RsGxsId> externalMembers,
 		RsGxsGroupId &groupId)
 {
 	/* create a couple of groups */

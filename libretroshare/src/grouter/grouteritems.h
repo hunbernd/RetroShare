@@ -25,6 +25,8 @@
 
 #pragma once
 
+#include "util/rsmemory.h"
+
 #include "serialiser/rsserial.h"
 #include "serialiser/rstlvkeys.h"
 #include "serialiser/rsserviceids.h"
@@ -131,7 +133,7 @@ class RsGRouterGenericDataItem: public RsGRouterAbstractMsgItem, public RsGRoute
         uint32_t data_size ;
         uint8_t *data_bytes;
 
-        uint32_t randomized_distance ;	// number of hops (tunnel wise. Does not preclude of the real distance)
+        uint32_t duplication_factor ;	// number of duplicates allowed. Should be capped at each de-serialise operation!
 
     // utility methods for signing data
     virtual uint32_t signed_data_size() const ;
@@ -194,7 +196,11 @@ class RsGRouterTransactionChunkItem: public RsGRouterTransactionItem, public RsG
     {
         RsGRouterTransactionChunkItem *item = new RsGRouterTransactionChunkItem ;
         *item = *this ;	// copy all fields
-        item->chunk_data = (uint8_t*)malloc(chunk_size) ;	// deep copy memory chunk
+        item->chunk_data = (uint8_t*)rs_malloc(chunk_size) ;	// deep copy memory chunk
+        
+        if(item->chunk_data == NULL)
+            return NULL ;
+        
         memcpy(item->chunk_data,chunk_data,chunk_size) ;
         return item ;
     }
