@@ -8,6 +8,7 @@
 
 #include <sstream>
 #include <algorithm>
+#include <time.h>
 
 namespace resource_api
 {
@@ -164,6 +165,13 @@ void ChatHandler::notifyChatMessage(const ChatMessage &msg)
 {
     RS_STACK_MUTEX(mMtx); /********** LOCKED **********/
     mRawMsgs.push_back(msg);
+}
+
+void ChatHandler::notifyChatCleared(const ChatId &chat_id)
+{
+    RS_STACK_MUTEX(mMtx); /********** LOCKED **********/
+    std::list<Msg>& msgs = mMsgs[chat_id];
+    msgs.clear();
 }
 
 void ChatHandler::notifyChatStatus(const ChatId &chat_id, const std::string &status)

@@ -199,12 +199,13 @@ IdDialog::IdDialog(QWidget *parent) :
 	ui->headerTextLabel->setText(tr("People"));
 
 	/* Initialize splitter */
-	ui->splitter->setStretchFactor(0, 1);
-	ui->splitter->setStretchFactor(1, 0);
-
+	ui->splitter->setStretchFactor(0, 0);
+	ui->splitter->setStretchFactor(1, 1);
+	
+  /*remove
 	QList<int> sizes;
 	sizes << width() << 500; // Qt calculates the right sizes
-	ui->splitter->setSizes(sizes);
+	ui->splitter->setSizes(sizes);*/
 
 	/* Add filter types */
     ui->filterComboBox->addItem(tr("All"), RSID_FILTER_ALL);
@@ -893,19 +894,28 @@ bool IdDialog::fillIdListItem(const RsGxsIdGroup& data, QTreeWidgetItem *&item, 
 			RsPeerDetails details;
 			rsPeers->getGPGDetails(data.mPgpId, details);
 			item->setText(RSID_COL_IDTYPE, QString::fromUtf8(details.name.c_str()));
-			item->setToolTip(RSID_COL_IDTYPE,QString::fromStdString(data.mPgpId.toStdString())) ;
+			item->setToolTip(RSID_COL_IDTYPE,"Verified signature from node "+QString::fromStdString(data.mPgpId.toStdString())) ;
 			
 			
 			tooltip += tr("Node name:")+" " + QString::fromUtf8(details.name.c_str()) + "\n";
 			tooltip += tr("Node Id  :")+" " + QString::fromStdString(data.mPgpId.toStdString()) ;
 			item->setToolTip(RSID_COL_KEYID,tooltip) ;
 		}
-		else
+		else 
 		{
-			item->setText(RSID_COL_IDTYPE, tr("Unknown PGP key"));
-			item->setToolTip(RSID_COL_IDTYPE,tr("Unknown key ID")) ;
-			item->setToolTip(RSID_COL_KEYID,tr("Unknown key ID")) ;
-
+            		QString txt =  tr("[Unknown node]");
+			item->setText(RSID_COL_IDTYPE, txt);
+            
+            		if(!data.mPgpId.isNull())
+                    {
+			item->setToolTip(RSID_COL_IDTYPE,tr("Unverified signature from node ")+QString::fromStdString(data.mPgpId.toStdString())) ;
+			item->setToolTip(RSID_COL_KEYID,tr("Unverified signature from node ")+QString::fromStdString(data.mPgpId.toStdString())) ;
+                    }
+                    else
+                    {
+			item->setToolTip(RSID_COL_IDTYPE,tr("Unchecked signature")) ;
+			item->setToolTip(RSID_COL_KEYID,tr("Unchecked signature")) ;
+                    }
 		}
 	}
 	else
@@ -1080,7 +1090,10 @@ void IdDialog::insertIdDetails(uint32_t token)
     ui->lineEdit_Nickname->setText(QString::fromUtf8(data.mMeta.mGroupName.c_str()).left(RSID_MAXIMUM_NICKNAME_SIZE));
 	ui->lineEdit_KeyId->setText(QString::fromStdString(data.mMeta.mGroupId.toStdString()));
 	//ui->lineEdit_GpgHash->setText(QString::fromStdString(data.mPgpIdHash.toStdString()));
-    ui->lineEdit_GpgId->setText(QString::fromStdString(data.mPgpId.toStdString()));
+    if(data.mPgpKnown)
+	    ui->lineEdit_GpgId->setText(QString::fromStdString(data.mPgpId.toStdString()));
+    else
+	    ui->lineEdit_GpgId->setText(QString::fromStdString(data.mPgpId.toStdString()) + tr(" [unverified]"));
 
     time_t now = time(NULL) ;
     ui->lineEdit_LastUsed->setText(getHumanReadableDuration(now - data.mLastUsageTS)) ;
@@ -1108,29 +1121,32 @@ void IdDialog::insertIdDetails(uint32_t token)
 	else
 	{
 		if (data.mMeta.mGroupFlags & RSGXSID_GROUPFLAG_REALID)
-		{
-			ui->lineEdit_GpgName->setText(tr("Unknown real name"));
-		}
+			ui->lineEdit_GpgName->setText(tr("[Unknown node]"));
 		else
-		{
 			ui->lineEdit_GpgName->setText(tr("Anonymous Id"));
-		}
 	}
 
 	if(data.mPgpId.isNull())
 	{
 		ui->lineEdit_GpgId->hide() ;
-		ui->lineEdit_GpgName->hide() ;
 		ui->PgpId_LB->hide() ;
-		ui->PgpName_LB->hide() ;
 	}
 	else
 	{
 		ui->lineEdit_GpgId->show() ;
-		ui->lineEdit_GpgName->show() ;
 		ui->PgpId_LB->show() ;
-		ui->PgpName_LB->show() ;
 	}
+    
+    if(data.mPgpKnown)
+    {
+		ui->lineEdit_GpgName->show() ;
+		ui->PgpName_LB->show() ;
+    }
+    else
+    {
+		ui->lineEdit_GpgName->hide() ;
+		ui->PgpName_LB->hide() ;
+    }
 
     bool isLinkedToOwnPgpId = (data.mPgpKnown && (data.mPgpId == ownPgpId)) ;
     bool isOwnId = (data.mMeta.mSubscribeFlags & GXS_SERV::GROUP_SUBSCRIBE_ADMIN);
