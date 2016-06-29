@@ -120,8 +120,8 @@ class RsServer: public RsControl, public RsTickingThread
 	public:
 		/* Config */
 
-        virtual void    ConfigFinalSave( );
-        virtual void	startServiceThread(RsTickingThread *t) ;
+		virtual void    ConfigFinalSave( );
+		virtual void	startServiceThread(RsTickingThread *t, const std::string &threadName) ;
 
 		/************* Rs shut down function: in upnp 'port lease time' bug *****************/
 
@@ -138,6 +138,8 @@ class RsServer: public RsControl, public RsTickingThread
 		virtual void getLibraries(std::list<RsLibraryInfo> &libraries);
 
 	private: 
+
+		std::string getSQLCipherVersion();
 
 		// The real Server Parts.
 

@@ -121,13 +121,13 @@ std::string PGPKeyParser::extractRadixPartFromArmouredKey(const std::string& pgp
 std::string PGPKeyManagement::makeArmouredKey(const unsigned char *keydata,size_t key_size,const std::string& version_string)
 {
 	std::string outstring ;
-	Radix64::encode((const char *)keydata,key_size,outstring) ;
+	Radix64::encode(keydata,key_size,outstring) ;
 
 	uint32_t crc = compute24bitsCRC((unsigned char *)keydata,key_size) ;
 
 	unsigned char tmp[3] = { uint8_t((crc >> 16) & 0xff), uint8_t((crc >> 8) & 0xff), uint8_t(crc & 0xff) } ;
 	std::string crc_string ;
-	Radix64::encode((const char *)tmp,3,crc_string) ;
+	Radix64::encode(tmp,3,crc_string) ;
 
 #ifdef DEBUG_PGPUTIL
 	std::cerr << "After signature pruning: " << std::endl;
@@ -173,7 +173,9 @@ bool PGPKeyManagement::parseSignature(const unsigned char *signature, size_t sig
 
     PGPKeyParser::read_packetHeader(data,packet_tag,packet_length) ;
     
+#ifdef DEBUG_PGPUTIL
     std::cerr << "Packet tag : " << (int)packet_tag << ", length=" << packet_length << std::endl;
+#endif
     
     // 2 - parse key data, only keep public key data, user id and self-signature.
 

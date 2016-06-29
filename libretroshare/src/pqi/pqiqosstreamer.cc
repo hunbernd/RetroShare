@@ -25,6 +25,8 @@
 
 #include "pqiqosstreamer.h"
 
+//#define DEBUG_PQIQOSSTREAMER 1
+
 const float    pqiQoSstreamer::PQI_QOS_STREAMER_ALPHA      = 2.0f ;
 
 pqiQoSstreamer::pqiQoSstreamer(PQInterface *parent, RsSerialiser *rss, const RsPeerId& peerid, BinInterface *bio_in, int bio_flagsin)
@@ -50,29 +52,36 @@ int pqiQoSstreamer::getQueueSize(bool in)
 //    return pqiQoS::gatherStatistics(per_service_count,per_priority_count) ;
 //}
 
-void pqiQoSstreamer::locked_storeInOutputQueue(void *ptr,int priority)
+void pqiQoSstreamer::locked_storeInOutputQueue(void *ptr,int size,int priority)
 {
-	_total_item_size += getRsItemSize(ptr) ;
+	_total_item_size += size ;
 	++_total_item_count ;
 
-	pqiQoS::in_rsItem(ptr,priority) ;
+	pqiQoS::in_rsItem(ptr,size,priority) ;
 }
 
 void pqiQoSstreamer::locked_clear_out_queue()
 {
+#ifdef DEBUG_PQIQOSSTREAMER
+    if(qos_queue_size() > 0)
+	    std::cerr << "  pqiQoSstreamer::locked_clear_out_queue(): clearing " << qos_queue_size() << " pending outqueue elements." << std::endl;
+#endif
+    
 	pqiQoS::clear() ;
 	_total_item_size = 0 ;
 	_total_item_count = 0 ;
 }
 
-void *pqiQoSstreamer::locked_pop_out_data()
+void *pqiQoSstreamer::locked_pop_out_data(uint32_t max_slice_size, uint32_t& size, bool& starts, bool& ends, uint32_t& packet_id)
 {
-	void *out = pqiQoS::out_rsItem() ;
+	void *out = pqiQoS::out_rsItem(max_slice_size,size,starts,ends,packet_id) ;
 
 	if(out != NULL) 
 	{
 		_total_item_size -= getRsItemSize(out) ;
-		--_total_item_count ;
+        
+        	if(ends)
+			--_total_item_count ;
 	}
 
 	return out ;

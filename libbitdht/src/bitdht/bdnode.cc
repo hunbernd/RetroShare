@@ -70,10 +70,10 @@
 
 #define HISTORY_PERIOD  60
 
-bdNode::bdNode(bdNodeId *ownId, std::string dhtVersion, const std::string& bootfile, const std::string& filterfile, bdDhtFunctions *fns)
+bdNode::bdNode(bdNodeId *ownId, std::string dhtVersion, const std::string& bootfile, const std::string& filterfile, bdDhtFunctions *fns, bdNodeManager *manager)
     :mNodeSpace(ownId, fns),
-         mFilterPeers(filterfile,ownId, BITDHT_FILTER_REASON_OWNID, fns),
-      mQueryMgr(NULL),
+          mFilterPeers(filterfile,ownId, BITDHT_FILTER_REASON_OWNID, fns, manager),
+          mQueryMgr(NULL),
           mConnMgr(NULL),
           mOwnId(*ownId), mDhtVersion(dhtVersion), mStore(bootfile, fns), mFns(fns),
           mFriendList(ownId), mHistory(HISTORY_PERIOD)
@@ -496,10 +496,12 @@ void bdNode::checkPotentialPeer(bdId *id, bdId *src)
 	/* first check the filters */
         if (!mFilterPeers.addrOkay(&(id->addr)))
 	{
+#ifdef DEBUG_NODE_MSGS 
 		std::cerr << "bdNode::checkPotentialPeer(";
 		mFns->bdPrintId(std::cerr, id);
 		std::cerr << ") BAD ADDRESS!!!! SHOULD DISCARD POTENTIAL PEER";
 		std::cerr << std::endl;
+#endif
 
 		return;
 	}

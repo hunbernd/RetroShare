@@ -5,12 +5,14 @@ QT     += network xml
 CONFIG += qt gui uic qrc resources idle bitdht
 CONFIG += link_prl
 TARGET = RetroShare06
+DEFINES += TARGET=\\\"$TARGET\\\"
 
 # Plz never commit the .pro with these flags enabled.
 # Use this flag when developping new features only.
 #
 #CONFIG += unfinished
 #CONFIG += debug
+#DEFINES *= SIGFPE_DEBUG
 
 #QMAKE_CFLAGS += -fmudflap 
 #LIBS *= /usr/lib/gcc/x86_64-linux-gnu/4.4/libmudflap.a /usr/lib/gcc/x86_64-linux-gnu/4.4/libmudflapth.a
@@ -69,7 +71,7 @@ linux-* {
 
 	LIBS *= -rdynamic
 	DEFINES *= HAVE_XSS # for idle time, libx screensaver extensions
-	DEFINES *= UBUNTU
+	DEFINES *= HAS_GNOME_KEYRING
 }
 
 unix {
@@ -195,7 +197,7 @@ win32 {
 	LIBS += -Wl,--export-all-symbols,--out-implib,lib/libretroshare-gui.a
 
 	# create lib directory
-	QMAKE_PRE_LINK = $(CHK_DIR_EXISTS) lib $(MKDIR) lib
+	QMAKE_PRE_LINK = $(CHK_DIR_EXISTS) lib || $(MKDIR) lib
 
 	DEFINES *= WINDOWS_SYS WIN32_LEAN_AND_MEAN _USE_32BIT_TIME_T
 
@@ -214,9 +216,13 @@ win32 {
 ##################################### MacOS ######################################
 
 macx {
-    # ENABLE THIS OPTION FOR Univeral Binary BUILD.
-    	#CONFIG += ppc x86
+	# ENABLE THIS OPTION FOR Univeral Binary BUILD.
+	#CONFIG += ppc x86
 	#QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.4
+	QMAKE_INFO_PLIST = Info.plist
+	mac_icon.files = $$files($$PWD/rsMacIcon.icns)
+	mac_icon.path = Contents/Resources
+	QMAKE_BUNDLE_DATA += mac_icon
 
 	CONFIG += version_detail_bash_script
         LIBS += -lssl -lcrypto -lz 
@@ -377,7 +383,6 @@ HEADERS +=  rshare.h \
             util/PixmapMerging.h \
             util/MouseEventFilter.h \
             util/EventFilter.h \
-            util/EventReceiver.h \
             util/Widget.h \
             util/RsAction.h \
             util/RsUserdata.h \
@@ -727,7 +732,6 @@ SOURCES +=  main.cpp \
             util/PixmapMerging.cpp \
             util/MouseEventFilter.cpp \
             util/EventFilter.cpp \
-            util/EventReceiver.cpp \
             util/Widget.cpp \
             util/RsAction.cpp \
             util/printpreview.cpp \

@@ -203,7 +203,7 @@ void IdentityHandler::handleWildcard(Request &req, Response &resp)
     }
 }
 
-ResponseTask* IdentityHandler::handleOwn(Request &req, Response &resp)
+ResponseTask* IdentityHandler::handleOwn(Request & /* req */, Response &resp)
 {
     StateToken state;
     {
@@ -218,7 +218,7 @@ ResponseTask* IdentityHandler::handleOwn(Request &req, Response &resp)
     return 0;
 }
 
-ResponseTask* IdentityHandler::handleCreateIdentity(Request &req, Response &resp)
+ResponseTask* IdentityHandler::handleCreateIdentity(Request & /* req */, Response & /* resp */)
 {
     return new CreateIdentityTask(mRsIdentity);
 }

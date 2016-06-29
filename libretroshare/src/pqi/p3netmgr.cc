@@ -39,7 +39,8 @@
 
 //#include "util/rsprint.h"
 //#include "util/rsdebug.h"
-const int p3netmgrzone = 7563;
+struct RsLog::logInfo p3netmgrzoneInfo = {RsLog::Default, "p3netmgr"};
+#define p3netmgrzone &p3netmgrzoneInfo
 
 #include "serialiser/rsconfigitems.h"
 #include "retroshare/rsiface.h"
@@ -168,12 +169,13 @@ void p3NetMgrIMPL::setManagers(p3PeerMgr *peerMgr, p3LinkMgr *linkMgr)
 //	mDhtMgr = dhtMgr;
 //}
 
+#ifdef RS_USE_DHT_STUNNER
 void p3NetMgrIMPL::setAddrAssist(pqiAddrAssist *dhtStun, pqiAddrAssist *proxyStun)
 {
 	mDhtStunner = dhtStun;
 	mProxyStunner = proxyStun;
 }
-
+#endif // RS_USE_DHT_STUNNER
 
 
 /***** Framework / initial implementation for a connection manager.
@@ -444,6 +446,7 @@ void p3NetMgrIMPL::slowTick()
 	netAssistTick();
 	updateNetStateBox_temporal();
 
+#ifdef RS_USE_DHT_STUNNER
 	if (mDhtStunner)
 	{
 		mDhtStunner->tick();
@@ -453,7 +456,7 @@ void p3NetMgrIMPL::slowTick()
 	{
 		mProxyStunner->tick();
 	}
-
+#endif // RS_USE_DHT_STUNNER
 }
 
 #define STARTUP_DELAY 5
@@ -1640,7 +1643,7 @@ void	p3NetMgrIMPL::getNetStatus(pqiNetStatus &status)
 	/* must extract data... then update mNetFlags */
 
 	bool dhtOk = netAssistConnectActive();
-	uint32_t netsize, rsnetsize;
+	uint32_t netsize = 0, rsnetsize = 0;
 	netAssistConnectStats(netsize, rsnetsize);
 
 	RsStackMutex stack(mNetMtx); /****** STACK LOCK MUTEX *******/
@@ -1733,10 +1736,11 @@ void p3NetMgrIMPL::updateNetStateBox_temporal()
 	std::cerr << "p3NetMgrIMPL::updateNetStateBox_temporal() ";
 	std::cerr << std::endl;
 #endif
-
-	uint8_t isstable = 0;
 	struct sockaddr_storage tmpaddr;
 	sockaddr_storage_clear(tmpaddr);
+
+#ifdef RS_USE_DHT_STUNNER
+	uint8_t isstable = 0;
 
 	if (mDhtStunner)
 	{
@@ -1775,6 +1779,7 @@ void p3NetMgrIMPL::updateNetStateBox_temporal()
 		
 		}
 	}
+#endif // RS_USE_DHT_STUNNER
 
 
 	{
@@ -1788,7 +1793,7 @@ void p3NetMgrIMPL::updateNetStateBox_temporal()
 
 	/* now we check if a WebIP address is required? */
 
-
+#ifdef	NETMGR_DEBUG_STATEBOX
 	{
 		RsStackMutex stack(mNetMtx); /****** STACK LOCK MUTEX *******/
 
@@ -1804,7 +1809,6 @@ void p3NetMgrIMPL::updateNetStateBox_temporal()
 		std::string nattypestr = NetStateNatTypeString(natType);
 		std::string netmodestr = NetStateNetworkModeString(netMode);
 
-#ifdef	NETMGR_DEBUG_STATEBOX
 		std::cerr << "p3NetMgrIMPL::updateNetStateBox_temporal() NetStateBox Thinking";
 		std::cerr << std::endl;
 		std::cerr << "\tNetState: " << netstatestr;
@@ -1817,10 +1821,9 @@ void p3NetMgrIMPL::updateNetStateBox_temporal()
 		std::cerr << std::endl;
 		std::cerr << "\tNatType: " << nattypestr;
 		std::cerr << std::endl;
-#endif
 
 	}
-	
+#endif
 	
 	updateNatSetting();
 
@@ -1868,7 +1871,7 @@ void p3NetMgrIMPL::updateNatSetting()
 		std::cerr << std::endl;
 #endif
 		
-		
+#ifdef RS_USE_DHT_STUNNER
 		switch(natType)
 		{
 			case RSNET_NATTYPE_RESTRICTED_CONE: 
@@ -1893,7 +1896,7 @@ void p3NetMgrIMPL::updateNatSetting()
 				mProxyStunner->setRefreshPeriod(NET_STUNNER_PERIOD_SLOW);
 				break;
 		}
-
+#endif // RS_USE_DHT_STUNNER
 
 		/* This controls the Attach mode of the DHT... 
 		 * which effectively makes the DHT "attach" to Open Nodes.

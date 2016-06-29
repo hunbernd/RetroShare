@@ -2,6 +2,22 @@ RetroShare
 ==============================
 RetroShare is a decentralized, private and secure commmunication and sharing platform. RetroShare provides filesharing, chat, messages, forums and channels. 
 
+Build Status
+------------
+
+| Platform  | Build Status |
+| :------------- | :------------- |
+| GNU/Linux, MacOS, (via travis-ci)  | [![Build Status](https://travis-ci.org/RetroShare/RetroShare.svg?branch=master)](https://travis-ci.org/RetroShare/RetroShare)  |
+| Windows, `MSys2` (via appveyor)  | [![Build status](https://ci.appveyor.com/api/projects/status/fu7q0ye6pge53579?svg=true)](https://ci.appveyor.com/project/PhenomRetroShare/retroshare-59qxh)  |
+
+Compilation on Windows
+----------------------------
+Follow this file : [WindowsMSys2_InstallGuide.txt](https://github.com/RetroShare/RetroShare/blob/master/WindowsMSys2_InstallGuide.txt)
+
+Compilation on MacOSX
+----------------------------
+Follow this file : [MacOS_X_InstallGuide.txt](https://github.com/RetroShare/RetroShare/blob/master/MacOS_X_InstallGuide.txt)
+
 Compilation on Linux
 ----------------------------
 
