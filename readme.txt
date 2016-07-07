@@ -2,8 +2,9 @@
 Disclaimer:
 ----------------------------------
 Always do backup from your data folder!
-This version contains modifications, but fully compatible with the official stable version, except one thing.
-Distant chat does not work with the most recent unstable versions, but works with this version, the official stable version, and every other older versions.
+This version contains modifications, but fully compatible with the official stable version.
+
+The FriendMap plugin has stability issues. If RS cannot start, delete the FriendMap.dll.
 
 ----------------------------------
 Changed things from the official version:

@@ -2,8 +2,9 @@
 Figyelmeztetés:
 ----------------------------------
 Mindig csinálj biztonsági mentést az adat mappádról!
-Ez a verzió módosításokat tartalmaz, de mindenben kompatibilis a hivatalos verzióval egy dolog kivételével.
-Nem mûködik a távoli cset a legfrissebb instabil verziókkal, de mûködik ezzel, a hivatalos stabil verzióval, illetve minden egyéb régebbi verzióval.
+Ez a verzió módosításokat tartalmaz, de mindenben kompatibilis a hivatalos verzióval.
+
+A FriendMap kiegészítõnek van némi stabilitási problémája. Ha nem indul az RS, töröld a FriendMap.dll-t.
 
 ----------------------------------
 Megváltoztatott dolgok a hivataloshoz verzióhoz képest:
