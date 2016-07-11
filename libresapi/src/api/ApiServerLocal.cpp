@@ -57,7 +57,7 @@ void ApiLocalConnectionHandler::handleRequest()
 		resource_api::Request req(reqJson);
 		req.setPath(reqPath);
 		std::string resultString = mApiServer->handleRequest(req);
-		mLocalSocket->write(resultString.data(), resultString.length());
+		mLocalSocket->write(resultString.c_str(), resultString.length()+1);
 		mState = WAITING_PATH;
 		break;
 	}
