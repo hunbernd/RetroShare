@@ -8,11 +8,12 @@ TARGET = resapi
 TARGET_PRL = libresapi
 DESTDIR = lib
 
-CONFIG += libmicrohttpd
-
 INCLUDEPATH += ../../libretroshare/src
 
-unix {
+libresapihttpserver {
+    CONFIG += libmicrohttpd
+
+    unix {
 
         webui_files.path = "$${DATA_DIR}/webui"
         webui_files.files = webui/app.js webui/app.css webui/index.html
@@ -81,9 +82,9 @@ unix {
 
 
         QMAKE_EXTRA_COMPILERS += create_webfiles_html create_webfiles_js create_webfiles_css
-}
+    }
 
-win32{
+    win32 {
 	DEFINES *= WINDOWS_SYS
 	INCLUDEPATH += . $$INC_DIR
 
@@ -104,9 +105,8 @@ win32{
 
 	# create dummy files
 	system($$MAKE_SRC\\init.bat .)
-}
+    }
 
-libmicrohttpd{
 	linux {
 		CONFIG += link_pkgconfig
 		PKGCONFIG *= libmicrohttpd
@@ -146,7 +146,8 @@ SOURCES += \
     api/TmpBlobStore.cpp \
     util/ContentTypes.cpp \
     api/ApiPluginHandler.cpp \
-    api/ChannelsHandler.cpp
+    api/ChannelsHandler.cpp \
+    api/StatsHandler.cpp
 
 HEADERS += \
 	api/ApiServer.h \
@@ -172,4 +173,12 @@ HEADERS += \
     api/TmpBlobStore.h \
     util/ContentTypes.h \
     api/ApiPluginHandler.h \
-    api/ChannelsHandler.h
+    api/ChannelsHandler.h \
+    api/StatsHandler.h
+
+libresapilocalserver {
+    CONFIG *= qt
+    QT *= network
+    SOURCES *= api/ApiServerLocal.cpp
+    HEADERS *= api/ApiServerLocal.h
+}

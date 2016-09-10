@@ -881,8 +881,15 @@ int RsGenExchange::validateMsg(RsNxsMsg *msg, const uint32_t& grpFlag, const uin
 			{
 
 				// now check reputation of the message author
-				float reputation_threshold =  ( (signFlag & GXS_SERV::FLAG_AUTHOR_AUTHENTICATION_GPG) && !(details.mFlags & RS_IDENTITY_FLAGS_PGP_LINKED)) ? (RsReputations::REPUTATION_THRESHOLD_ANTI_SPAM): (RsReputations::REPUTATION_THRESHOLD_DEFAULT) ;
-
+				float reputation_threshold = RsReputations::REPUTATION_THRESHOLD_DEFAULT;
+                
+                			if( (signFlag & GXS_SERV::FLAG_AUTHOR_AUTHENTICATION_GPG_KNOWN) && !(details.mFlags & RS_IDENTITY_FLAGS_PGP_KNOWN))
+				    reputation_threshold = RsReputations::REPUTATION_THRESHOLD_ANTI_SPAM;
+                			else if( (signFlag & GXS_SERV::FLAG_AUTHOR_AUTHENTICATION_GPG) && !(details.mFlags & RS_IDENTITY_FLAGS_PGP_LINKED))
+				    reputation_threshold = RsReputations::REPUTATION_THRESHOLD_ANTI_SPAM;
+                            	else
+				    reputation_threshold = RsReputations::REPUTATION_THRESHOLD_DEFAULT;
+                            
 				if(details.mReputation.mOverallReputationScore < reputation_threshold)
 				{
 #ifdef GEN_EXCH_DEBUG	
@@ -2004,16 +2011,16 @@ void RsGenExchange::publishMsgs()
                 
                 // FIXTESTS global variable rsPeers not available in unittests!
                 if(rsPeers)
-                {
                     mRoutingClues[msg->metaData->mAuthorId].insert(rsPeers->getOwnId()) ;
-                    mTrackingClues.push_back(std::make_pair(msg->msgId,rsPeers->getOwnId())) ;
-                }
                 
 				computeHash(msg->msg, msg->metaData->mHash);
 				mDataAccess->addMsgData(msg);
 				msgChangeMap[grpId].push_back(msgId);
 
 				delete[] metaDataBuff;
+
+                if(mNetService != NULL)
+                    mNetService->stampMsgServerUpdateTS(grpId) ;
 
 				// add to published to allow acknowledgement
 				mMsgNotify.insert(std::make_pair(mit->first, std::make_pair(grpId, msgId)));
@@ -2152,11 +2159,6 @@ void RsGenExchange::processRoutingClues()
             rsGRouter->addRoutingClue(GRouterKeyId(it->first),(*it2) ) ;
 
     mRoutingClues.clear() ;
-    
-    for(std::list<std::pair<RsGxsMessageId,RsPeerId> >::const_iterator it = mTrackingClues.begin();it!=mTrackingClues.end();++it)
-	    rsGRouter->addTrackingInfo((*it).first,(*it).second) ;
-    
-    mTrackingClues.clear() ;
 }
 
 void RsGenExchange::processGroupDelete()
@@ -2725,9 +2727,6 @@ void RsGenExchange::processRecvdMessages()
 
 				    if(!msg->metaData->mAuthorId.isNull())
 					    mRoutingClues[msg->metaData->mAuthorId].insert(msg->PeerId()) ;
-
-				    if(grpMeta->mSignFlags & GXS_SERV::FLAG_AUTHOR_AUTHENTICATION_TRACK_MESSAGES)
-					    mTrackingClues.push_back(std::make_pair(msg->msgId,msg->PeerId())) ;
 			    }
 
 			    if(validateReturn == VALIDATE_FAIL)
@@ -2823,14 +2822,22 @@ void RsGenExchange::processRecvdMessages()
 		    mNetService->rejectMessage(*it) ;
 }
 
+bool RsGenExchange::acceptNewGroup(const RsGxsGrpMetaData *grpMeta)
+{
+    return true;
+}
+
 void RsGenExchange::processRecvdGroups()
 {
-	RS_STACK_MUTEX(mGenMtx) ;
+    RS_STACK_MUTEX(mGenMtx) ;
 
 	if(mReceivedGrps.empty())
 		return;
 
-	NxsGrpPendValidVect::iterator vit = mReceivedGrps.begin();
+#ifdef GEN_EXCH_DEBUG
+    std::cerr << "RsGenExchange::Processing received groups" << std::endl;
+#endif
+    NxsGrpPendValidVect::iterator vit = mReceivedGrps.begin();
 	std::vector<RsGxsGroupId> existingGrpIds;
 	std::list<RsGxsGroupId> grpIds;
 
@@ -2845,12 +2852,12 @@ void RsGenExchange::processRecvdGroups()
 		RsGxsGrpMetaData* meta = new RsGxsGrpMetaData();
 		bool deserialOk = false;
 
-		if(grp->meta.bin_len != 0)
+        if(grp->meta.bin_len != 0)
 			deserialOk = meta->deserialise(grp->meta.bin_data, grp->meta.bin_len);
 
 		bool erase = true;
 
-        if(deserialOk)
+        if(deserialOk && acceptNewGroup(meta))
         {
 #ifdef GEN_EXCH_DEBUG
             	std::cerr << "  processing validation for group " << meta->mGroupId << ", attempts number " << gpsi.mAttempts << std::endl;
@@ -2930,8 +2937,10 @@ void RsGenExchange::processRecvdGroups()
         }
         else
         {
-            std::cerr << "(EE) deserialise error in group meta data" << std::endl;
-        	delete grp;
+            if(!deserialOk)
+                std::cerr << "(EE) deserialise error in group meta data" << std::endl;
+
+            delete grp;
 			delete meta;
 			erase = true;
 		}
