@@ -6,7 +6,6 @@ CONFIG += create_prl
 CONFIG -= qt
 TARGET = resapi
 TARGET_PRL = libresapi
-DESTDIR = lib
 
 INCLUDEPATH += ../../libretroshare/src
 
