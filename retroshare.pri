@@ -1,6 +1,6 @@
 # To {dis,en}able libresapi via local socket (unix domain socket or windows named pipes)
 # {,un}comment the following line
-#CONFIG *= libresapilocalserver
+CONFIG *= libresapilocalserver
 
 # To {dis,en}able libresapi via HTTP (libmicrohttpd) {,un}comment the following line
 CONFIG *= libresapihttpserver
