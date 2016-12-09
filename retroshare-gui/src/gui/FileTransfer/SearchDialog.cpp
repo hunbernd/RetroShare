@@ -738,8 +738,8 @@ void SearchDialog::showAdvSearchDialog(bool show)
     if (advSearchDialog == 0 && show)
     {
         advSearchDialog = new AdvancedSearchDialog();
-        connect(advSearchDialog, SIGNAL(search(Expression*)),
-                this, SLOT(advancedSearch(Expression*)));
+        connect(advSearchDialog, SIGNAL(search(RsRegularExpression::Expression*)),
+                this, SLOT(advancedSearch(RsRegularExpression::Expression*)));
     }
     if (show) {
         advSearchDialog->show();
@@ -774,7 +774,7 @@ void SearchDialog::initSearchResult(const QString& txt, qulonglong searchId, int
 	ui.searchSummaryWidget->setCurrentItem(item2);
 }
 
-void SearchDialog::advancedSearch(Expression* expression)
+void SearchDialog::advancedSearch(RsRegularExpression::Expression* expression)
 {
 	advSearchDialog->hide();
 
@@ -782,7 +782,7 @@ void SearchDialog::advancedSearch(Expression* expression)
 	std::list<DirDetails> results;
 
 	// send a turtle search request
-	LinearizedExpression e ;
+    RsRegularExpression::LinearizedExpression e ;
 	expression->linearize(e) ;
 
 	TurtleRequestId req_id = rsTurtle->turtleSearch(e) ;
@@ -843,8 +843,8 @@ void SearchDialog::searchKeywords(const QString& keywords)
 	if (n < 1)
 		return;
 
-	NameExpression exprs(ContainsAllStrings,words,true) ;
-	LinearizedExpression lin_exp ;
+    RsRegularExpression::NameExpression exprs(RsRegularExpression::ContainsAllStrings,words,true) ;
+    RsRegularExpression::LinearizedExpression lin_exp ;
 	exprs.linearize(lin_exp) ;
 
 	TurtleRequestId req_id ;
@@ -968,8 +968,8 @@ void SearchDialog::insertDirectory(const QString &txt, qulonglong searchId, cons
         child->setText(SR_HASH_COL, QString::fromStdString(dir.hash.toStdString()));
 		child->setText(SR_SIZE_COL, QString::number(dir.count));
 		child->setData(SR_SIZE_COL, ROLE_SORT, (qulonglong) dir.count);
-		child->setText(SR_AGE_COL, QString::number(dir.age));
-		child->setData(SR_AGE_COL, ROLE_SORT, dir.age);
+		child->setText(SR_AGE_COL, QString::number(dir.mtime));
+		child->setData(SR_AGE_COL, ROLE_SORT, dir.mtime);
 		child->setTextAlignment( SR_SIZE_COL, Qt::AlignRight );
 
 		child->setText(SR_SOURCES_COL, QString::number(1));
@@ -994,8 +994,8 @@ void SearchDialog::insertDirectory(const QString &txt, qulonglong searchId, cons
         child->setText(SR_HASH_COL, QString::fromStdString(dir.hash.toStdString()));
 		child->setText(SR_SIZE_COL, QString::number(dir.count));
 		child->setData(SR_SIZE_COL, ROLE_SORT, (qulonglong) dir.count);
-		child->setText(SR_AGE_COL, QString::number(dir.age));
-		child->setData(SR_AGE_COL, ROLE_SORT, dir.age);
+		child->setText(SR_AGE_COL, QString::number(dir.mtime));
+		child->setData(SR_AGE_COL, ROLE_SORT, dir.mtime);
 		child->setTextAlignment( SR_SIZE_COL, Qt::AlignRight );
 		child->setText(SR_SOURCES_COL, QString::number(1));
 		child->setData(SR_SOURCES_COL, ROLE_SORT, 1);
@@ -1042,9 +1042,10 @@ void SearchDialog::insertDirectory(const QString &txt, qulonglong searchId, cons
 		}
 
 		/* go through all children directories/files for a recursive call */
-		for (std::list<DirStub>::const_iterator it(dir.children.begin()); it != dir.children.end(); ++it) {
+        for (uint32_t i=0;i<dir.children.size();++i)
+        {
 			DirDetails details;
-			rsFiles->RequestDirDetails(it->ref, details, FileSearchFlags(0u));
+            rsFiles->RequestDirDetails(dir.children[i].ref, details, FileSearchFlags(0u));
 			insertDirectory(txt, searchId, details, child);
 		}
 	}
@@ -1062,8 +1063,8 @@ void SearchDialog::insertDirectory(const QString &txt, qulonglong searchId, cons
     child->setText(SR_HASH_COL, QString::fromStdString(dir.hash.toStdString()));
     child->setText(SR_SIZE_COL, QString::number(dir.count));
     child->setData(SR_SIZE_COL, ROLE_SORT, (qulonglong) dir.count);
-    child->setText(SR_AGE_COL, QString::number(dir.min_age));
-    child->setData(SR_AGE_COL, ROLE_SORT, dir.min_age);
+    child->setText(SR_AGE_COL, QString::number(dir.max_mtime));
+    child->setData(SR_AGE_COL, ROLE_SORT, dir.max_mtime);
     child->setTextAlignment( SR_SIZE_COL, Qt::AlignRight );
     child->setText(SR_SOURCES_COL, QString::number(1));
     child->setData(SR_SOURCES_COL, ROLE_SORT, 1);
@@ -1319,7 +1320,7 @@ void SearchDialog::resultsToTree(const QString& txt,qulonglong searchId, const s
 			fd.hash = it->hash;
 			fd.path = it->path;
 			fd.size = it->count;
-			fd.age 	= it->age;
+			fd.age 	= it->mtime;
 			fd.rank = 0;
 
 			insertFile(searchId,fd, FRIEND_SEARCH);

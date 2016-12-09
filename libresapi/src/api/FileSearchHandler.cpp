@@ -1,3 +1,5 @@
+#include <time.h>
+
 #include "FileSearchHandler.h"
 
 #include <retroshare/rsexpr.h>
@@ -139,7 +141,7 @@ static bool dirDetailToFileDetail(const DirDetails& dir, FileDetail& fd)
         fd.hash = dir.hash;
         fd.path = dir.path;
         fd.size = dir.count;
-        fd.age 	= dir.age;
+        fd.age 	= time(NULL) - dir.mtime;
         fd.rank = 0;
         return true;
     }
@@ -173,8 +175,8 @@ void FileSearchHandler::handleCreateSearch(Request &req, Response &resp)
         return;
     }
 
-    NameExpression exprs(ContainsAllStrings,words,true) ;
-    LinearizedExpression lin_exp ;
+    RsRegularExpression::NameExpression exprs(RsRegularExpression::ContainsAllStrings,words,true) ;
+    RsRegularExpression::LinearizedExpression lin_exp ;
     exprs.linearize(lin_exp) ;
 
     uint32_t search_id = RSRandom::random_u32();

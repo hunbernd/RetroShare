@@ -48,7 +48,6 @@ class ftDataMultiplex;
 class p3turtle ;
 class p3ServiceControl;
 
-#include "dbase/cachestrapper.h"
 #include "util/rsthreads.h"
 #include "pqi/pqiservicemonitor.h"
 #include "pqi/p3cfgmgr.h"
@@ -113,12 +112,12 @@ class ftPendingRequest
 };
 
 
-class ftController: public CacheTransfer, public RsTickingThread, public pqiServiceMonitor, public p3Config
+class ftController: public RsTickingThread, public pqiServiceMonitor, public p3Config
 {
 	public:
 
 		/* Setup */
-		ftController(CacheStrapper *cs, ftDataMultiplex *dm, p3ServiceControl *sc, uint32_t ftServiceId);
+        ftController(ftDataMultiplex *dm, p3ServiceControl *sc, uint32_t ftServiceId);
 
 		void	setFtSearchNExtra(ftSearch *, ftExtraList *);
 		void	setTurtleRouter(p3turtle *) ;
@@ -141,9 +140,11 @@ class ftController: public CacheTransfer, public RsTickingThread, public pqiServ
 
         bool 	setChunkStrategy(const RsFileHash& hash,FileChunksInfo::ChunkStrategy s);
 		void 	setDefaultChunkStrategy(FileChunksInfo::ChunkStrategy s);
-		FileChunksInfo::ChunkStrategy	defaultChunkStrategy();
+        void 	setDefaultEncryptionPolicy(uint32_t s);
+        FileChunksInfo::ChunkStrategy	defaultChunkStrategy();
 		uint32_t freeDiskSpaceLimit() const ;
 		void setFreeDiskSpaceLimit(uint32_t size_in_mb) ;
+        uint32_t defaultEncryptionPolicy();
 
         bool 	FileCancel(const RsFileHash& hash);
         bool 	FileControl(const RsFileHash& hash, uint32_t flags);
@@ -163,8 +164,6 @@ class ftController: public CacheTransfer, public RsTickingThread, public pqiServ
 		void clearQueue() ;
 		void setQueueSize(uint32_t size) ;
 		uint32_t getQueueSize() ;
-		void setMinPrioritizedTransfers(uint32_t size) ;
-		uint32_t getMinPrioritizedTransfers() ;
 
 		/* get Details of File Transfers */
         void FileDownloads(std::list<RsFileHash> &hashs);
@@ -175,9 +174,6 @@ class ftController: public CacheTransfer, public RsTickingThread, public pqiServ
 		std::string getDownloadDirectory();
 		std::string getPartialsDirectory();
         bool 	FileDetails(const RsFileHash &hash, FileInfo &info);
-
-		bool moveFile(const std::string& source,const std::string& dest) ;
-		bool copyFile(const std::string& source,const std::string& dest) ;
 
 		/***************************************************************/
 		/********************** Cache Transfer *************************/
@@ -195,10 +191,6 @@ class ftController: public CacheTransfer, public RsTickingThread, public pqiServ
 
 	protected:
 
-    virtual bool RequestCacheFile(const RsPeerId& id, std::string path, const RsFileHash& hash, uint64_t size);
-        virtual bool CancelCacheFile(const RsPeerId& id, std::string path, const RsFileHash& hash, uint64_t size);
-
-		void cleanCacheDownloads() ;
 		void searchForDirectSources() ;
 		void tickTransfers() ;
 
@@ -241,14 +233,15 @@ class ftController: public CacheTransfer, public RsTickingThread, public pqiServ
 		p3turtle *mTurtle ;
 		ftServer *mFtServer ;
 		p3ServiceControl *mServiceCtrl;
-		uint32_t mFtServiceId;
+		uint32_t mFtServiceType;
+        uint32_t mDefaultEncryptionPolicy ;
 
         uint32_t cnt ;
 		RsMutex ctrlMutex;
 
         std::map<RsFileHash, ftFileControl*> mCompleted;
         std::map<RsFileHash, ftFileControl*> mDownloads;
-		std::vector<ftFileControl*> _queue ;
+		std::vector<ftFileControl*> mDownloadQueue ;
 
 		std::string mConfigPath;
 		std::string mDownloadPath;
@@ -269,7 +262,6 @@ class ftController: public CacheTransfer, public RsTickingThread, public pqiServ
 		FileChunksInfo::ChunkStrategy mDefaultChunkStrategy ;
 
 		uint32_t _max_active_downloads ; // maximum number of simultaneous downloads
-		uint32_t _min_prioritized_transfers ; // min number of non cache transfers in the top of the queue.
 };
 
 #endif

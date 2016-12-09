@@ -151,10 +151,10 @@ void RSGraphWidget::setShowEntry(uint32_t entry,bool b)
 
 void RSGraphWidget::setSource(RSGraphSource *gs)
 {
-if(_source != NULL)
-    delete _source ;
+	if (_source != NULL)
+		delete _source;
 
-    _source = gs ;
+	_source = gs;
 }
 
 qint64 RSGraphSource::getTime() const
@@ -393,10 +393,12 @@ void RSGraphWidget::paintData()
           paintLine(points, getColor(i));
       }
   if(_maxValue > 0.0f)
+  {
       if(_flags & RSGRAPH_FLAGS_LOG_SCALE_Y)
           _y_scale = _rec.height()*0.8 / log(_maxValue) ;
       else
           _y_scale = _rec.height()*0.8/_maxValue ;
+  }
 }
 
 /** Returns a list of points on the bandwidth graph based on the supplied set

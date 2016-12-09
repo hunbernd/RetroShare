@@ -65,14 +65,8 @@ AccountDetails::AccountDetails()
 	return;
 }
 
-RsAccountsDetail::RsAccountsDetail()
-:mAccountsLocked(false), mPreferredId(""), mBaseDirectory("")
-{
-	mAccounts.clear();
-	mUnsupportedKeys.clear();
-	return;
-}
-
+RsAccountsDetail::RsAccountsDetail() : mAccountsLocked(false), mPreferredId("")
+{}
 
 bool RsAccountsDetail::loadAccounts()
 {
@@ -214,6 +208,7 @@ std::string RsAccountsDetail::PathPGPDirectory()
 
 std::string RsAccountsDetail::PathBaseDirectory()
 {
+	if(mBaseDirectory.empty()) defaultBaseDirectory();
 	return mBaseDirectory;
 }
 
@@ -326,8 +321,6 @@ bool RsAccountsDetail::setupBaseDirectory(std::string alt_basedir)
 }
 
 
-
-
 bool RsAccountsDetail::defaultBaseDirectory()
 {
 	std::string basedir;
@@ -339,8 +332,8 @@ bool RsAccountsDetail::defaultBaseDirectory()
 	char *h = getenv("HOME");
 	if (h == NULL)
 	{
-		std::cerr << "defaultBaseDirectory() Error: ";
-		std::cerr << "cannot determine $HOME dir" <<std::endl;
+		std::cerr << "defaultBaseDirectory() Error: cannot determine $HOME dir"
+		          << std::endl;
 		return false ;
 	}
 
@@ -524,7 +517,8 @@ bool RsAccountsDetail::getAvailableAccounts(std::map<RsPeerId, AccountDetails> &
 	 */
 
 	/* check for the dir existance */
-	librs::util::FolderIterator dirIt(mBaseDirectory);
+	librs::util::FolderIterator dirIt(mBaseDirectory,false);
+
 	if (!dirIt.isValid())
 	{
 		std::cerr << "Cannot Open Base Dir - No Available Accounts" << std::endl;
@@ -533,11 +527,10 @@ bool RsAccountsDetail::getAvailableAccounts(std::map<RsPeerId, AccountDetails> &
 
 	struct stat64 buf;
 
-	while (dirIt.readdir())
+    for(;dirIt.isValid();dirIt.next())
 	{
 		/* check entry type */
-		std::string fname;
-		dirIt.d_name(fname);
+        std::string fname = dirIt.file_name();
 		std::string fullname = mBaseDirectory + "/" + fname;
 #ifdef FIM_DEBUG
 		std::cerr << "calling stats on " << fullname <<std::endl;
@@ -1060,7 +1053,7 @@ bool     RsAccountsDetail::GenerateSSLCertificate(const RsPgpId& pgp_id, const s
 
 		X509_print_ex(bio_out, x509, nmflag, reqflag);
 
-		BIO_flush(bio_out);
+		(void) BIO_flush(bio_out);
 		BIO_free(bio_out);
 
 		/* Save cert to file */
@@ -1254,7 +1247,7 @@ bool     RsInit::LoadPassword(const std::string& id, const std::string& inPwd)
  ********************************************************************************/
 
         // Directories.
-std::string RsAccounts::ConfigDirectory() { return rsAccounts->PathBaseDirectory(); }
+std::string RsAccounts::ConfigDirectory() { return RsAccountsDetail::PathBaseDirectory(); }
 std::string RsAccounts::DataDirectory(bool check) { return RsAccountsDetail::PathDataDirectory(check); }
 std::string RsAccounts::PGPDirectory() { return rsAccounts->PathPGPDirectory(); }
 std::string RsAccounts::AccountDirectory() { return rsAccounts->PathAccountDirectory(); }
@@ -1333,3 +1326,4 @@ bool    RsAccounts::GenerateSSLCertificate(const RsPgpId& pgp_id, const std::str
  * END OF: PUBLIC INTERFACE FUNCTIONS 
  ********************************************************************************/
 
+std::string RsAccountsDetail::mBaseDirectory;

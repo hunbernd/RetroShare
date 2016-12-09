@@ -157,15 +157,15 @@ void RsCollectionFile::recursAddElements(QDomDocument& doc,const DirDetails& det
 
 		d.setAttribute(QString("name"),QString::fromUtf8(details.name.c_str())) ;
 
-		for (std::list<DirStub>::const_iterator it = details.children.begin(); it != details.children.end(); ++it)
+        for(uint32_t i=0;i<details.children.size();++i)
 		{
-			if (!it->ref) 
+            if (!details.children[i].ref)
 				continue;
 
 			DirDetails subDirDetails;
 			FileSearchFlags flags = RS_FILE_HINTS_LOCAL;
 
-			if (!rsFiles->RequestDirDetails(it->ref, subDirDetails, flags)) 
+            if (!rsFiles->RequestDirDetails(details.children[i].ref, subDirDetails, flags))
 				continue;
 
 			recursAddElements(doc,subDirDetails,d) ;
@@ -270,7 +270,7 @@ bool RsCollectionFile::checkFile(const QString& fileName, bool showError)
 		if(c == '\t' || c == '\n' || c == '\b' || c == '\r')
 			continue ;
 
-			if(n == max_size || file.atEnd())
+		if (n == max_size || file.atEnd())
 			for(int i=0;i<n-1;++i)
 				current[i] = current[i+1] ;
 

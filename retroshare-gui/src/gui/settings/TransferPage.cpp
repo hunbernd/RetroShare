@@ -32,26 +32,31 @@
 TransferPage::TransferPage(QWidget * parent, Qt::WindowFlags flags)
     : ConfigPage(parent, flags)
 {
-  /* Invoke the Qt Designer generated object setup routine */
-  ui.setupUi(this);
+    /* Invoke the Qt Designer generated object setup routine */
+    ui.setupUi(this);
 
-	ui._queueSize_SB->setValue(rsFiles->getQueueSize()) ;
-	ui._minPrioritized_SB->setValue(rsFiles->getMinPrioritizedTransfers()) ;
+    ui._queueSize_SB->setValue(rsFiles->getQueueSize()) ;
 
-	switch(rsFiles->defaultChunkStrategy())
-	{
-		case FileChunksInfo::CHUNK_STRATEGY_STREAMING: ui._defaultStrategy_CB->setCurrentIndex(0) ; break ;
-		case FileChunksInfo::CHUNK_STRATEGY_PROGRESSIVE: ui._defaultStrategy_CB->setCurrentIndex(1) ; break ;
-		case FileChunksInfo::CHUNK_STRATEGY_RANDOM: ui._defaultStrategy_CB->setCurrentIndex(2) ; break ;
-	}
+    switch(rsFiles->defaultChunkStrategy())
+    {
+    case FileChunksInfo::CHUNK_STRATEGY_STREAMING: ui._defaultStrategy_CB->setCurrentIndex(0) ; break ;
+    case FileChunksInfo::CHUNK_STRATEGY_PROGRESSIVE: ui._defaultStrategy_CB->setCurrentIndex(1) ; break ;
+    case FileChunksInfo::CHUNK_STRATEGY_RANDOM: ui._defaultStrategy_CB->setCurrentIndex(2) ; break ;
+    }
 
-	ui._diskSpaceLimit_SB->setValue(rsFiles->freeDiskSpaceLimit()) ;
+    switch(rsFiles->defaultEncryptionPolicy())
+    {
+    case RS_FILE_CTRL_ENCRYPTION_POLICY_PERMISSIVE: ui._e2e_encryption_CB->setCurrentIndex(0) ; break ;
+    case RS_FILE_CTRL_ENCRYPTION_POLICY_STRICT    : ui._e2e_encryption_CB->setCurrentIndex(1) ; break ;
+    }
 
-	QObject::connect(ui._queueSize_SB,SIGNAL(valueChanged(int)),this,SLOT(updateQueueSize(int))) ;
-	QObject::connect(ui._minPrioritized_SB,SIGNAL(valueChanged(int)),this,SLOT(updateMinPrioritized(int))) ;
-	QObject::connect(ui._defaultStrategy_CB,SIGNAL(activated(int)),this,SLOT(updateDefaultStrategy(int))) ;
-	QObject::connect(ui._diskSpaceLimit_SB,SIGNAL(valueChanged(int)),this,SLOT(updateDiskSizeLimit(int))) ;
-        QObject::connect(ui._max_tr_up_per_sec_SB, SIGNAL( valueChanged( int ) ), this, SLOT( updateMaxTRUpRate(int) ) );
+    ui._diskSpaceLimit_SB->setValue(rsFiles->freeDiskSpaceLimit()) ;
+
+    QObject::connect(ui._queueSize_SB,SIGNAL(valueChanged(int)),this,SLOT(updateQueueSize(int))) ;
+    QObject::connect(ui._defaultStrategy_CB,SIGNAL(activated(int)),this,SLOT(updateDefaultStrategy(int))) ;
+    QObject::connect(ui._e2e_encryption_CB,SIGNAL(activated(int)),this,SLOT(updateEncryptionPolicy(int))) ;
+    QObject::connect(ui._diskSpaceLimit_SB,SIGNAL(valueChanged(int)),this,SLOT(updateDiskSizeLimit(int))) ;
+    QObject::connect(ui._max_tr_up_per_sec_SB, SIGNAL( valueChanged( int ) ), this, SLOT( updateMaxTRUpRate(int) ) );
 
     ui._max_tr_up_per_sec_SB->setValue(rsTurtle->getMaxTRForwardRate()) ;
 }
@@ -59,6 +64,19 @@ void TransferPage::updateMaxTRUpRate(int b)
 {
     rsTurtle->setMaxTRForwardRate(b) ;
 }
+
+void TransferPage::updateEncryptionPolicy(int b)
+{
+    switch(b)
+    {
+    case 1: rsFiles->setDefaultEncryptionPolicy(RS_FILE_CTRL_ENCRYPTION_POLICY_STRICT) ;
+        break ;
+    default:
+    case 0: rsFiles->setDefaultEncryptionPolicy(RS_FILE_CTRL_ENCRYPTION_POLICY_PERMISSIVE) ;
+        break ;
+    }
+}
+
 void TransferPage::updateDefaultStrategy(int i)
 {
 	switch(i)
@@ -80,15 +98,7 @@ void TransferPage::updateDiskSizeLimit(int s)
 	rsFiles->setFreeDiskSpaceLimit(s) ;
 }
 
-void TransferPage::updateMinPrioritized(int s)
-{
-	rsFiles->setMinPrioritizedTransfers(s) ;
-}
 void TransferPage::updateQueueSize(int s)
 {
-	if(ui._minPrioritized_SB->value() > s)
-	{
-		ui._minPrioritized_SB->setValue(s) ;
-	}
 	rsFiles->setQueueSize(s) ;
 }

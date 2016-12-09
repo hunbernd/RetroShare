@@ -330,11 +330,11 @@ MainWindow::~MainWindow()
 void MainWindow::initStackedPage()
 {
   /* WORK OUT IF WE"RE IN ADVANCED MODE OR NOT */
-  bool advancedMode = false;
-  std::string advsetting;
-  if (rsConfig->getConfigurationOption(RS_CONFIG_ADVANCED, advsetting) && (advsetting == "YES")) {
-      advancedMode = true;
-  }
+  //bool advancedMode = false;
+  //std::string advsetting;
+  //if (rsConfig->getConfigurationOption(RS_CONFIG_ADVANCED, advsetting) && (advsetting == "YES")) {
+  //    advancedMode = true;
+  //}
 
   QList<QPair<MainPage*, QPair<QAction*, QListWidgetItem*> > > notify;
 
@@ -756,7 +756,10 @@ void MainWindow::updateFriends()
 void MainWindow::postModDirectories(bool update_local)
 {
     RSettingsWin::postModDirectories(update_local);
-    ShareManager::postModDirectories(update_local);
+
+    // Why would we need that?? The effect is to reset the flags while we're changing them, so it's really not
+    // a good idea.
+    //ShareManager::postModDirectories(update_local);
 
     QCoreApplication::flush();
 }

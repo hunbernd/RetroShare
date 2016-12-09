@@ -71,39 +71,73 @@ class EmbedInHtmlAhref : public EmbedInHtml
 public:
 	EmbedInHtmlAhref() : EmbedInHtml(Ahref)
 	{
-	  // myRE.setPattern("(\\bretroshare://[^\\s]*)|(\\bhttps?://[^\\s]*)|(\\bfile://[^\\s]*)|(\\bwww\\.[^\\s]*)");
+		// The following regular expressions for finding URLs in
+		// plain text are borrowed from https://regex101.com/r/eR9yG2/4
+		//Modified to: (Adding \s to stop when query have space char else don't stop at end.)
+		// ((?<=\s)(([a-z0-9.+-]+):)((\/\/)(\/|(((([^\/:@?&#\s]+)(:([^\/@?&#\s]+))?)@)?([^:\/?&#\s]+)(:([1-9][0-9]*))?)(?=[\/#$?]))))(([^#?\s]+)?(\?([^#\s]+))?(#([^\s]+))?([\s])?)
+		// regAddress              .||    .|   || |             .| |            . .   .|            .|               ..|         .../regPath    .|  |       . .|          .|     ./
+		//  regBef/reChar          .||    .|   || |             .| |            . .   .|            .|               ..|         ...  regPathnam/|  |       . .regHash    /regEnd/har
+		//          regScheme      /regGrp5|   || |             .| |            . .   .|            .|               ..|         ../             regSearch  . /
+		//                           |regS/ash || |             .| |            . .   .|            .|               ..|         ..                 regQuery/
+		//                                 regFileAuthHost      .| |            . .   .|            .|               ..|         ./
+		//                                     regAuthHost      .| |            . .   .|            .|               ./regPosLk  /
+		//                                      regUserPass     .| |            . .   /regHost      /regPort         /
+		//                                        regUser       /| |            . .
+		//                                                       regGrp12	     .	/
+		//                                                         regPassCharse/
+		//
+		// to get all group captured.
+		// Test patern: " https://user:password@example.com:8080/./api/api/../users/./get/22iohoife.extension?return=name&return=email&a[]=3&a[]=3&a[]=3&a[]=3&a[]=3&a[]=3&a[]=3&a[]=3&a[]=3&a[]=3#test "
 
-	  // The following regular expressions for finding URLs in
-	  // plain text are borrowed from *gnome-terminal*:
+		QString regBeforeChar = ""; //"(?<=\\s)";//WARNING, Look Behind not supported by Qt
+		QStringList regSchemes;
+		//	  regSchemes.append("news:");
+		//	  regSchemes.append("telnet:");
+		//	  regSchemes.append("nntp:");
+		//	  regSchemes.append("file:/");
+		regSchemes.append("https?:");
+		//	  regSchemes.append("ftps?:");
+		//	  regSchemes.append("sftp:");
+		//	  regSchemes.append("webcal:");
+		regSchemes.append("retroshare:");
 
-	  QString regPassCharset = "[-\\w,?;\\.:/!%$^*&~\\\"#']";
-	  QString regHost = "[-\\w]+(\\.[-\\w]+)*";
-	  QString regPort = "(?:\\:\\d{1,5})?";
-	  QString regPathCharset = "[-\\w_$\\.+!*,;@&=?/~#%]";
-	  QString regPathTermSet = "[^\\]'.}<>) \\t\\r\\n,\\\"]";
-      QStringList regSchemes;
-//	  regSchemes.append("news:");
-//	  regSchemes.append("telnet:");
-//	  regSchemes.append("nntp:");
-//	  regSchemes.append("file:/");
-	  regSchemes.append("https?:");
-//	  regSchemes.append("ftps?:");
-//	  regSchemes.append("sftp:");
-//	  regSchemes.append("webcal:");
-	  regSchemes.append("retroshare:");
-	  QString regScheme = "((?:" + regSchemes.join(")|(?:") + "))";
-	  QString regUserPass = "[-\\w]+(?:%s+)?" % regPassCharset;
-	  QString regUrlPath = "(?:(/" + regPathCharset + "+(?:[(]" + regPathCharset +"*[)])*" + regPathCharset + "*)*" + regPathTermSet + ")?";
-	  QStringList regHotLinkFinders;
-	  regHotLinkFinders.append(regScheme + "//(?:" + regUserPass + "@)?"+ regHost + regPort + regUrlPath);
-//	  regHotLinkFinders.append("(?:(?:www)|(?:ftp))[-\\w]*\\." + regHost + regPort + regUrlPath);
-//	  regHotLinkFinders.append("(?:(?:callto:)|(?:h323:)|(?:sip:))[-\\w][-\\w\\.]*(?:" + regPort + "/[a-z0-9]+)?@" + regHost);
-//	  regHotLinkFinders.append("(?:mailto:)?[-\\w][-\\w\\.]*@[-\\w]+\\." + regHost);
-//	  regHotLinkFinders.append("news:[\\w^_{|}~!\\\"#$%&'()*+,\\./;:=?`]+");
-	  while (!regHotLinkFinders.isEmpty()) {
-        myREs.append(QRegExp(regHotLinkFinders.takeFirst(), Qt::CaseInsensitive));
-	  };
-    }
+		QString regScheme = "(?:" + regSchemes.join(")|(?:") + ")";//2nd Group: "https:" //3rd group inside
+
+		QString regSlash = "(\\/\\/)";//5th Group: "//"
+
+		QString regUser = "([^\\/:@?&#\\s]+)";//10th Group: "user"
+		QString regPassCharset = "([^\\/@?&#\\s]+)";//12th Group "password"
+		QString regGrp12 = "(:" + regPassCharset + ")?"; // 11th Group: ":password"
+		QString regUserPass = "((" + regUser + regGrp12 + ")@)?"; //8th Group: "user:password@" with 9th inside
+
+		QString regHost = "([^:\\/?&#\\s]+)"; //13th Group: "example.com"
+		QString regPort = "(:([1-9][0-9]*))?"; //14th Group: ":8080" with 15th inside
+
+		QString regAuthHost = regUserPass + regHost + regPort; //7th Group: "user:password@example.com:8080"
+		QString regPosLk = ""; //Positive Lookahead
+
+		QString regFileAuthHost = "(\\/|" + regAuthHost + regPosLk + ")"; //6th Group: "user:password@example.com:8080" Could be "/" with "file:///"
+		QString regGrp5 = "(" + regSlash + regFileAuthHost + ")"; //4th Group: "//user:password@example.com:8080"
+		QString regAddress = "(" + regBeforeChar + regScheme + regGrp5 + ")"; //1rst Group: "https://user:password@example.com:8080"
+
+		QString regPathName = "([^#?\\s]+)?"; //17th Group: "/./api/api/../users/./get/22iohoife.extension"
+
+		QString regQuery = "([^#\\s]+)"; //19th Group: "return=name&return=email&a[]=3&a[]=3&a[]=3&a[]=3&a[]=3&a[]=3&a[]=3&a[]=3&a[]=3&a[]=3"
+		QString regSearch = "(\\?" + regQuery + ")?"; //18th Group: "?return=name&return=email&a[]=3&a[]=3&a[]=3&a[]=3&a[]=3&a[]=3&a[]=3&a[]=3&a[]=3&a[]=3"
+
+		QString regHash = "(#([^\\s]+))?"; //20th Group: "#test" 21th inside
+		QString regEndChar = "";//"([\\s])?"; //22th Group: " "
+		QString regPath = "(" + regPathName + regSearch + regHash + regEndChar +")"; //16th Group: "/./api/api/../users/./get/22iohoife.extension?return=name&return=email&a[]=3&a[]=3&a[]=3&a[]=3&a[]=3&a[]=3&a[]=3&a[]=3&a[]=3&a[]=3#test"
+
+		QString regUrlPath = regAddress + regPath;
+
+		QStringList regHotLinkFinders;
+		regHotLinkFinders.append(regUrlPath);
+
+		while (!regHotLinkFinders.isEmpty()) {
+			myREs.append(QRegExp(regHotLinkFinders.takeFirst(), Qt::CaseInsensitive));
+		};
+	}
 };
 	  
      
@@ -132,43 +166,47 @@ RsHtml::RsHtml()
 {
 }
 
-void RsHtml::initEmoticons(const QHash< QString, QString >& hash)
+void RsHtml::initEmoticons(const QHash<QString, QPair<QVector<QString>, QHash<QString, QString> > >& hash)
 {
 	QString newRE;
-	for(QHash<QString,QString>::const_iterator it = hash.begin(); it != hash.end(); ++it)
-		foreach(QString smile, it.key().split("|")) {
-			if (smile.isEmpty()) {
-				continue;
-			}
-			defEmbedImg.smileys.insert(smile, it.value());
-			// add space around smileys
-			newRE += "(?:^|\\s)(" + QRegExp::escape(smile) + ")(?:$|\\s)|";
-			// explanations:
-			//	(?:^|\s)(*smiley*)(?:$|\s)
-			//
-			//	(?:^|\s) Non-capturing group
-			//		1st Alternative: ^
-			//			^ assert position at start of the string
-			//		2nd Alternative: \s
-			//			\s match any white space character [\r\n\t\f ]
-			//
-			//	1st Capturing group (*smiley*)
-			//		*smiley* matches the characters *smiley* literally (case sensitive)
-			//
-			//	(?:$|\s) Non-capturing group
-			//		1st Alternative: $
-			//			$ assert position at end of the string
-			//		2nd Alternative: \s
-			//			\s match any white space character [\r\n\t\f ]
+	for(QHash<QString, QPair<QVector<QString>, QHash<QString, QString> > >::const_iterator groupit = hash.begin(); groupit != hash.end(); ++groupit) {
+		QHash<QString,QString> group = groupit.value().second;
+		for(QHash<QString,QString>::const_iterator it = group.begin(); it != group.end(); ++it)
+			foreach(QString smile, it.key().split("|")) {
+				if (smile.isEmpty()) {
+					continue;
+				}
+				defEmbedImg.smileys.insert(smile, it.value());
+				// add space around smileys
+				newRE += "(?:^|\\s)(" + QRegExp::escape(smile) + ")(?:$|\\s)|";
+				// explanations:
+				//	(?:^|\s)(*smiley*)(?:$|\s)
+				//
+				//	(?:^|\s) Non-capturing group
+				//		1st Alternative: ^
+				//			^ assert position at start of the string
+				//		2nd Alternative: \s
+				//			\s match any white space character [\r\n\t\f ]
+				//
+				//	1st Capturing group (*smiley*)
+				//		*smiley* matches the characters *smiley* literally (case sensitive)
+				//
+				//	(?:$|\s) Non-capturing group
+				//		1st Alternative: $
+				//			$ assert position at end of the string
+				//		2nd Alternative: \s
+				//			\s match any white space character [\r\n\t\f ]
 
-			/*
+				/*
 			 * TODO
 			 * a better version is:
 			 * (?<=^|\s)(*smile*)(?=$|\s) using the lookbehind/lookahead operator instead of non-capturing groups.
 			 * This solves the problem that spaces are matched, too (see workaround in RsHtml::embedHtml)
 			 * This is not supported by Qt4!
 			 */
-		}
+			}
+	}
+
 	newRE.chop(1);	// remove last |
 	defEmbedImg.myREs.append(QRegExp(newRE));
 }

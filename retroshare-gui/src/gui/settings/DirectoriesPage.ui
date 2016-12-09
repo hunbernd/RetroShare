@@ -6,18 +6,91 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>485</width>
+    <width>929</width>
     <height>549</height>
    </rect>
   </property>
-  <layout class="QGridLayout">
-   <property name="margin">
-    <number>6</number>
-   </property>
-   <property name="spacing">
-    <number>0</number>
-   </property>
-   <item row="1" column="0">
+  <layout class="QVBoxLayout" name="verticalLayout_2">
+   <item>
+    <widget class="QGroupBox" name="groupBox">
+     <property name="title">
+      <string>Shared Directories</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout">
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_2">
+        <item>
+         <widget class="QCheckBox" name="shareDownloadDirectoryCB">
+          <property name="enabled">
+           <bool>true</bool>
+          </property>
+          <property name="text">
+           <string>Automatically share incoming directory (Recommended)</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="editShareButton">
+          <property name="text">
+           <string>Edit Share</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout"/>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_3">
+        <item>
+         <widget class="QCheckBox" name="autoCheckDirectories_CB">
+          <property name="text">
+           <string>Auto-check shared directories every </string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSpinBox" name="autoCheckDirectoriesDelay_SB">
+          <property name="suffix">
+           <string> minute(s)</string>
+          </property>
+          <property name="minimum">
+           <number>1</number>
+          </property>
+          <property name="maximum">
+           <number>5000</number>
+          </property>
+          <property name="value">
+           <number>10</number>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="followSymLinks_CB">
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Tells Retroshare to follow the links. Loops and duplicate directories are automatically taken care of. If unchecked, Retroshare will just ignore symbolic links to both files and directories.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>follow symbolic links</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
     <widget class="QGroupBox" name="groupBox_2">
      <property name="title">
       <string>Incoming Directory</string>
@@ -65,7 +138,7 @@
      </layout>
     </widget>
    </item>
-   <item row="2" column="0">
+   <item>
     <widget class="QGroupBox" name="groupBox_3">
      <property name="title">
       <string>Partials Directory</string>
@@ -113,116 +186,7 @@
      </layout>
     </widget>
    </item>
-   <item row="0" column="0">
-    <widget class="QGroupBox" name="groupBox">
-     <property name="title">
-      <string>Shared Directories</string>
-     </property>
-     <layout class="QVBoxLayout" name="verticalLayout">
-      <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_2">
-        <item>
-         <widget class="QCheckBox" name="shareDownloadDirectoryCB">
-          <property name="enabled">
-           <bool>true</bool>
-          </property>
-          <property name="text">
-           <string>Automatically share incoming directory (Recommended)</string>
-          </property>
-          <property name="checked">
-           <bool>true</bool>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="editShareButton">
-          <property name="text">
-           <string>Edit Share</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="horizontalLayout">
-        <item>
-         <widget class="QCheckBox" name="rememberHashesCB">
-          <property name="toolTip">
-           <string>Remember file hashes even if not shared. 
-This might be useful if you're sharing an 
-external HD, to avoid re-hashing files when 
-you plug it in.</string>
-          </property>
-          <property name="text">
-           <string>Remember hashed files for </string>
-          </property>
-          <property name="checked">
-           <bool>true</bool>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QSpinBox" name="rememberHashesSB">
-          <property name="suffix">
-           <string> days</string>
-          </property>
-          <property name="minimum">
-           <number>1</number>
-          </property>
-          <property name="maximum">
-           <number>365</number>
-          </property>
-          <property name="value">
-           <number>10</number>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="cleanHashCachePB">
-          <property name="toolTip">
-           <string>Forget any hashed file that is not anymore shared.</string>
-          </property>
-          <property name="text">
-           <string>Clean Hash Cache</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_3">
-        <item>
-         <widget class="QCheckBox" name="autoCheckDirectories_CB">
-          <property name="text">
-           <string>Auto-check shared directories every </string>
-          </property>
-          <property name="checked">
-           <bool>true</bool>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QSpinBox" name="autoCheckDirectoriesDelay_SB">
-          <property name="suffix">
-           <string> minute(s)</string>
-          </property>
-          <property name="minimum">
-           <number>1</number>
-          </property>
-          <property name="maximum">
-           <number>5000</number>
-          </property>
-          <property name="value">
-           <number>10</number>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item row="3" column="0">
+   <item>
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
@@ -240,9 +204,6 @@ you plug it in.</string>
  <tabstops>
   <tabstop>shareDownloadDirectoryCB</tabstop>
   <tabstop>editShareButton</tabstop>
-  <tabstop>rememberHashesCB</tabstop>
-  <tabstop>rememberHashesSB</tabstop>
-  <tabstop>cleanHashCachePB</tabstop>
   <tabstop>autoCheckDirectories_CB</tabstop>
   <tabstop>autoCheckDirectoriesDelay_SB</tabstop>
   <tabstop>incomingDir</tabstop>

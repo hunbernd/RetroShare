@@ -206,27 +206,25 @@ void p3BanList::autoFigureOutBanRanges()
 {
     RS_STACK_MUTEX(mBanMtx) ;
 
-    bool changed = false ;
-
     // clear automatic ban ranges
 
-    for(std::map<sockaddr_storage,BanListPeer>::iterator it(mBanRanges.begin());it!=mBanRanges.end();)
+	for(std::map<sockaddr_storage,BanListPeer>::iterator it(mBanRanges.begin());
+	    it!=mBanRanges.end(); )
+	{
         if(it->second.reason == RSBANLIST_REASON_AUTO_RANGE)
         {
             std::map<sockaddr_storage,BanListPeer>::iterator it2=it ;
             ++it2 ;
             mBanRanges.erase(it) ;
             it=it2 ;
-
-            changed = true ;
         }
-        else
-            ++it;
+		else ++it;
+	}
 
     IndicateConfigChanged();
 
-    if(!mAutoRangeIps)
-        return ;
+	if(!mAutoRangeIps) return;
+
 #ifdef DEBUG_BANLIST
     std::cerr << "Automatically figuring out IP ranges from banned IPs." << std::endl;
 #endif
@@ -251,8 +249,8 @@ void p3BanList::autoFigureOutBanRanges()
 #endif
            BanListPeer& peer(mBanRanges[it->first]) ;
 
-       if(peer.reason == RSBANLIST_REASON_USER)
-           continue ;
+           if (peer.reason == RSBANLIST_REASON_USER)
+               continue;
 
            peer.addr = it->first ;
            peer.masked_bytes = 1 ;
@@ -971,10 +969,10 @@ bool p3BanList::addBanEntry(const RsPeerId &peerId, const struct sockaddr_storag
 			it->second.mLastUpdate = now;
 			updated = true;
 		}
-    }
+	}
 
-    if(updated)
-        IndicateConfigChanged();
+	if (updated)
+		IndicateConfigChanged() ;
 
 	return updated;
 }
@@ -1058,12 +1056,12 @@ int p3BanList::condenseBanSources_locked()
 
         struct sockaddr_storage bannedaddr;
         sockaddr_storage_clear(bannedaddr);
-    bannedaddr.ss_family = AF_INET ;
+        bannedaddr.ss_family = AF_INET;
         sockaddr_storage_copyip(bannedaddr, lit->second.addr);
         sockaddr_storage_setport(bannedaddr, 0);
 
-    if(isWhiteListed_locked(bannedaddr))
-        continue ;
+        if (isWhiteListed_locked(bannedaddr))
+            continue;
 
         /* check if it exists in the Set already */
         std::map<struct sockaddr_storage, BanListPeer>::iterator sit;

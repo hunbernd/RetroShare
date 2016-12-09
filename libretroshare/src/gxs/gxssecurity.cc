@@ -243,7 +243,10 @@ bool GxsSecurity::checkPublicKey(const RsTlvPublicRSAKey &key)
 bool GxsSecurity::generateKeyPair(RsTlvPublicRSAKey& public_key,RsTlvPrivateRSAKey& private_key)
 {
 	// admin keys
-    RSA *rsa     = RSA_generate_key(2048, 65537, NULL, NULL);
+	BIGNUM *ebn = BN_new();
+	BN_set_word(ebn, 65537);
+	RSA *rsa     = RSA_new();
+	RSA_generate_key_ex(rsa, 2048, ebn, NULL);
     RSA *rsa_pub = RSAPublicKey_dup(rsa);
     
     public_key.keyFlags = RSTLV_KEY_TYPE_PUBLIC_ONLY ;
@@ -551,10 +554,10 @@ bool GxsSecurity::encrypt(uint8_t *& out, uint32_t &outlen, const uint8_t *in, u
 	if(!EVP_SealInit(&ctx, EVP_aes_128_cbc(), &ek, &eklen, iv, &public_key, 1)) return false;
 
 	// now assign memory to out accounting for data, and cipher block size, key length, and key length val
-    out = (uint8_t*)rs_malloc(inlen + cipher_block_size + size_net_ekl + eklen + EVP_MAX_IV_LENGTH);
+	out = (uint8_t*)rs_malloc(inlen + cipher_block_size + size_net_ekl + eklen + EVP_MAX_IV_LENGTH) ;
 
-    if(out == NULL)
-        return false ;
+	if (out == NULL)
+		return false;
 
 	net_ekl = htonl(eklen);
 	memcpy((unsigned char*)out + out_offset, &net_ekl, size_net_ekl);

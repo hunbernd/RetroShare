@@ -231,7 +231,7 @@ void ServerPage::load()
     ui.iconlabel_upnp->show();
     ui.label_nat->show();
 
-	ui.hiddenMode_LB->hide() ;
+	ui.textlabel_hiddenMode->hide() ;
 	ui.iconlabel_hiddenMode->hide() ;
 
 	/* set net mode */
@@ -486,7 +486,7 @@ void ServerPage::addPeerToIPTable(QTableWidget *table,int row,const BanListPeer&
 void ServerPage::toggleGroupIps(bool b) { rsBanList->enableAutoRange(b) ; }
 void ServerPage::setGroupIpLimit(int n) { rsBanList->setAutoRangeLimit(n) ; }
 
-void ServerPage::ipFilterContextMenu(const QPoint& point)
+void ServerPage::ipFilterContextMenu(const QPoint& /*point*/)
 {
     QMenu contextMenu(this) ;
     int row = ui.filteredIpsTable->currentRow();
@@ -604,7 +604,7 @@ void ServerPage::ipWhiteListContextMenu(const QPoint& /* point */)
     if(item == NULL)
         return ;
 
-    bool status = item->data(Qt::UserRole).toBool();
+    //bool status = item->data(Qt::UserRole).toBool();
 
     contextMenu.addAction(tr("Remove"),this,SLOT(removeWhiteListedIp()));
 
@@ -888,7 +888,7 @@ void ServerPage::loadHiddenNode()
 	ui.iconlabel_upnp->hide();
 	ui.label_nat->hide();
 	
-	ui.hiddenMode_LB->show();
+	ui.textlabel_hiddenMode->show();
 	ui.iconlabel_hiddenMode->show() ;
 	ui.iconlabel_hiddenMode->setPixmap(QPixmap(":/images/ledon1.png"));
 

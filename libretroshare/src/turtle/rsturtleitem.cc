@@ -16,7 +16,7 @@
 // ---------------------------------- Packet sizes -----------------------------------//
 //
 
-uint32_t RsTurtleStringSearchRequestItem::serial_size() 
+uint32_t RsTurtleStringSearchRequestItem::serial_size() const
 {
 	uint32_t s = 0 ;
 
@@ -27,7 +27,7 @@ uint32_t RsTurtleStringSearchRequestItem::serial_size()
 
 	return s ;
 }
-uint32_t RsTurtleRegExpSearchRequestItem::serial_size() 
+uint32_t RsTurtleRegExpSearchRequestItem::serial_size() const
 {
 	uint32_t s = 0 ;
 
@@ -48,7 +48,7 @@ uint32_t RsTurtleRegExpSearchRequestItem::serial_size()
 	return s ;
 }
 
-uint32_t RsTurtleSearchResultItem::serial_size()
+uint32_t RsTurtleSearchResultItem::serial_size()const
 {
 	uint32_t s = 0 ;
 
@@ -67,7 +67,7 @@ uint32_t RsTurtleSearchResultItem::serial_size()
 	return s ;
 }
 
-uint32_t RsTurtleOpenTunnelItem::serial_size()
+uint32_t RsTurtleOpenTunnelItem::serial_size()const
 {
 	uint32_t s = 0 ;
 
@@ -80,7 +80,7 @@ uint32_t RsTurtleOpenTunnelItem::serial_size()
 	return s ;
 }
 
-uint32_t RsTurtleTunnelOkItem::serial_size()
+uint32_t RsTurtleTunnelOkItem::serial_size() const
 {
 	uint32_t s = 0 ;
 
@@ -91,7 +91,7 @@ uint32_t RsTurtleTunnelOkItem::serial_size()
 	return s ;
 }
 
-uint32_t RsTurtleGenericDataItem::serial_size()
+uint32_t RsTurtleGenericDataItem::serial_size() const
 {
 	uint32_t s = 0 ;
 
@@ -159,7 +159,7 @@ RsItem *RsTurtleSerialiser::deserialise(void *data, uint32_t *size)
 
 }
 
-bool RsTurtleStringSearchRequestItem::serialize(void *data,uint32_t& pktsize)
+bool RsTurtleStringSearchRequestItem::serialize(void *data,uint32_t& pktsize) const
 {
 	uint32_t tlvsize = serial_size();
 	uint32_t offset = 0;
@@ -193,7 +193,7 @@ bool RsTurtleStringSearchRequestItem::serialize(void *data,uint32_t& pktsize)
 	return ok;
 }
 
-bool RsTurtleRegExpSearchRequestItem::serialize(void *data,uint32_t& pktsize)
+bool RsTurtleRegExpSearchRequestItem::serialize(void *data,uint32_t& pktsize) const
 {
 	uint32_t tlvsize = serial_size();
 	uint32_t offset = 0;
@@ -284,22 +284,19 @@ RsTurtleRegExpSearchRequestItem::RsTurtleRegExpSearchRequestItem(void *data,uint
 	uint32_t n =0 ;
 	ok &= getRawUInt32(data,pktsize,&offset,&n) ;
 
-        if(ok)
-        expr._tokens.resize(n) ;
+	if(ok) expr._tokens.resize(n) ;
 
 	for(uint32_t i=0;i<n && ok;++i) ok &= getRawUInt8(data,pktsize,&offset,&expr._tokens[i]) ;
 
 	ok &= getRawUInt32(data,pktsize,&offset,&n) ;
 
-        if(ok)
-        expr._ints.resize(n) ;
+	if(ok) expr._ints.resize(n) ;
 
 	for(uint32_t i=0;i<n && ok;++i) ok &= getRawUInt32(data,pktsize,&offset,&expr._ints[i]) ;
 
-    ok &= getRawUInt32(data,pktsize,&offset,&n) ;
+	ok &= getRawUInt32(data,pktsize,&offset,&n);
 
-    if(ok)
-	expr._strings.resize(n) ;
+	if (ok) expr._strings.resize(n);
 
 	for(uint32_t i=0;i<n && ok;++i) ok &= GetTlvString(data, pktsize, &offset, TLV_TYPE_STR_VALUE, expr._strings[i]); 	
 
@@ -313,7 +310,7 @@ RsTurtleRegExpSearchRequestItem::RsTurtleRegExpSearchRequestItem(void *data,uint
 #endif
 }
 
-bool RsTurtleSearchResultItem::serialize(void *data,uint32_t& pktsize)
+bool RsTurtleSearchResultItem::serialize(void *data,uint32_t& pktsize) const
 {
 	uint32_t tlvsize = serial_size();
 	uint32_t offset = 0;
@@ -398,7 +395,7 @@ RsTurtleSearchResultItem::RsTurtleSearchResultItem(void *data,uint32_t pktsize)
 #endif
 }
 
-bool RsTurtleOpenTunnelItem::serialize(void *data,uint32_t& pktsize)
+bool RsTurtleOpenTunnelItem::serialize(void *data,uint32_t& pktsize) const
 {
 	uint32_t tlvsize = serial_size();
 	uint32_t offset = 0;
@@ -464,7 +461,7 @@ RsTurtleOpenTunnelItem::RsTurtleOpenTunnelItem(void *data,uint32_t pktsize)
 #endif
 }
 
-bool RsTurtleTunnelOkItem::serialize(void *data,uint32_t& pktsize)
+bool RsTurtleTunnelOkItem::serialize(void *data,uint32_t& pktsize) const
 {
 	uint32_t tlvsize = serial_size();
 	uint32_t offset = 0;
@@ -572,7 +569,7 @@ RsTurtleGenericDataItem::RsTurtleGenericDataItem(void *data,uint32_t pktsize)
 #endif
 }
 
-bool RsTurtleGenericDataItem::serialize(void *data,uint32_t& pktsize)
+bool RsTurtleGenericDataItem::serialize(void *data,uint32_t& pktsize) const
 {
 	uint32_t tlvsize = serial_size();
 	uint32_t offset = 0;

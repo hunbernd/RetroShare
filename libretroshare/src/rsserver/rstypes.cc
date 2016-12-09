@@ -32,6 +32,7 @@
 #include "retroshare/rstypes.h"
 #include <iostream>
 #include <iomanip>
+#include <time.h>
 
 
 /**********************************************************************
@@ -44,7 +45,26 @@
  *
 **********************************************************************/
 
-
+std::ostream &operator<<(std::ostream &out, const DirDetails& d)
+{
+    std::cerr << "====DIR DETAILS====" << std::endl;
+    std::cerr << "  parent pointer: " << d.parent << std::endl;
+    std::cerr << "  current pointer: " << d.ref << std::endl;
+    std::cerr << "  parent row    : " << d.prow << std::endl;
+    std::cerr << "  type          : " << (int)d.type << std::endl;
+    std::cerr << "  PeerId        : " << d.id << std::endl;
+    std::cerr << "  Name          : " << d.name << std::endl;
+    std::cerr << "  Hash          : " << d.hash << std::endl;
+    std::cerr << "  Path          : " << d.path << std::endl;
+    std::cerr << "  Count         : " << d.count << std::endl;
+    std::cerr << "  Age           : " << time(NULL) - (int)d.mtime << std::endl;
+    std::cerr << "  Min age       : " << time(NULL) - (int)d.max_mtime << std::endl;
+    std::cerr << "  Flags         : " << d.flags << std::endl;
+    std::cerr << "  Parent groups : " ; for(std::list<RsNodeGroupId>::const_iterator it(d.parent_groups.begin());it!=d.parent_groups.end();++it) std::cerr << (*it) << " "; std::cerr << std::endl;
+    std::cerr << "  Children      : " ; for(uint32_t i=0;i<d.children.size();++i) std::cerr << (void*)(intptr_t)d.children[i].ref << " "; std::cerr << std::endl;
+    std::cerr << "===================" << std::endl;
+    return out;
+}
 std::ostream &operator<<(std::ostream &out, const FileInfo &info)
 {
 	out << "FileInfo: path: " << info.path;

@@ -790,9 +790,10 @@ QString RetroShareLink::toString() const
 
 #if QT_VERSION >= QT_VERSION_CHECK(5,0,0)
 	url.setQuery(urlQuery);
+	return url.toString(QUrl::EncodeSpaces | QUrl::EncodeUnicode);
+#else
+	return url.toString().replace(" ","%20");//Seems to be already done with Qt4 but to be sure.
 #endif
-
-	return url.toString();
 }
 
 QString RetroShareLink::niceName() const
@@ -1586,46 +1587,8 @@ void RSLinkClipboard::parseClipboard(QList<RetroShareLink> &links)
 {
 	// parse clipboard for links.
 	//
-	links.clear();
 	QString text = QApplication::clipboard()->text() ;
-
-	std::cerr << "Parsing clipboard:" << text.toStdString() << std::endl ;
-
-	QRegExp rx(QString("retroshare://(%1)[^\r\n]+").arg(HOST_REGEXP));
-
-	int pos = 0;
-
-	while((pos = rx.indexIn(text, pos)) != -1)
-	{
-		QString url(text.mid(pos, rx.matchedLength()));
-		RetroShareLink link(url);
-
-		if(link.valid())
-		{
-			// check that the link is not already in the list:
-			bool already = false ;
-			for (int i = 0; i <links.size(); ++i)
-				if(links[i] == link)
-				{
-					already = true ;
-					break ;
-				}
-
-			if(!already)
-			{
-				links.push_back(link) ;
-#ifdef DEBUG_RSLINK
-				std::cerr << "captured link: " << link.toString().toStdString() << std::endl ;
-#endif
-			}
-		}
-#ifdef DEBUG_RSLINK
-		else
-			std::cerr << "invalid link" << std::endl ;
-#endif
-
-		pos += rx.matchedLength();
-	}
+	parseText(text, links);
 }
 
 QString RSLinkClipboard::toString()
@@ -1687,5 +1650,48 @@ bool RSLinkClipboard::empty(RetroShareLink::enumType type /* = RetroShareLink::T
 	}
 
 	return RetroShareLink::process(linksToProcess, flag);
+}
+
+void RSLinkClipboard::parseText(QString text, QList<RetroShareLink> &links)
+{
+	links.clear();
+
+	std::cerr << "Parsing text:" << text.toStdString() << std::endl ;
+
+	QRegExp rx(QString("retroshare://(%1)[^\r\n]+").arg(HOST_REGEXP));
+
+	int pos = 0;
+
+	while((pos = rx.indexIn(text, pos)) != -1)
+	{
+		QString url(text.mid(pos, rx.matchedLength()));
+		RetroShareLink link(url);
+
+		if(link.valid())
+		{
+			// check that the link is not already in the list:
+			bool already = false ;
+			for (int i = 0; i <links.size(); ++i)
+				if(links[i] == link)
+				{
+					already = true ;
+					break ;
+				}
+
+			if(!already)
+			{
+				links.push_back(link) ;
+#ifdef DEBUG_RSLINK
+				std::cerr << "captured link: " << link.toString().toStdString() << std::endl ;
+#endif
+			}
+		}
+#ifdef DEBUG_RSLINK
+		else
+			std::cerr << "invalid link" << std::endl ;
+#endif
+
+		pos += rx.matchedLength();
+	}
 }
 

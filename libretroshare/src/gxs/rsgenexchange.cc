@@ -1691,7 +1691,7 @@ void RsGenExchange::processMsgMetaChanges()
     {
         MsgLocMetaData& m = mit->second;
 
-        int32_t value, mask;
+		int32_t value, mask;
         bool ok = true;
         bool changed = false;
 
@@ -1717,7 +1717,7 @@ void RsGenExchange::processMsgMetaChanges()
                     {
                         RsGxsMsgMetaData* meta = *(msgMetaV.begin());
                         value = (meta->mMsgStatus & ~mask) | (mask & value);
-                        changed = (meta->mMsgStatus != value);
+						changed = (static_cast<int64_t>(meta->mMsgStatus) != value);
                         m.val.put(RsGeneralDataService::MSG_META_STATUS, value);
                         delete meta;
                         ok = true;
@@ -2226,7 +2226,7 @@ void RsGenExchange::processMessageDelete()
 	}
 
 
-#warning TODO: notify for deleted messages
+#warning csoler: TODO: notify for deleted messages
 #ifdef SUSPENDED
 	std::list<RsGxsGroupId> grpDeleted;
 	std::map<uint32_t, GrpNote>::iterator mit = toNotify.begin();
@@ -2402,7 +2402,7 @@ void RsGenExchange::publishGrps()
 					    {
 						    RsTemporaryMemory metaData(mdSize);
 						    serialOk = grp->metaData->serialise(metaData, mdSize,RS_GXS_GRP_META_DATA_CURRENT_API_VERSION);
-#warning TODO: grp->meta should be renamed grp->public_meta !
+#warning csoler: TODO: grp->meta should be renamed grp->public_meta !
 						    grp->meta.setBinData(metaData, mdSize);
 					    }
 
@@ -2419,7 +2419,7 @@ void RsGenExchange::publishGrps()
 							    mDataAccess->updateGroupData(grp);
 						    else
 							    mDataAccess->addGroupData(grp);
-#warning this is bad: addGroupData/updateGroupData actially deletes grp. But it may be used below? grp should be a class object and not deleted manually!
+#warning csoler: this is bad: addGroupData/updateGroupData actially deletes grp. But it may be used below? grp should be a class object and not deleted manually!
 
                                                      groups_to_subscribe.push_back(grpId) ;
 					    }
@@ -2822,10 +2822,8 @@ void RsGenExchange::processRecvdMessages()
 		    mNetService->rejectMessage(*it) ;
 }
 
-bool RsGenExchange::acceptNewGroup(const RsGxsGrpMetaData *grpMeta)
-{
-    return true;
-}
+bool RsGenExchange::acceptNewGroup(const RsGxsGrpMetaData* /*grpMeta*/ )
+{ return true; }
 
 void RsGenExchange::processRecvdGroups()
 {
