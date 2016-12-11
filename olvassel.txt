@@ -6,6 +6,10 @@ Ez a verzió módosításokat tartalmaz, de mindenben kompatibilis a hivatalos verzi
 
 A FriendMap kiegészítõnek van némi stabilitási problémája. Ha nem indul az RS, töröld a FriendMap.dll-t.
 
+A fájlmegosztási rendszerben jelentõs változások történtek.
+Amire számíts: az összes megosztott fájl újrahashelése elsõ indításkor, megosztott mappák hiányozhatnak, újra meg kell õket osztani.
+Ha valami nem mûködik töröld ezeket a fájlokat: ft_database.cfg, ft_database.cfg.sgn, ft_database.cfg.tmp, ft_database.cfg.sgn.tmp, ft_extra.cfg, ft_extra.cfg.sgn, ft_extra.cfg.tmp, ft_extra.cfg.sgn.tmp, ft_transfers.cfg, ft_transfers.cfg.sgn, ft_transfers.cfg.tmp, ft_transfers.cfg.sgn.tmp
+
 ----------------------------------
 Megváltoztatott dolgok a hivataloshoz verzióhoz képest:
 ----------------------------------

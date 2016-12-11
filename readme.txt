@@ -6,6 +6,10 @@ This version contains modifications, but fully compatible with the official stab
 
 The FriendMap plugin has stability issues. If RS cannot start, delete the FriendMap.dll.
 
+There were large changes in file sharing system.
+Expect: rehashing all of the shared files at the first startup, shared folders may be missing, you have to share them again.
+If there is a problem, delete the following files: ft_database.cfg, ft_database.cfg.sgn, ft_database.cfg.tmp, ft_database.cfg.sgn.tmp, ft_extra.cfg, ft_extra.cfg.sgn, ft_extra.cfg.tmp, ft_extra.cfg.sgn.tmp, ft_transfers.cfg, ft_transfers.cfg.sgn, ft_transfers.cfg.tmp, ft_transfers.cfg.sgn.tmp
+
 ----------------------------------
 Changed things from the official version:
 ----------------------------------
