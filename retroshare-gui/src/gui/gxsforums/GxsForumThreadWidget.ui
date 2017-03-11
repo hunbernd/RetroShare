@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>851</width>
+    <width>1217</width>
     <height>721</height>
    </rect>
   </property>
@@ -236,6 +236,18 @@
          <column>
           <property name="text">
            <string>Date</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string/>
+          </property>
+          <property name="toolTip">
+           <string>Distribution</string>
+          </property>
+          <property name="icon">
+           <iconset resource="../icons.qrc">
+            <normaloff>:/icons/flag-green.png</normaloff>:/icons/flag-green.png</iconset>
           </property>
          </column>
          <column>
@@ -551,6 +563,7 @@
  </customwidgets>
  <resources>
   <include location="../images.qrc"/>
+  <include location="../icons.qrc"/>
  </resources>
  <connections/>
 </ui>

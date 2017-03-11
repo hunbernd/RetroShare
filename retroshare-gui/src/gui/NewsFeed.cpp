@@ -119,12 +119,14 @@ NewsFeed::NewsFeed(QWidget *parent) :
 	connect(ui->sortComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(sortChanged(int)));
 
 	connect(ui->removeAllButton, SIGNAL(clicked()), ui->feedWidget, SLOT(clear()));
-	connect(ui->feedOptionsButton, SIGNAL(clicked()), this, SLOT(feedoptions()));
 	connect(ui->feedWidget, SIGNAL(feedCountChanged()), this, SLOT(sendNewsFeedChanged()));
+
+	connect(ui->feedOptionsButton, SIGNAL(clicked()), this, SLOT(feedoptions()));
+    ui->feedOptionsButton->hide();	// (csoler) Hidden until we repare the system to display a specific settings page.
 
 QString hlp_str = tr(
  " <h1><img width=\"32\" src=\":/icons/help_64.png\">&nbsp;&nbsp;News Feed</h1>                                                          \
-   <p>The News Feed displays the last events on your network, sorted by the time you received them.                \
+   <p>The Log Feed displays the last events on your network, sorted by the time you received them.                \
    This gives you a summary of the activity of your friends.                                                       \
    You can configure which events to show by pressing on <b>Options</b>. </p>                                      \
    <p>The various events shown are:                                                                                \
@@ -136,7 +138,7 @@ QString hlp_str = tr(
    </ul> </p>                                                                                                      \
  ") ;
 
-	registerHelpButton(ui->helpButton,hlp_str) ;
+	registerHelpButton(ui->helpButton,hlp_str,"NewFeed") ;
 
 	// load settings
 	processSettings(true);
@@ -1396,5 +1398,5 @@ void NewsFeed::sendNewsFeedChanged()
 
 void NewsFeed::feedoptions()
 {
-	RSettingsWin::showYourself(this, RSettingsWin::Notify);
+	SettingsPage::showYourself(this, SettingsPage::Notify);
 }

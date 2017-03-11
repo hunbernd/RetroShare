@@ -33,10 +33,12 @@
 
 static const uint32_t MAX_GXS_IDS_REQUESTS_NET   =  10 ; // max number of requests from cache/net (avoids killing the system!)
 
-//#define GXSUTIL_DEBUG 1
+//#define DEBUG_GXSUTIL 1
 
-RsGxsMessageCleanUp::RsGxsMessageCleanUp(RsGeneralDataService* const dataService, uint32_t messageStorePeriod, uint32_t chunkSize)
-: mDs(dataService), MESSAGE_STORE_PERIOD(messageStorePeriod), CHUNK_SIZE(chunkSize)
+#define GXSUTIL_DEBUG() std::cerr << time(NULL)    << " : GXS_UTIL : " << __FUNCTION__ << " : "
+
+RsGxsMessageCleanUp::RsGxsMessageCleanUp(RsGeneralDataService* const dataService, RsGenExchange *genex, uint32_t chunkSize)
+: mDs(dataService), mGenExchangeClient(genex), CHUNK_SIZE(chunkSize)
 {
 
 	std::map<RsGxsGroupId, RsGxsGrpMetaData*> grpMeta;
@@ -45,11 +47,8 @@ RsGxsMessageCleanUp::RsGxsMessageCleanUp(RsGeneralDataService* const dataService
 	std::map<RsGxsGroupId, RsGxsGrpMetaData*>::iterator cit = grpMeta.begin();
 
 	for(;cit != grpMeta.end(); ++cit)
-	{
 		mGrpMeta.push_back(cit->second);
-	}
 }
-
 
 bool RsGxsMessageCleanUp::clean()
 {
@@ -57,6 +56,9 @@ bool RsGxsMessageCleanUp::clean()
 
 	time_t now = time(NULL);
 
+#ifdef DEBUG_GXSUTIL
+	GXSUTIL_DEBUG() << "  Cleaning up groups in service" << std::hex << mGenExchangeClient->serviceType() << std::dec << std::endl;
+#endif
 	while(!mGrpMeta.empty())
 	{
 		RsGxsGrpMetaData* grpMeta = mGrpMeta.back();
@@ -70,7 +72,12 @@ bool RsGxsMessageCleanUp::clean()
 
 		GxsMsgMetaResult::iterator mit = result.begin();
 
+#ifdef DEBUG_GXSUTIL
+		GXSUTIL_DEBUG() << "  Cleaning up group message for group ID " << grpId << std::endl;
+#endif
 		req.clear();
+
+        uint32_t store_period = mGenExchangeClient->getStoragePeriod(grpId) ;
 
 		for(; mit != result.end(); ++mit)
 		{
@@ -82,7 +89,7 @@ bool RsGxsMessageCleanUp::clean()
 				RsGxsMsgMetaData* meta = *vit;
 
 				// check if expired
-				bool remove = (meta->mPublishTs + MESSAGE_STORE_PERIOD) < now;
+				bool remove = store_period > 0 && (meta->mPublishTs + store_period) < now;
 
 				// check client does not want the message kept regardless of age
 				remove &= !(meta->mMsgStatus & GXS_SERV::GXS_MSG_STATUS_KEEP);
@@ -95,7 +102,7 @@ bool RsGxsMessageCleanUp::clean()
 				{
 					req[grpId].push_back(meta->mMsgId);
                     
-                    			std::cerr << "Scheduling msg id " << meta->mMsgId << " in grp " << grpId << " for removal." << std::endl;
+					GXSUTIL_DEBUG() << "    Scheduling msg id " << meta->mMsgId << " in grp " << grpId << " for removal." << std::endl;
 				}
 
 				delete meta;
@@ -114,8 +121,8 @@ bool RsGxsMessageCleanUp::clean()
 	return mGrpMeta.empty();
 }
 
-RsGxsIntegrityCheck::RsGxsIntegrityCheck(RsGeneralDataService* const dataService, RsGixs *gixs) :
-		mDs(dataService), mDone(false), mIntegrityMutex("integrity"),mGixs(gixs)
+RsGxsIntegrityCheck::RsGxsIntegrityCheck(RsGeneralDataService* const dataService, RsGenExchange *genex, RsGixs *gixs) :
+		mDs(dataService),mGenExchangeClient(genex), mDone(false), mIntegrityMutex("integrity"),mGixs(gixs)
 { }
 
 void RsGxsIntegrityCheck::run()
@@ -132,7 +139,7 @@ bool RsGxsIntegrityCheck::check()
     GxsMsgReq msgIds;
     GxsMsgReq grps;
 
-    std::set<RsGxsId> used_gxs_ids ;
+    std::map<RsGxsId,RsIdentityUsage> used_gxs_ids ;
     std::set<RsGxsGroupId> subscribed_groups ;
 
     // compute hash and compare to stored value, if it fails then simply add it
@@ -160,12 +167,12 @@ bool RsGxsIntegrityCheck::check()
 
 				    if(!grp->metaData->mAuthorId.isNull())
 				    {
-#ifdef GXSUTIL_DEBUG
-					    std::cerr << "TimeStamping group authors' key ID " << grp->metaData->mAuthorId << " in group ID " << grp->grpId << std::endl;
+#ifdef DEBUG_GXSUTIL
+					    GXSUTIL_DEBUG() << "TimeStamping group authors' key ID " << grp->metaData->mAuthorId << " in group ID " << grp->grpId << std::endl;
 #endif
 
-					if(rsIdentity!=NULL && !rsIdentity->isBanned(grp->metaData->mAuthorId))
-						used_gxs_ids.insert(grp->metaData->mAuthorId) ;
+					if(rsReputations!=NULL && rsReputations->overallReputationLevel(grp->metaData->mAuthorId) > RsReputations::REPUTATION_LOCALLY_NEGATIVE)
+						used_gxs_ids.insert(std::make_pair(grp->metaData->mAuthorId,RsIdentityUsage(mGenExchangeClient->serviceType(),RsIdentityUsage::GROUP_AUTHOR_KEEP_ALIVE,grp->grpId))) ;
 				    }
 			    }
 		    }
@@ -180,6 +187,21 @@ bool RsGxsIntegrityCheck::check()
 	    {
 		    grpsToDel.push_back(grp->grpId);
 	    }
+
+		if(!(grp->metaData->mSubscribeFlags & GXS_SERV::GROUP_SUBSCRIBE_SUBSCRIBED) && !(grp->metaData->mSubscribeFlags & GXS_SERV::GROUP_SUBSCRIBE_ADMIN) && !(grp->metaData->mSubscribeFlags & GXS_SERV::GROUP_SUBSCRIBE_PUBLISH))
+        {
+            RsGroupNetworkStats stats ;
+            mGenExchangeClient->getGroupNetworkStats(grp->grpId,stats);
+
+            if(stats.mSuppliers == 0 && stats.mMaxVisibleCount == 0 && stats.mGrpAutoSync)
+            {
+#ifdef DEBUG_GXSUTIL
+                GXSUTIL_DEBUG() << "Scheduling group \"" << grp->metaData->mGroupName << "\" ID=" << grp->grpId << " in service " << std::hex << mGenExchangeClient->serviceType() << std::dec << " for deletion because it has no suppliers not any visible data at friends." << std::endl;
+#endif
+				grpsToDel.push_back(grp->grpId);
+            }
+        }
+
 	    delete grp;
     }
 
@@ -243,11 +265,11 @@ bool RsGxsIntegrityCheck::check()
 		    }
 		    else if(!msg->metaData->mAuthorId.isNull() && subscribed_groups.find(msg->metaData->mGroupId)!=subscribed_groups.end())
 		    {
-#ifdef GXSUTIL_DEBUG
-			    std::cerr << "TimeStamping message authors' key ID " << msg->metaData->mAuthorId << " in message " << msg->msgId << ", group ID " << msg->grpId<< std::endl;
+#ifdef DEBUG_GXSUTIL
+			    GXSUTIL_DEBUG() << "TimeStamping message authors' key ID " << msg->metaData->mAuthorId << " in message " << msg->msgId << ", group ID " << msg->grpId<< std::endl;
 #endif
-			    if(rsIdentity!=NULL && !rsIdentity->isBanned(msg->metaData->mAuthorId))
-				    used_gxs_ids.insert(msg->metaData->mAuthorId) ;
+			    if(rsReputations!=NULL && rsReputations->overallReputationLevel(msg->metaData->mAuthorId) > RsReputations::REPUTATION_LOCALLY_NEGATIVE)
+				    used_gxs_ids.insert(std::make_pair(msg->metaData->mAuthorId,RsIdentityUsage(mGenExchangeClient->serviceType(),RsIdentityUsage::MESSAGE_AUTHOR_KEEP_ALIVE,msg->metaData->mGroupId,msg->metaData->mMsgId))) ;
 		    }
 
 		    delete msg;
@@ -266,27 +288,27 @@ bool RsGxsIntegrityCheck::check()
     }
     mDeletedMsgs = msgsToDel;
 
-#ifdef GXSUTIL_DEBUG
-    std::cerr << "At end of pass, this is the list used GXS ids: " << std::endl;
-    std::cerr << "  requesting them to GXS identity service to enforce loading." << std::endl;
+#ifdef DEBUG_GXSUTIL
+    GXSUTIL_DEBUG() << "At end of pass, this is the list used GXS ids: " << std::endl;
+    GXSUTIL_DEBUG() << "  requesting them to GXS identity service to enforce loading." << std::endl;
 #endif
 
     std::list<RsPeerId> connected_friends ;
     rsPeers->getOnlineList(connected_friends) ;
 
-    std::vector<RsGxsId> gxs_ids ;
+    std::vector<std::pair<RsGxsId,RsIdentityUsage> > gxs_ids ;
 
-    for(std::set<RsGxsId>::const_iterator it(used_gxs_ids.begin());it!=used_gxs_ids.end();++it)
+    for(std::map<RsGxsId,RsIdentityUsage>::const_iterator it(used_gxs_ids.begin());it!=used_gxs_ids.end();++it)
     {
 	    gxs_ids.push_back(*it) ;
-#ifdef GXSUTIL_DEBUG
-	    std::cerr << "    " << *it <<  std::endl;
+#ifdef DEBUG_GXSUTIL
+	    GXSUTIL_DEBUG() << "    " << *it <<  std::endl;
 #endif
     }
     uint32_t nb_requested_not_in_cache = 0;
 
-#ifdef GXSUTIL_DEBUG
-    std::cerr << "  issuing random get on friends for non existing IDs" << std::endl;
+#ifdef DEBUG_GXSUTIL
+    GXSUTIL_DEBUG() << "  issuing random get on friends for non existing IDs" << std::endl;
 #endif
 
     // now request a cache update for them, which triggers downloading from friends, if missing.
@@ -294,36 +316,32 @@ bool RsGxsIntegrityCheck::check()
     for(;nb_requested_not_in_cache<MAX_GXS_IDS_REQUESTS_NET && !gxs_ids.empty();)
     {
 	    uint32_t n = RSRandom::random_u32() % gxs_ids.size() ;
-#ifdef GXSUTIL_DEBUG
-	    std::cerr << "    requesting ID " << gxs_ids[n] ;
+#ifdef DEBUG_GXSUTIL
+	    GXSUTIL_DEBUG() << "    requesting ID " << gxs_ids[n] ;
 #endif
 
-	    if(!mGixs->haveKey(gxs_ids[n]))	// checks if we have it already in the cache (conservative way to ensure that we atually have it)
+	    if(!mGixs->haveKey(gxs_ids[n].first))	// checks if we have it already in the cache (conservative way to ensure that we atually have it)
 	    { 
-		    mGixs->requestKey(gxs_ids[n],connected_friends);
+		    mGixs->requestKey(gxs_ids[n].first,connected_friends,gxs_ids[n].second);
 
 		    ++nb_requested_not_in_cache ;
-#ifdef GXSUTIL_DEBUG
-		    std::cerr << "  ... from cache/net" << std::endl;
+#ifdef DEBUG_GXSUTIL
+		    GXSUTIL_DEBUG() << "  ... from cache/net" << std::endl;
 #endif
 	    }
 	    else
 	    { 
-#ifdef GXSUTIL_DEBUG
-		    std::cerr << "  ... already in cache" << std::endl;
+#ifdef DEBUG_GXSUTIL
+		    GXSUTIL_DEBUG() << "  ... already in cache" << std::endl;
 #endif
-
-		    // Note: we could time_stamp even in the case where the id is not cached. Anyway, it's not really a problem here, since IDs have a high chance of
-		    // behing eventually stamped.
-
-		    mGixs->timeStampKey(gxs_ids[n]) ;
 	    }
+		mGixs->timeStampKey(gxs_ids[n].first,gxs_ids[n].second);
 
 	    gxs_ids[n] = gxs_ids[gxs_ids.size()-1] ;
 	    gxs_ids.pop_back() ;
     }
-#ifdef GXSUTIL_DEBUG
-    std::cerr << "  total actual cache requests: "<< nb_requested_not_in_cache << std::endl;
+#ifdef DEBUG_GXSUTIL
+    GXSUTIL_DEBUG() << "  total actual cache requests: "<< nb_requested_not_in_cache << std::endl;
 #endif
 
     return true;

@@ -31,6 +31,7 @@
 #include "rsgds.h"
 
 class RsGixs ;
+class RsGenExchange ;
 
 /*!
  * Handy function for cleaning out meta result containers
@@ -47,6 +48,70 @@ void freeAndClearContainerResource(Container container)
 
 	container.clear();
 }
+
+// temporary holds a map of pointers to class T, and destroys all pointers on delete.
+
+template<class T>
+class RsGxsMetaDataTemporaryMap: public std::map<RsGxsGroupId,T*>
+{
+public:
+    virtual ~RsGxsMetaDataTemporaryMap()
+    {
+        clear() ;
+    }
+
+    virtual void clear()
+    {
+        for(typename RsGxsMetaDataTemporaryMap<T>::iterator it = this->begin();it!=this->end();++it)
+            if(it->second != NULL)
+		    delete it->second ;
+
+        std::map<RsGxsGroupId,T*>::clear() ;
+    }
+};
+
+template<class T>
+class RsGxsMetaDataTemporaryMapVector: public std::map<RsGxsGroupId,std::vector<T*> >
+{
+public:
+    virtual ~RsGxsMetaDataTemporaryMapVector()
+    {
+        clear() ;
+    }
+
+    virtual void clear()
+    {
+        for(typename RsGxsMetaDataTemporaryMapVector<T>::iterator it = this->begin();it!=this->end();++it)
+        {
+            for(uint32_t i=0;i<it->second.size();++i)
+				delete it->second[i] ;
+
+            it->second.clear();
+        }
+
+        std::map<RsGxsGroupId,std::vector<T*> >::clear() ;
+    }
+};
+#ifdef UNUSED
+template<class T>
+class RsGxsMetaDataTemporaryMapVector: public std::vector<T*>
+{
+public:
+    virtual ~RsGxsMetaDataTemporaryMapVector()
+    {
+        clear() ;
+    }
+
+    virtual void clear()
+    {
+        for(typename RsGxsMetaDataTemporaryMapVector<T>::iterator it = this->begin();it!=this->end();++it)
+            if(it->second != NULL)
+		    delete it->second ;
+        std::vector<T*>::clear() ;
+    }
+};
+#endif
+
 
 inline RsGxsGrpMsgIdPair getMsgIdPair(RsNxsMsg& msg)
 {
@@ -73,7 +138,7 @@ public:
 	 * @param chunkSize
 	 * @param sleepPeriod
 	 */
-	RsGxsMessageCleanUp(RsGeneralDataService* const dataService, uint32_t messageStorePeriod, uint32_t chunkSize);
+	RsGxsMessageCleanUp(RsGeneralDataService* const dataService, RsGenExchange *genex, uint32_t chunkSize);
 
 	/*!
 	 * On construction this should be called to progress deletions
@@ -90,7 +155,8 @@ public:
 private:
 
 	RsGeneralDataService* const mDs;
-	const uint32_t MESSAGE_STORE_PERIOD, CHUNK_SIZE;
+    RsGenExchange *mGenExchangeClient;
+	uint32_t CHUNK_SIZE;
 	std::vector<RsGxsGrpMetaData*> mGrpMeta;
 };
 
@@ -113,8 +179,7 @@ public:
 	 * @param chunkSize
 	 * @param sleepPeriod
 	 */
-	RsGxsIntegrityCheck(RsGeneralDataService* const dataService, RsGixs *gixs);
-
+	RsGxsIntegrityCheck(RsGeneralDataService* const dataService, RsGenExchange *genex, RsGixs *gixs);
 
 	bool check();
 	bool isDone();
@@ -126,6 +191,7 @@ public:
 private:
 
 	RsGeneralDataService* const mDs;
+    RsGenExchange *mGenExchangeClient;
 	bool mDone;
 	RsMutex mIntegrityMutex;
 	std::list<RsGxsGroupId> mDeletedGrps;
@@ -156,9 +222,9 @@ public:
 class GroupDeletePublish
 {
 public:
-        GroupDeletePublish(RsGxsGrpItem* item, uint32_t token)
-            : grpItem(item), mToken(token) {}
-	RsGxsGrpItem* grpItem;
+        GroupDeletePublish(const RsGxsGroupId& grpId, uint32_t token)
+            : mGroupId(grpId), mToken(token) {}
+	RsGxsGroupId mGroupId;
 	uint32_t mToken;
 };
 

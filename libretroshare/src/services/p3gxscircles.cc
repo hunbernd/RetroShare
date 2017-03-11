@@ -159,21 +159,17 @@ RsServiceInfo p3GxsCircles::getServiceInfo()
 
 uint32_t p3GxsCircles::circleAuthenPolicy()
 {
-
 	uint32_t policy = 0;
 	uint8_t flag = 0;
 
-
-	//flag = GXS_SERV::MSG_AUTHEN_ROOT_PUBLISH_SIGN;
-	//flag = GXS_SERV::MSG_AUTHEN_CHILD_PUBLISH_SIGN;
-	//flag = GXS_SERV::MSG_AUTHEN_ROOT_AUTHOR_SIGN;
-	//flag = GXS_SERV::MSG_AUTHEN_CHILD_AUTHOR_SIGN;
+	flag = GXS_SERV::MSG_AUTHEN_ROOT_AUTHOR_SIGN | GXS_SERV::MSG_AUTHEN_CHILD_AUTHOR_SIGN;
 	RsGenExchange::setAuthenPolicyFlag(flag, policy, RsGenExchange::PUBLIC_GRP_BITS);
+
+	flag |= GXS_SERV::MSG_AUTHEN_ROOT_PUBLISH_SIGN | GXS_SERV::MSG_AUTHEN_CHILD_PUBLISH_SIGN;
 	RsGenExchange::setAuthenPolicyFlag(flag, policy, RsGenExchange::RESTRICTED_GRP_BITS);
 	RsGenExchange::setAuthenPolicyFlag(flag, policy, RsGenExchange::PRIVATE_GRP_BITS);
 
 	flag = 0;
-	//flag = GXS_SERV::GRP_OPTION_AUTHEN_AUTHOR_SIGN;
 	RsGenExchange::setAuthenPolicyFlag(flag, policy, RsGenExchange::GRP_OPTION_BITS);
 
 	return policy;
@@ -662,7 +658,6 @@ bool RsGxsCircleCache::addLocalFriend(const RsPgpId &pgpId)
 bool p3GxsCircles::request_CircleIdList()
 {
 	/* trigger request to load missing ids into cache */
-	std::list<RsGxsGroupId> groupIds;
 #ifdef DEBUG_CIRCLES
 	std::cerr << "p3GxsCircles::request_CircleIdList()";
 	std::cerr << std::endl;
@@ -676,7 +671,7 @@ bool p3GxsCircles::request_CircleIdList()
 	
 	RsGenExchange::getTokenService()->requestGroupInfo(token, ansType, opts);
 	GxsTokenQueue::queueRequest(token, CIRCLEREQ_CIRCLE_LIST);	
-	return 1;
+	return true;
 }
 
 
@@ -1094,7 +1089,7 @@ bool p3GxsCircles::locked_processLoadingCacheEntry(RsGxsCircleCache& cache)
 						rsPeers->getOnlineList(peers) ;
 					}
 
-					mIdentities->requestKey(pit->first, peers);
+					mIdentities->requestKey(pit->first, peers,RsIdentityUsage(serviceType(),RsIdentityUsage::CIRCLE_MEMBERSHIP_CHECK,RsGxsGroupId(cache.mCircleId)));
 					//isUnprocessedPeers = true;
 				}
 			}
@@ -1607,7 +1602,7 @@ void p3GxsCircles::checkDummyIdData()
 		std::vector<RsGxsIdGroup>::iterator it;
 		for(it = ids.begin(); it != ids.end(); ++it)
 		{
-                        if (it->mMeta.mGroupFlags & RSGXSID_GROUPFLAG_REALID)
+                        if (it->mMeta.mGroupFlags & RSGXSID_GROUPFLAG_REALID_kept_for_compatibility)
 			{
 #ifdef DEBUG_CIRCLES
 				std::cerr << "p3GxsCircles::checkDummyIdData() PgpLinkedId: " << it->mMeta.mGroupId;
@@ -1983,7 +1978,7 @@ bool p3GxsCircles::processMembershipRequests(uint32_t token)
 #ifdef DEBUG_CIRCLES
     std::cerr << "Processing circle membership requests." << std::endl;
 #endif
-    GxsMsgDataMap msgItems ;
+    RsGxsMetaDataTemporaryMapVector<RsGxsMsgItem> msgItems;
 
     if(!RsGenExchange::getMsgData(token, msgItems))
     {

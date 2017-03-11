@@ -35,13 +35,11 @@ class TransferPage: public ConfigPage
 		TransferPage(QWidget * parent = 0, Qt::WindowFlags flags = 0);
 		~TransferPage() {}
 
-		/** Saves the changes on this page */
-		virtual bool save(QString &/*errmsg*/) { return true ; }
 		/** Loads the settings for this page */
-		virtual void load() {}
+		virtual void load() ;
 
 		virtual QPixmap iconPixmap() const { return QPixmap(":/icons/settings/filesharing.svg") ; }
-        virtual QString pageName() const { return tr("File transfer") ; }
+        virtual QString pageName() const { return tr("Files") ; }
 		virtual QString helpText() const { return ""; }
 
 	public slots:
@@ -50,6 +48,16 @@ class TransferPage: public ConfigPage
 		void updateDiskSizeLimit(int) ;
         void updateMaxTRUpRate(int);
         void updateEncryptionPolicy(int);
+
+		void editDirectories() ;
+		void setIncomingDirectory();
+		void setPartialsDirectory();
+		void toggleAutoCheckDirectories(bool);
+
+		void updateAutoCheckDirectories()       ;
+		void updateAutoScanDirectoriesPeriod()  ;
+		void updateShareDownloadDirectory()     ;
+		void updateFollowSymLinks()             ;
 
 	private:
 

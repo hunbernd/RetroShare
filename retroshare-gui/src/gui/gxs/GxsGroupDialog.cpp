@@ -347,7 +347,6 @@ void GxsGroupDialog::setupVisibility()
 	ui.commentGroupBox->setVisible(mEnabledFlags & GXS_GROUP_FLAGS_COMMENTS);
 	ui.commentsLabel->setVisible(mEnabledFlags & GXS_GROUP_FLAGS_COMMENTS);
 	ui.commentsValueLabel->setVisible(mEnabledFlags & GXS_GROUP_FLAGS_COMMENTS);
-	//ui.commentslabel->setVisible(mEnabledFlags & GXS_GROUP_FLAGS_COMMENTS);
 
 	ui.extraFrame->setVisible(mEnabledFlags & GXS_GROUP_FLAGS_EXTRA);
 }
@@ -417,7 +416,10 @@ void GxsGroupDialog::updateFromExistingMeta(const QString &description)
     ui.nameline->setText(QString::fromUtf8(mGrpMeta.mGroupName.c_str()));
     ui.popline->setText(QString::number( mGrpMeta.mPop)) ;
     ui.postsline->setText(QString::number(mGrpMeta.mVisibleMsgCount));
-    ui.lastpostline->setText(DateTime::formatLongDateTime(mGrpMeta.mLastPost));
+    if(mGrpMeta.mLastPost==0)
+        ui.lastpostline->setText(tr("Never"));
+    else
+        ui.lastpostline->setText(DateTime::formatLongDateTime(mGrpMeta.mLastPost));
     ui.authorLabel->setId(mGrpMeta.mAuthorId);
     ui.IDline->setText(QString::fromStdString(mGrpMeta.mGroupId.toStdString()));
     ui.descriptiontextEdit->setPlainText(description);

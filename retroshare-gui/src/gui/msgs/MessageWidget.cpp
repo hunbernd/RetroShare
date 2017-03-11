@@ -135,6 +135,7 @@ MessageWidget::MessageWidget(bool controlled, QWidget *parent, Qt::WindowFlags f
 	connect(ui.expandFilesButton, SIGNAL(clicked()), this, SLOT(togglefileview()));
 	connect(ui.downloadButton, SIGNAL(clicked()), this, SLOT(getallrecommended()));
 	connect(ui.msgText, SIGNAL(anchorClicked(QUrl)), this, SLOT(anchorClicked(QUrl)));
+	connect(ui.sendinviteButton, SIGNAL(clicked()), this, SLOT(sendInvite()));
 
 	connect(NotifyQt::getInstance(), SIGNAL(messagesTagsChanged()), this, SLOT(messagesTagsChanged()));
 	connect(NotifyQt::getInstance(), SIGNAL(messagesChanged()), this, SLOT(messagesChanged()));
@@ -173,6 +174,8 @@ MessageWidget::MessageWidget(bool controlled, QWidget *parent, Qt::WindowFlags f
 	}
 
 	ui.dateText-> setText("");
+	
+	ui.inviteFrame->hide();
 }
 
 MessageWidget::~MessageWidget()
@@ -478,6 +481,12 @@ void MessageWidget::fill(const std::string &msgId)
 		std::cerr << "MessageWidget::fill() Couldn't find Msg" << std::endl;
 		return;
 	}
+	
+	if (msgInfo.msgflags & RS_MSG_USER_REQUEST){
+        ui.inviteFrame->show();
+  	} else {
+        ui.inviteFrame->hide();
+  	}
 
 	const std::list<FileInfo> &recList = msgInfo.files;
 	std::list<FileInfo>::const_iterator it;
@@ -571,7 +580,9 @@ void MessageWidget::fill(const std::string &msgId)
 
 		ui.subjectText->setText(QString::fromUtf8(msgInfo.title.c_str()));
 
-	text = RsHtmlMsg(msgInfo.msgflags).formatText(ui.msgText->document(), QString::fromUtf8(msgInfo.msg.c_str()), RSHTML_FORMATTEXT_EMBED_SMILEYS | RSHTML_FORMATTEXT_EMBED_LINKS);
+        // emoticons disabled because of crazy cost.
+	//text = RsHtmlMsg(msgInfo.msgflags).formatText(ui.msgText->document(), QString::fromUtf8(msgInfo.msg.c_str()), RSHTML_FORMATTEXT_EMBED_SMILEYS | RSHTML_FORMATTEXT_EMBED_LINKS);
+	text = RsHtmlMsg(msgInfo.msgflags).formatText(ui.msgText->document(), QString::fromUtf8(msgInfo.msg.c_str()),  RSHTML_FORMATTEXT_EMBED_LINKS);
 	ui.msgText->resetImagesStatus(Settings->getMsgLoadEmbeddedImages() || (msgInfo.msgflags & RS_MSG_LOAD_EMBEDDED_IMAGES));
 	ui.msgText->setHtml(text);
 
@@ -735,4 +746,21 @@ void MessageWidget::loadImagesAlways()
 	}
 
 	rsMail->MessageLoadEmbeddedImages(currMsgId, true);
+}
+
+void MessageWidget::sendInvite()
+{
+	MessageInfo mi;
+
+	if (!rsMail) 
+		return;
+
+	if (!rsMail->getMessage(currMsgId, mi))
+		return;
+
+    if ((QMessageBox::question(this, tr("Send invite?"),tr("Do you really want send a invite with your Certificate?"),QMessageBox::Yes|QMessageBox::No, QMessageBox::Yes))== QMessageBox::Yes)
+	{
+      MessageComposer::sendInvite(mi.rsgxsid_srcId);
+	}    
+
 }

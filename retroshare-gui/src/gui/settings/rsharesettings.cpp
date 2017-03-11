@@ -514,6 +514,16 @@ void RshareSettings::setChatSendMessageWithCtrlReturn(bool bValue)
 	setValueToGroup("Chat", "SendMessageWithCtrlReturn", bValue);
 }
 
+bool RshareSettings::getChatDoNotSendIsTyping()
+{
+	return valueFromGroup("Chat", "DoNotSendIsTyping", false).toBool();
+}
+
+void RshareSettings::setChatDoNotSendIsTyping(bool bValue)
+{
+	setValueToGroup("Chat", "DoNotSendIsTyping", bValue);
+}
+
 bool RshareSettings::getChatSendAsPlainTextByDef()
 {
 	return valueFromGroup("Chat", "SendAsPlainTextByDef", false).toBool();
@@ -1041,12 +1051,18 @@ bool RshareSettings::getForumLoadEmbeddedImages()
 {
 	return valueFromGroup("Forum", "LoadEmbeddedImages", false).toBool();
 }
-
+bool RshareSettings::getForumLoadEmoticons()
+{
+	return valueFromGroup("Forum", "LoadEmoticons", false).toBool();
+}
 void RshareSettings::setForumLoadEmbeddedImages(bool value)
 {
 	setValueToGroup("Forum", "LoadEmbeddedImages", value);
 }
-
+void RshareSettings::setForumLoadEmoticons(bool value)
+{
+	setValueToGroup("Forum", "LoadEmoticons", value);
+}
 /* Channel */
 bool RshareSettings::getChannelLoadThread()
 {
@@ -1143,4 +1159,15 @@ bool RshareSettings::getWebinterfaceAllowAllIps()
 void RshareSettings::setWebinterfaceAllowAllIps(bool allow_all)
 {
     setValueToGroup("Webinterface", "allowAllIps", allow_all);
+}
+
+bool RshareSettings::getPageAlreadyDisplayed(const QString& page_name)
+{
+	return valueFromGroup("PageAlreadyDisplayed",page_name,false).toBool();
+}
+
+
+void RshareSettings::setPageAlreadyDisplayed(const QString& page_name,bool b)
+{
+	return setValueToGroup("PageAlreadyDisplayed",page_name,b);
 }

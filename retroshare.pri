@@ -39,11 +39,26 @@ no_libresapihttpserver:CONFIG -= libresapihttpserver
 CONFIG *= sqlcipher
 no_sqlcipher:CONFIG -= sqlcipher
 
+# To enable autologin (this is higly discouraged as it may compromise your node
+# security in multiple ways) append the following assignation to qmake command
+# line "CONFIG+=rs_autologin"
+CONFIG *= no_rs_autologin
+rs_autologin:CONFIG -= no_rs_autologin
+
 # To disable GXS (General eXchange System) append the following
 # assignation to qmake command line "CONFIG+=no_rs_gxs"
 CONFIG *= rs_gxs
 no_rs_gxs:CONFIG -= rs_gxs
 
+# To disable Deprecated Warning append the following
+# assignation to qmake command line "CONFIG+=rs_nodeprecatedwarning"
+CONFIG *= no_rs_nodeprecatedwarning
+rs_nodeprecatedwarning:CONFIG -= no_rs_nodeprecatedwarning
+
+# To disable Cpp #Warning append the following
+# assignation to qmake command line "CONFIG+=rs_nocppwarning"
+CONFIG *= no_rs_nocppwarning
+rs_nocppwarning:CONFIG -= no_rs_nocppwarning
 
 unix {
 	isEmpty(PREFIX)   { PREFIX   = "/usr" }
@@ -52,6 +67,13 @@ unix {
 	isEmpty(LIB_DIR)  { LIB_DIR  = "$${PREFIX}/lib" }
 	isEmpty(DATA_DIR) { DATA_DIR = "$${PREFIX}/share/RetroShare06" }
 	isEmpty(PLUGIN_DIR) { PLUGIN_DIR  = "$${LIB_DIR}/retroshare/extensions6" }
+
+    rs_autologin {
+        !macx {
+            DEFINES *= HAS_GNOME_KEYRING
+            PKGCONFIG *= gnome-keyring-1
+        }
+    }
 }
 
 android-g++ {
@@ -136,3 +158,22 @@ libresapilocalserver:DEFINES *= LIBRESAPI_LOCAL_SERVER
 libresapihttpserver:DEFINES *= ENABLE_WEBUI
 sqlcipher:DEFINES -= NO_SQLCIPHER
 no_sqlcipher:DEFINES *= NO_SQLCIPHER
+rs_autologin {
+    DEFINES *= RS_AUTOLOGIN
+    warning("You have enabled RetroShare auto-login, this is discouraged. The usage of auto-login on some linux distributions may allow someone having access to your session to steal the SSL keys of your node location and therefore compromise your security")
+}
+
+rs_nodeprecatedwarning {
+    QMAKE_CXXFLAGS += -Wno-deprecated
+    QMAKE_CXXFLAGS += -Wno-deprecated-declarations
+    DEFINES *= RS_NO_WARN_DEPRECATED
+    warning("QMAKE: You have disable deprecated warnings.")
+}
+
+rs_nocppwarning {
+    QMAKE_CXXFLAGS += -Wno-cpp
+    DEFINES *= RS_NO_WARN_CPP
+    warning("QMAKE: You have disable cpp warnings.")
+}
+
+rs_gxs_mail:DEFINES *= RS_GXS_MAIL

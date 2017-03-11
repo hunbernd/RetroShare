@@ -717,14 +717,17 @@ int RsInit::LoadCertificates(bool autoLoginNT)
 		return 0 ;
 	}
 
+#ifdef RS_AUTOLOGIN
 	if(autoLoginNT)
 	{
-		std::cerr << "RetroShare will AutoLogin next time";
-		std::cerr << std::endl;
+		std::cerr << "RetroShare will AutoLogin next time" << std::endl;
 
 		RsLoginHandler::enableAutoLogin(preferredId,rsInitConfig->passwd);
 		rsInitConfig->autoLogin = true ;
 	}
+#else
+	(void) autoLoginNT;
+#endif // RS_AUTOLOGIN
 
 	/* wipe out password */
 
@@ -733,10 +736,11 @@ int RsInit::LoadCertificates(bool autoLoginNT)
 	rsInitConfig->gxs_passwd = rsInitConfig->passwd;
 	rsInitConfig->passwd = "";
 	
-	rsAccounts->storePreferredAccount();      
+	rsAccounts->storePreferredAccount();
 	return 1;
 }
 
+#ifdef RS_AUTOLOGIN
 bool RsInit::RsClearAutoLogin()
 {
 	RsPeerId preferredId;
@@ -747,6 +751,7 @@ bool RsInit::RsClearAutoLogin()
 	}
 	return	RsLoginHandler::clearAutoLogin(preferredId);
 }
+#endif // RS_AUTOLOGIN
 
 
 bool RsInit::isPortable()
@@ -1312,6 +1317,11 @@ int RsServer::StartupRetroShare()
 	//
 	mPluginsManager->loadPlugins(programatically_inserted_plugins) ;
 
+    	/**** Reputation system ****/
+
+    	p3GxsReputation *mReputations = new p3GxsReputation(mLinkMgr) ;
+    	rsReputations = mReputations ;
+
 #ifdef RS_ENABLE_GXS
 
 	std::string currGxsDir = rsAccounts->PathAccountDirectory() + "/gxs";
@@ -1338,8 +1348,8 @@ int RsServer::StartupRetroShare()
         // create GXS ID service
         RsGxsNetService* gxsid_ns = new RsGxsNetService(
                         RS_SERVICE_GXS_TYPE_GXSID, gxsid_ds, nxsMgr,
-			mGxsIdService, mGxsIdService->getServiceInfo(), 
-			mGxsIdService, mGxsCircles,mGxsIdService,
+			mGxsIdService, mGxsIdService->getServiceInfo(),
+			mReputations, mGxsCircles,mGxsIdService,
 			pgpAuxUtils,
             false,false); // don't synchronise group automatic (need explicit group request)
                         // don't sync messages at all.
@@ -1358,7 +1368,7 @@ int RsServer::StartupRetroShare()
         RsGxsNetService* gxscircles_ns = new RsGxsNetService(
                         RS_SERVICE_GXS_TYPE_GXSCIRCLE, gxscircles_ds, nxsMgr,
                         mGxsCircles, mGxsCircles->getServiceInfo(), 
-			mGxsIdService, mGxsCircles,mGxsIdService,
+			mReputations, mGxsCircles,mGxsIdService,
 			pgpAuxUtils,
 	            	true,	// synchronise group automatic 
                     	true); 	// sync messages automatic, since they contain subscription requests.
@@ -1377,16 +1387,12 @@ int RsServer::StartupRetroShare()
         RsGxsNetService* posted_ns = new RsGxsNetService(
                         RS_SERVICE_GXS_TYPE_POSTED, posted_ds, nxsMgr, 
 			mPosted, mPosted->getServiceInfo(), 
-			mGxsIdService, mGxsCircles,mGxsIdService,
+			mReputations, mGxsCircles,mGxsIdService,
 			pgpAuxUtils);
 
     mPosted->setNetworkExchangeService(posted_ns) ;
 
-    	/**** Reputation system ****/
-    
-    	p3GxsReputation *mReputations = new p3GxsReputation(mLinkMgr) ;
-    	rsReputations = mReputations ;
-        
+
         /**** Wiki GXS service ****/
 
 #ifdef RS_USE_WIKI
@@ -1417,7 +1423,7 @@ int RsServer::StartupRetroShare()
         RsGxsNetService* gxsforums_ns = new RsGxsNetService(
                         RS_SERVICE_GXS_TYPE_FORUMS, gxsforums_ds, nxsMgr,
                         mGxsForums, mGxsForums->getServiceInfo(),
-			mGxsIdService, mGxsCircles,mGxsIdService,
+			mReputations, mGxsCircles,mGxsIdService,
 			pgpAuxUtils);
 
     mGxsForums->setNetworkExchangeService(gxsforums_ns) ;
@@ -1433,7 +1439,7 @@ int RsServer::StartupRetroShare()
         RsGxsNetService* gxschannels_ns = new RsGxsNetService(
                         RS_SERVICE_GXS_TYPE_CHANNELS, gxschannels_ds, nxsMgr,
                         mGxsChannels, mGxsChannels->getServiceInfo(), 
-			mGxsIdService, mGxsCircles,mGxsIdService,
+			mReputations, mGxsCircles,mGxsIdService,
 			pgpAuxUtils);
 
     mGxsChannels->setNetworkExchangeService(gxschannels_ns) ;

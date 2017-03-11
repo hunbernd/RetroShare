@@ -160,19 +160,6 @@ void DirectoryStorage::locked_check()
         std::cerr << "Check error: " << error << std::endl;
 }
 
-bool DirectoryStorage::updateFile(const EntryIndex& index,const RsFileHash& hash,const std::string& fname, uint64_t size,time_t modf_time)
-{
-    RS_STACK_MUTEX(mDirStorageMtx) ;
-    mChanged = true ;
-    return mFileHierarchy->updateFile(index,hash,fname,size,modf_time);
-}
-bool DirectoryStorage::updateHash(const EntryIndex& index,const RsFileHash& hash)
-{
-    RS_STACK_MUTEX(mDirStorageMtx) ;
-    mChanged = true ;
-    return mFileHierarchy->updateHash(index,hash);
-}
-
 void DirectoryStorage::getStatistics(SharedDirStats& stats)
 {
     RS_STACK_MUTEX(mDirStorageMtx) ;
@@ -319,6 +306,12 @@ void DirectoryStorage::checkSave()
 /*                                           Local Directory Storage                                              */
 /******************************************************************************************************************/
 
+LocalDirectoryStorage::LocalDirectoryStorage(const std::string& fname,const RsPeerId& own_id)
+    : DirectoryStorage(own_id,fname)
+{
+	mTSChanged = false ;
+}
+
 RsFileHash LocalDirectoryStorage::makeEncryptedHash(const RsFileHash& hash)
 {
     return RsDirUtil::sha1sum(hash.toByteArray(),hash.SIZE_IN_BYTES);
@@ -352,6 +345,7 @@ int LocalDirectoryStorage::searchHash(const RsFileHash& hash, RsFileHash& real_h
 void LocalDirectoryStorage::setSharedDirectoryList(const std::list<SharedDirInfo>& lst)
 {
 	std::set<std::string> dirs_with_new_virtualname ;
+    bool dirs_with_changed_flags = false ;
 
 	{
 		RS_STACK_MUTEX(mDirStorageMtx) ;
@@ -387,16 +381,21 @@ void LocalDirectoryStorage::setSharedDirectoryList(const std::list<SharedDirInfo
 		{
 			std::map<std::string,SharedDirInfo>::iterator it2 = mLocalDirs.find(it->filename) ;
 
-			if(it2 != mLocalDirs.end() && it2->second.virtualname != it->virtualname)
-				dirs_with_new_virtualname.insert(it->filename) ;
+			if(it2 != mLocalDirs.end())
+            {
+                if(it2->second.virtualname != it->virtualname)
+					dirs_with_new_virtualname.insert(it->filename) ;
+
+				if(!SharedDirInfo::sameLists((*it).parent_groups,it2->second.parent_groups) || (*it).shareflags != it2->second.shareflags)
+                    dirs_with_changed_flags = true ;
+            }
 
 			new_dirs[it->filename] = *it;
 		}
 
 		mLocalDirs = new_dirs ;
+		mTSChanged = true ;
 	}
-
-	mTSChanged = true ;
 
     // now update the TS off-mutex.
 
@@ -406,6 +405,9 @@ void LocalDirectoryStorage::setSharedDirectoryList(const std::list<SharedDirInfo
 			std::cerr << "Updating TS of local dir \"" << dirit.name() << "\" with changed virtual name" << std::endl;
 			setDirectoryLocalModTime(*dirit,time(NULL));
 		}
+
+    if(dirs_with_changed_flags)
+        setDirectoryLocalModTime(0,time(NULL)) ;
 }
 
 void LocalDirectoryStorage::getSharedDirectoryList(std::list<SharedDirInfo>& lst)
@@ -502,14 +504,18 @@ void LocalDirectoryStorage::updateTimeStamps()
 #endif
     }
 }
-bool LocalDirectoryStorage::updateHash(const EntryIndex& index,const RsFileHash& hash)
+bool LocalDirectoryStorage::updateHash(const EntryIndex& index, const RsFileHash& hash, bool update_internal_hierarchy)
 {
-    {
-        RS_STACK_MUTEX(mDirStorageMtx) ;
+	RS_STACK_MUTEX(mDirStorageMtx) ;
 
-        mEncryptedHashes[makeEncryptedHash(hash)] = hash ;
-    }
-    return mFileHierarchy->updateHash(index,hash);
+	mEncryptedHashes[makeEncryptedHash(hash)] = hash ;
+	mChanged = true ;
+
+#ifdef DEBUG_LOCAL_DIRECTORY_STORAGE
+    std::cerr << "Updating index of hash " << hash << " update_internal=" << update_internal_hierarchy << std::endl;
+#endif
+
+	return (!update_internal_hierarchy)|| mFileHierarchy->updateHash(index,hash);
 }
 std::string LocalDirectoryStorage::locked_findRealRootFromVirtualFilename(const std::string& virtual_rootdir) const
 {
@@ -739,26 +745,29 @@ bool LocalDirectoryStorage::serialiseDirEntry(const EntryIndex& indx,RsTlvBinary
     //
     std::string virtual_dir_name = locked_getVirtualDirName(indx) ;
 
-    if(!FileListIO::writeField(section_data,section_size,section_offset,FILE_LIST_IO_TAG_DIR_NAME       ,virtual_dir_name                   )) return false ;
-    if(!FileListIO::writeField(section_data,section_size,section_offset,FILE_LIST_IO_TAG_RECURS_MODIF_TS,(uint32_t)dir->dir_most_recent_time)) return false ;
-    if(!FileListIO::writeField(section_data,section_size,section_offset,FILE_LIST_IO_TAG_MODIF_TS       ,(uint32_t)dir->dir_modtime         )) return false ;
+    if(!FileListIO::writeField(section_data,section_size,section_offset,FILE_LIST_IO_TAG_DIR_NAME       ,virtual_dir_name                   )) { free(section_data); return false ;}
+    if(!FileListIO::writeField(section_data,section_size,section_offset,FILE_LIST_IO_TAG_RECURS_MODIF_TS,(uint32_t)dir->dir_most_recent_time)) { free(section_data); return false ;}
+    if(!FileListIO::writeField(section_data,section_size,section_offset,FILE_LIST_IO_TAG_MODIF_TS       ,(uint32_t)dir->dir_modtime         )) { free(section_data); return false ;}
 
     // serialise number of subdirs and number of subfiles
 
-    if(!FileListIO::writeField(section_data,section_size,section_offset,FILE_LIST_IO_TAG_RAW_NUMBER,(uint32_t)allowed_subdirs.size()  )) return false ;
-    if(!FileListIO::writeField(section_data,section_size,section_offset,FILE_LIST_IO_TAG_RAW_NUMBER,(uint32_t)allowed_subfiles        )) return false ;
+    if(!FileListIO::writeField(section_data,section_size,section_offset,FILE_LIST_IO_TAG_RAW_NUMBER,(uint32_t)allowed_subdirs.size()  )) { free(section_data); return false ;}
+    if(!FileListIO::writeField(section_data,section_size,section_offset,FILE_LIST_IO_TAG_RAW_NUMBER,(uint32_t)allowed_subfiles        )) { free(section_data); return false ;}
 
     // serialise subdirs entry indexes
 
     for(uint32_t i=0;i<allowed_subdirs.size();++i)
-        if(!FileListIO::writeField(section_data,section_size,section_offset,FILE_LIST_IO_TAG_ENTRY_INDEX ,allowed_subdirs[i]  )) return false ;
+        if(!FileListIO::writeField(section_data,section_size,section_offset,FILE_LIST_IO_TAG_ENTRY_INDEX ,allowed_subdirs[i]  )) { free(section_data); return false ;}
 
     // serialise directory subfiles, with info for each of them
 
     unsigned char *file_section_data = (unsigned char *)rs_malloc(FL_BASE_TMP_SECTION_SIZE) ;
 
     if(!file_section_data)
+    {
+        free(section_data);
         return false ;
+    }
 
     uint32_t file_section_size = FL_BASE_TMP_SECTION_SIZE ;
 
@@ -774,14 +783,14 @@ bool LocalDirectoryStorage::serialiseDirEntry(const EntryIndex& indx,RsTlvBinary
             continue ;
         }
 
-        if(!FileListIO::writeField(file_section_data,file_section_size,file_section_offset,FILE_LIST_IO_TAG_FILE_NAME     ,file->file_name   )) return false ;
-        if(!FileListIO::writeField(file_section_data,file_section_size,file_section_offset,FILE_LIST_IO_TAG_FILE_SIZE     ,file->file_size   )) return false ;
-        if(!FileListIO::writeField(file_section_data,file_section_size,file_section_offset,FILE_LIST_IO_TAG_FILE_SHA1_HASH,file->file_hash   )) return false ;
-        if(!FileListIO::writeField(file_section_data,file_section_size,file_section_offset,FILE_LIST_IO_TAG_MODIF_TS      ,(uint32_t)file->file_modtime)) return false ;
+        if(!FileListIO::writeField(file_section_data,file_section_size,file_section_offset,FILE_LIST_IO_TAG_FILE_NAME     ,file->file_name   )) { free(section_data);free(file_section_data);return false ;}
+        if(!FileListIO::writeField(file_section_data,file_section_size,file_section_offset,FILE_LIST_IO_TAG_FILE_SIZE     ,file->file_size   )) { free(section_data);free(file_section_data);return false ;}
+        if(!FileListIO::writeField(file_section_data,file_section_size,file_section_offset,FILE_LIST_IO_TAG_FILE_SHA1_HASH,file->file_hash   )) { free(section_data);free(file_section_data);return false ;}
+        if(!FileListIO::writeField(file_section_data,file_section_size,file_section_offset,FILE_LIST_IO_TAG_MODIF_TS      ,(uint32_t)file->file_modtime)) { free(section_data);free(file_section_data);return false ;}
 
         // now write the whole string into a single section in the file
 
-        if(!FileListIO::writeField(section_data,section_size,section_offset,FILE_LIST_IO_TAG_REMOTE_FILE_ENTRY,file_section_data,file_section_offset)) return false ;
+        if(!FileListIO::writeField(section_data,section_size,section_offset,FILE_LIST_IO_TAG_REMOTE_FILE_ENTRY,file_section_data,file_section_offset)) { free(section_data); free(file_section_data);return false ;}
 
 #ifdef DEBUG_LOCAL_DIRECTORY_STORAGE
         std::cerr << "  pushing subfile " << file->hash << ", array position=" << i << " indx=" << dir->subfiles[i] << std::endl;
@@ -793,7 +802,7 @@ bool LocalDirectoryStorage::serialiseDirEntry(const EntryIndex& indx,RsTlvBinary
     std::cerr << "Serialised dir entry to send for entry index " << (void*)(intptr_t)indx << ". Data size is " << section_size << " bytes" << std::endl;
 #endif
 
-    bindata.bin_data = section_data ;
+    bindata.bin_data = realloc(section_data,section_offset) ;	// This discards the possibly unused trailing bytes in the end of section_data
     bindata.bin_len = section_offset ;
 
     return true ;
@@ -865,6 +874,9 @@ bool RemoteDirectoryStorage::deserialiseUpdateDirEntry(const EntryIndex& indx,co
     // deserialise directory subfiles, with info for each of them
 
     std::vector<InternalFileHierarchyStorage::FileEntry> subfiles_array ;
+
+    // Pre-allocate file_section_data, so that read_field does not need to do it many times.
+
     unsigned char *file_section_data = (unsigned char *)rs_malloc(FL_BASE_TMP_SECTION_SIZE) ;
 
     if(!file_section_data)
@@ -876,17 +888,17 @@ bool RemoteDirectoryStorage::deserialiseUpdateDirEntry(const EntryIndex& indx,co
     {
         // Read the full data section for the file
 
-        if(!FileListIO::readField(section_data,section_size,section_offset,FILE_LIST_IO_TAG_REMOTE_FILE_ENTRY,file_section_data,file_section_size)) return false ;
+        if(!FileListIO::readField(section_data,section_size,section_offset,FILE_LIST_IO_TAG_REMOTE_FILE_ENTRY,file_section_data,file_section_size)) { free(file_section_data); return false ; }
 
         uint32_t file_section_offset = 0 ;
 
         InternalFileHierarchyStorage::FileEntry f;
         uint32_t modtime =0;
 
-        if(!FileListIO::readField(file_section_data,file_section_size,file_section_offset,FILE_LIST_IO_TAG_FILE_NAME     ,f.file_name   )) return false ;
-        if(!FileListIO::readField(file_section_data,file_section_size,file_section_offset,FILE_LIST_IO_TAG_FILE_SIZE     ,f.file_size   )) return false ;
-        if(!FileListIO::readField(file_section_data,file_section_size,file_section_offset,FILE_LIST_IO_TAG_FILE_SHA1_HASH,f.file_hash   )) return false ;
-        if(!FileListIO::readField(file_section_data,file_section_size,file_section_offset,FILE_LIST_IO_TAG_MODIF_TS      ,modtime       )) return false ;
+        if(!FileListIO::readField(file_section_data,file_section_size,file_section_offset,FILE_LIST_IO_TAG_FILE_NAME     ,f.file_name   )) { free(file_section_data); return false ; }
+        if(!FileListIO::readField(file_section_data,file_section_size,file_section_offset,FILE_LIST_IO_TAG_FILE_SIZE     ,f.file_size   )) { free(file_section_data); return false ; }
+        if(!FileListIO::readField(file_section_data,file_section_size,file_section_offset,FILE_LIST_IO_TAG_FILE_SHA1_HASH,f.file_hash   )) { free(file_section_data); return false ; }
+        if(!FileListIO::readField(file_section_data,file_section_size,file_section_offset,FILE_LIST_IO_TAG_MODIF_TS      ,modtime       )) { free(file_section_data); return false ; }
 
         f.file_modtime = modtime ;
 

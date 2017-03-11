@@ -138,7 +138,7 @@ bool DistributedChatService::handleRecvChatLobbyMsgItem(RsChatMsgItem *ci)
         return false ;
     }
     
-    if(rsIdentity->isBanned(cli->signature.keyId))
+    if(rsReputations->overallReputationLevel(cli->signature.keyId) == RsReputations::REPUTATION_LOCALLY_NEGATIVE)
     {
         std::cerr << "(WW) Received lobby msg/item from banned identity " << cli->signature.keyId << ". Dropping it." << std::endl;
         return false ;
@@ -220,7 +220,7 @@ bool DistributedChatService::checkSignature(RsChatLobbyBouncingObject *obj,const
 
     // network pre-request key to allow message authentication.
 
-    mGixs->requestKey(obj->signature.keyId,peer_list);
+    mGixs->requestKey(obj->signature.keyId,peer_list,RsIdentityUsage(RS_SERVICE_TYPE_CHAT,RsIdentityUsage::CHAT_LOBBY_MSG_VALIDATION,RsGxsGroupId(),RsGxsMessageId(),obj->lobby_id));
 
     uint32_t size = obj->signed_serial_size() ;
     RsTemporaryMemory memory(size) ;
@@ -237,8 +237,9 @@ bool DistributedChatService::checkSignature(RsChatLobbyBouncingObject *obj,const
     }
 
     uint32_t error_status ;
+    RsIdentityUsage use_info(RS_SERVICE_TYPE_CHAT,RsIdentityUsage::CHAT_LOBBY_MSG_VALIDATION,RsGxsGroupId(),RsGxsMessageId(),obj->lobby_id) ;
 
-    if(!mGixs->validateData(memory,obj->signed_serial_size(),obj->signature,false,error_status))
+    if(!mGixs->validateData(memory,obj->signed_serial_size(),obj->signature,false,use_info,error_status))
     {
 	    bool res = false ;
 
@@ -647,7 +648,7 @@ void DistributedChatService::handleRecvChatLobbyEventItem(RsChatLobbyEventItem *
 #endif
 	time_t now = time(NULL) ;
 
-    if(rsIdentity->isBanned(item->signature.keyId))
+    if(rsReputations->overallReputationLevel(item->signature.keyId) == RsReputations::REPUTATION_LOCALLY_NEGATIVE)
     {
         std::cerr << "(WW) Received lobby msg/item from banned identity " << item->signature.keyId << ". Dropping it." << std::endl;
         return ;

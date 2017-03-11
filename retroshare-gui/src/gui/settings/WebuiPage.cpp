@@ -5,6 +5,7 @@
 #include <QDesktopServices>
 #include <QUrl>
 
+#include "util/misc.h"
 #include "api/ApiServer.h"
 #include "api/ApiServerMHD.h"
 #include "api/ApiServerLocal.h"
@@ -33,7 +34,7 @@ WebuiPage::~WebuiPage()
 
 }
 
-bool WebuiPage::save(QString &errmsg)
+bool WebuiPage::updateParams(QString &errmsg)
 {
     std::cerr << "WebuiPage::save()" << std::endl;
     bool ok = true;
@@ -63,10 +64,10 @@ bool WebuiPage::save(QString &errmsg)
 void WebuiPage::load()
 {
     std::cerr << "WebuiPage::load()" << std::endl;
-    ui.enableWebUI_CB->setChecked(Settings->getWebinterfaceEnabled());
+    whileBlocking(ui.enableWebUI_CB)->setChecked(Settings->getWebinterfaceEnabled());
     onEnableCBClicked(Settings->getWebinterfaceEnabled());
-    ui.port_SB->setValue(Settings->getWebinterfacePort());
-    ui.allIp_CB->setChecked(Settings->getWebinterfaceAllowAllIps());
+    whileBlocking(ui.port_SB)->setValue(Settings->getWebinterfacePort());
+    whileBlocking(ui.allIp_CB)->setChecked(Settings->getWebinterfaceAllowAllIps());
 }
 
 QString WebuiPage::helpText() const
@@ -148,12 +149,15 @@ void WebuiPage::onEnableCBClicked(bool checked)
         ui.params_GB->setEnabled(false);
         ui.applyStartBrowser_PB->setEnabled(false);
     }
+
+    QString S;
+    updateParams(S);
 }
 
 void WebuiPage::onApplyClicked()
 {
     QString errmsg;
-    bool ok = save(errmsg);
+    bool ok = updateParams(errmsg);
     if(!ok)
     {
         QMessageBox::warning(0, tr("failed to start Webinterface"), "Failed to start the webinterface.");

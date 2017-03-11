@@ -98,7 +98,7 @@ void init_item(RsGxsGrpMetaData* metaGrp)
     randString(SHORT_STR, metaGrp->mGroupName);
     randString(SHORT_STR, metaGrp->mServiceString);
 
-    init_item(metaGrp->signSet);
+    init_item(metaGrp->signSet);// This is not stored in db.
     init_item(metaGrp->keys);
 
     metaGrp->mPublishTs = rand()%3452;
@@ -115,9 +115,10 @@ void init_item(RsGxsGrpMetaData* metaGrp)
     metaGrp->mGroupStatus = rand()%313;
     metaGrp->mRecvTS = rand()%313;
 
-	 metaGrp->mOriginator = RsPeerId::random() ;
-	 metaGrp->mInternalCircle = RsGxsCircleId::random() ;
-	 metaGrp->mHash = RsFileHash::random() ;
+    metaGrp->mOriginator = RsPeerId::random();
+    metaGrp->mInternalCircle = RsGxsCircleId::random();
+    metaGrp->mHash = RsFileHash::random();
+    metaGrp->mGrpSize = 0;// This was calculated on db read.
 }
 
 void init_item(RsGxsMsgMetaData* metaMsg)
@@ -191,7 +192,7 @@ RsSerialType* init_item(RsNxsSyncMsgReqItem& rsgm)
     rsgm.clear();
 
     rsgm.flag = RsNxsSyncMsgItem::FLAG_USE_SYNC_HASH;
-    rsgm.createdSince = rand()%24232;
+    rsgm.createdSinceTS = rand()%24232;
     rsgm.transactionNumber = rand()%23;
     init_random(rsgm.grpId) ;
     randString(SHORT_STR, rsgm.syncHash);
@@ -251,7 +252,7 @@ bool operator==(const RsNxsSyncMsgReqItem& l, const RsNxsSyncMsgReqItem& r)
 {
 
     if(l.flag != r.flag) return false;
-    if(l.createdSince != r.createdSince) return false;
+    if(l.createdSinceTS != r.createdSinceTS) return false;
     if(l.syncHash != r.syncHash) return false;
     if(l.grpId != r.grpId) return false;
     if(l.transactionNumber != r.transactionNumber) return false;

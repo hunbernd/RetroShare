@@ -26,6 +26,8 @@
 #include <QMessageBox>
 #include <QMenu>
 #include <QWidgetAction>
+#include <QStyledItemDelegate>
+#include <QPainter>
 
 #include "IdDialog.h"
 #include "ui_IdDialog.h"
@@ -44,6 +46,7 @@
 #include <retroshare/rspeers.h>
 #include "retroshare/rsgxsflags.h"
 #include "retroshare/rsmsgs.h" 
+#include "retroshare/rsservicecontrol.h"
 #include <iostream>
 #include <algorithm>
 
@@ -107,26 +110,32 @@
 // comment this out in order to remove the sorting of circles into "belong to" and "other visible circles"
 #define CIRCLE_MEMBERSHIP_CATEGORIES 1
 
+static const uint32_t SortRole = Qt::UserRole+1 ;
+
 // quick solution for RSID_COL_VOTES sorting
-class TreeWidgetItem : public QTreeWidgetItem {
+class TreeWidgetItem : public QTreeWidgetItem
+{
   public:
   TreeWidgetItem(int type=Type): QTreeWidgetItem(type) {}
   TreeWidgetItem(QTreeWidget *tree): QTreeWidgetItem(tree) {}
   TreeWidgetItem(const QStringList& strings): QTreeWidgetItem (strings) {}
-  bool operator< (const QTreeWidgetItem& other ) const {
+
+  bool operator< (const QTreeWidgetItem& other ) const
+  {
     int column = treeWidget()->sortColumn();
-    const QVariant v1 = data(column, Qt::DisplayRole);
-    const QVariant v2 = other.data(column, Qt::DisplayRole);
-    double value1 = v1.toDouble();
-    double value2 = v2.toDouble();
-      if (value1 != value2) {
-          return value1 < value2;
-                }
-      else {
-           return (v1.toString().compare (v2.toString(), Qt::CaseInsensitive) < 0);
-                }
+
+    if(column == RSID_COL_VOTES)
+    {
+    const unsigned int v1 = data(column, SortRole).toUInt();
+    const unsigned int v2 = other.data(column, SortRole).toUInt();
+
+	return v1 < v2;
+    }
+    else
+        return data(column,Qt::DisplayRole).toString() < other.data(column,Qt::DisplayRole).toString();
   }
 };
+
 /** Constructor */
 IdDialog::IdDialog(QWidget *parent) :
     RsGxsUpdateBroadcastPage(rsIdentity, parent),
@@ -142,12 +151,15 @@ IdDialog::IdDialog(QWidget *parent) :
     
 	ownItem = new QTreeWidgetItem();
 	ownItem->setText(0, tr("My own identities"));
+	ownItem->setData(RSID_COL_VOTES, Qt::DecorationRole,0xff);	// this is in order to prevent displaying a reputaiton icon next to these items.
 
 	allItem = new QTreeWidgetItem();
 	allItem->setText(0, tr("All"));
+	allItem->setData(RSID_COL_VOTES, Qt::DecorationRole,0xff);
 
 	contactsItem = new QTreeWidgetItem();
 	contactsItem->setText(0, tr("My contacts"));
+	contactsItem->setData(RSID_COL_VOTES, Qt::DecorationRole,0xff);
 
 	ui->treeWidget_membership->clear();
     
@@ -217,6 +229,8 @@ IdDialog::IdDialog(QWidget *parent) :
 	/* Initialize splitter */
 	ui->mainSplitter->setStretchFactor(0, 0);
 	ui->mainSplitter->setStretchFactor(1, 1);
+	
+	ui->inviteFrame->hide();
 	
   /*remove
 	QList<int> sizes;
@@ -295,6 +309,8 @@ IdDialog::IdDialog(QWidget *parent) :
 	QString headerText = headerItem->text(RSID_COL_NICKNAME);
 	ui->filterLineEdit->addFilter(QIcon(), headerText, RSID_COL_NICKNAME, QString("%1 %2").arg(tr("Search"), headerText));
 
+    headerItem->setData(RSID_COL_VOTES,Qt::UserRole,tr("Reputation"));
+
 	/* Set initial section sizes */
   QHeaderView * circlesheader = ui->treeWidget_membership->header () ;
   circlesheader->resizeSection (CIRCLEGROUP_CIRCLE_COL_GROUPNAME, QFontMetricsF(ui->idTreeWidget->font()).width("Circle name")*1.5) ;
@@ -316,9 +332,13 @@ IdDialog::IdDialog(QWidget *parent) :
 	ui->idTreeWidget->setColumnWidth(RSID_COL_NICKNAME, 14 * fontWidth);
 	ui->idTreeWidget->setColumnWidth(RSID_COL_KEYID, 20 * fontWidth);
 	ui->idTreeWidget->setColumnWidth(RSID_COL_IDTYPE, 18 * fontWidth);
-	ui->idTreeWidget->setColumnWidth(RSID_COL_VOTES, 7 * fontWidth);
+	ui->idTreeWidget->setColumnWidth(RSID_COL_VOTES, 2 * fontWidth);
 	
-	//QHeaderView_setSectionResizeMode(ui->idTreeWidget->header(), QHeaderView::ResizeToContents);
+    ui->idTreeWidget->setItemDelegateForColumn(RSID_COL_VOTES,new ReputationItemDelegate(RsReputations::ReputationLevel(0xff))) ;
+
+	/* Set header resize modes and initial section sizes */
+	QHeaderView * idheader = ui->idTreeWidget->header();
+	QHeaderView_setSectionResizeModeColumn(idheader, RSID_COL_VOTES, QHeaderView::ResizeToContents);
 
 	mIdQueue = new TokenQueue(rsIdentity->getTokenService(), this);
 
@@ -340,7 +360,7 @@ IdDialog::IdDialog(QWidget *parent) :
                     <p>An <b>circle</b> can be restricted to another circle, thereby limiting its visibility to members of that circle \
                         or even self-restricted, meaning that it is only visible to invited members.</p>") ;
 
-	registerHelpButton(ui->helpButton, hlp_str) ;
+	registerHelpButton(ui->helpButton, hlp_str,"PeopleDialog") ;
 
 	// load settings
 	processSettings(true);
@@ -711,7 +731,7 @@ void IdDialog::loadCircleGroupMeta(const uint32_t &token)
 				if(has_id)
 					subitem->setText(CIRCLEGROUP_CIRCLE_COL_GROUPNAME, QString::fromUtf8(idd.mNickname.c_str())) ;
 				else
-					subitem->setText(CIRCLEGROUP_CIRCLE_COL_GROUPNAME, tr("Unknown ID :")+QString::fromStdString(it->first.toStdString())) ;
+					subitem->setText(CIRCLEGROUP_CIRCLE_COL_GROUPNAME, tr("Unknown ID:")+QString::fromStdString(it->first.toStdString())) ;
 
 				QString tooltip ;
 				tooltip += tr("Identity ID: ")+QString::fromStdString(it->first.toStdString()) ;
@@ -1392,12 +1412,13 @@ bool IdDialog::fillIdListItem(const RsGxsIdGroup& data, QTreeWidgetItem *&item, 
 	bool isOwnId = (data.mMeta.mSubscribeFlags & GXS_SERV::GROUP_SUBSCRIBE_ADMIN);
 	RsIdentityDetails idd ;
 	rsIdentity->getIdDetails(RsGxsId(data.mMeta.mGroupId),idd) ;
-	bool isBanned = idd.mReputation.mAssessment == RsReputations::ASSESSMENT_BAD;
+
+	bool isBanned = idd.mReputation.mOverallReputationLevel == RsReputations::REPUTATION_LOCALLY_NEGATIVE;
 	uint32_t item_flags = 0 ;
 
 	/* do filtering */
 	bool ok = false;
-	if (data.mMeta.mGroupFlags & RSGXSID_GROUPFLAG_REALID)
+	if (data.mMeta.mGroupFlags & RSGXSID_GROUPFLAG_REALID_kept_for_compatibility)
     {
         if (isLinkedToOwnNode && (accept & RSID_FILTER_YOURSELF))
         {
@@ -1462,7 +1483,8 @@ bool IdDialog::fillIdListItem(const RsGxsIdGroup& data, QTreeWidgetItem *&item, 
 
     item->setData(RSID_COL_KEYID, Qt::UserRole,QVariant(item_flags)) ;
     item->setTextAlignment(RSID_COL_VOTES, Qt::AlignRight | Qt::AlignVCenter);
-    item->setData(RSID_COL_VOTES,Qt::DisplayRole, QString::number(idd.mReputation.mOverallReputationScore - 1.0f,'f',3));
+    item->setData(RSID_COL_VOTES,Qt::DecorationRole, idd.mReputation.mOverallReputationLevel);
+    item->setData(RSID_COL_VOTES,SortRole, idd.mReputation.mOverallReputationLevel);
 
     if(isOwnId)
     {
@@ -1498,7 +1520,7 @@ bool IdDialog::fillIdListItem(const RsGxsIdGroup& data, QTreeWidgetItem *&item, 
 
     QString tooltip;
 
-	if (data.mMeta.mGroupFlags & RSGXSID_GROUPFLAG_REALID)
+	if (data.mMeta.mGroupFlags & RSGXSID_GROUPFLAG_REALID_kept_for_compatibility)
 	{
 		if (data.mPgpKnown)
 		{
@@ -1740,7 +1762,7 @@ void IdDialog::insertIdDetails(uint32_t token)
 	}
 	else
 	{
-		if (data.mMeta.mGroupFlags & RSGXSID_GROUPFLAG_REALID)
+		if (data.mMeta.mGroupFlags & RSGXSID_GROUPFLAG_REALID_kept_for_compatibility)
 			ui->lineEdit_GpgName->setText(tr("[Unknown node]"));
 		else
 			ui->lineEdit_GpgName->setText(tr("Anonymous Id"));
@@ -1776,7 +1798,7 @@ void IdDialog::insertIdDetails(uint32_t token)
             ui->lineEdit_Type->setText(tr("Identity owned by you, linked to your Retroshare node")) ;
         else
             ui->lineEdit_Type->setText(tr("Anonymous identity, owned by you")) ;
-    else if (data.mMeta.mGroupFlags & RSGXSID_GROUPFLAG_REALID)
+    else if (data.mMeta.mGroupFlags & RSGXSID_GROUPFLAG_REALID_kept_for_compatibility)
     {
         if (data.mPgpKnown)
             if (rsPeers->isGPGAccepted(data.mPgpId))
@@ -1836,10 +1858,27 @@ void IdDialog::insertIdDetails(uint32_t token)
     RsReputations::ReputationInfo info ;
     rsReputations->getReputationInfo(RsGxsId(data.mMeta.mGroupId),data.mPgpId,info) ;
 
-    ui->neighborNodesOpinion_TF->setText(QString::number(info.mFriendAverage - 1.0f));
+    QString frep_string ;
+    if(info.mFriendsPositiveVotes > 0) frep_string += QString::number(info.mFriendsPositiveVotes) + tr(" positive ") ;
+    if(info.mFriendsNegativeVotes > 0) frep_string += QString::number(info.mFriendsNegativeVotes) + tr(" negative ") ;
 
-    ui->overallOpinion_TF->setText(QString::number(info.mOverallReputationScore - 1.0f) +" ("+
-     ((info.mAssessment == RsReputations::ASSESSMENT_OK)? tr("OK") : tr("Banned")) +")" ) ;
+    if(info.mFriendsPositiveVotes==0 && info.mFriendsNegativeVotes==0)
+        frep_string = tr("No votes from friends") ;
+
+    ui->neighborNodesOpinion_TF->setText(frep_string) ;
+    
+    ui->label_positive->setText(QString::number(info.mFriendsPositiveVotes));
+    ui->label_negative->setText(QString::number(info.mFriendsNegativeVotes));
+
+    switch(info.mOverallReputationLevel)
+    {
+    	case RsReputations::REPUTATION_LOCALLY_POSITIVE:  ui->overallOpinion_TF->setText(tr("Positive")) ; break ;
+    	case RsReputations::REPUTATION_LOCALLY_NEGATIVE:  ui->overallOpinion_TF->setText(tr("Negative (Banned by you)")) ; break ;
+    	case RsReputations::REPUTATION_REMOTELY_POSITIVE: ui->overallOpinion_TF->setText(tr("Positive (according to your friends)")) ; break ;
+    	case RsReputations::REPUTATION_REMOTELY_NEGATIVE: ui->overallOpinion_TF->setText(tr("Negative (according to your friends)")) ; break ;
+    default:
+    	case RsReputations::REPUTATION_NEUTRAL:           ui->overallOpinion_TF->setText(tr("Neutral")) ; break ;
+    }
     
     switch(info.mOwnOpinion)
 	{
@@ -1849,6 +1888,113 @@ void IdDialog::insertIdDetails(uint32_t token)
         default:
             std::cerr << "Unexpected value in own opinion: " << info.mOwnOpinion << std::endl;
 	}
+
+    // now fill in usage cases
+
+	RsIdentityDetails det ;
+	rsIdentity->getIdDetails(RsGxsId(data.mMeta.mGroupId),det) ;
+
+    QString usage_txt ;
+    std::map<time_t,RsIdentityUsage> rmap ;
+    for(std::map<RsIdentityUsage,time_t>::const_iterator it(det.mUseCases.begin());it!=det.mUseCases.end();++it)
+        rmap.insert(std::make_pair(it->second,it->first)) ;
+
+    for(std::map<time_t,RsIdentityUsage>::const_iterator it(rmap.begin());it!=rmap.end();++it)
+        usage_txt += QString("<b>")+ getHumanReadableDuration(now - data.mLastUsageTS) + "</b> \t: " + createUsageString(it->second) + "<br/>" ;
+
+    if(usage_txt.isNull())
+        usage_txt = tr("<b>[No record in current session]</b>") ;
+
+    ui->usageStatistics_TB->setText(usage_txt) ;
+}
+
+QString IdDialog::createUsageString(const RsIdentityUsage& u) const
+{
+    QString service_name;
+    RetroShareLink::enumType service_type = RetroShareLink::TYPE_UNKNOWN;
+
+    switch(u.mServiceId)
+    {
+    case RS_SERVICE_GXS_TYPE_CHANNELS:  service_name = tr("Channels") ;service_type = RetroShareLink::TYPE_CHANNEL ; break ;
+    case RS_SERVICE_GXS_TYPE_FORUMS:    service_name = tr("Forums") ;  service_type = RetroShareLink::TYPE_FORUM   ; break ;
+    case RS_SERVICE_GXS_TYPE_POSTED:    service_name = tr("Posted") ;  service_type = RetroShareLink::TYPE_POSTED  ; break ;
+    case RS_SERVICE_TYPE_CHAT:      	service_name = tr("Chat") ;  break ;
+    default:
+        service_name = tr("Unknown"); service_type = RetroShareLink::TYPE_UNKNOWN ;
+    }
+
+    switch(u.mUsageCode)
+    {
+	case RsIdentityUsage::UNKNOWN_USAGE:
+        	return tr("[Unknown]") ;
+	case RsIdentityUsage::GROUP_ADMIN_SIGNATURE_CREATION:       // These 2 are normally not normal GXS identities, but nothing prevents it to happen either.
+        	return tr("Admin signature in service %1").arg(service_name);
+    case RsIdentityUsage::GROUP_ADMIN_SIGNATURE_VALIDATION:
+        	return tr("Admin signature verification in service %1").arg(service_name);
+    case RsIdentityUsage::GROUP_AUTHOR_SIGNATURE_CREATION:      // not typically used, since most services do not require group author signatures
+        	return tr("Creation of author signature in service %1").arg(service_name);
+    case RsIdentityUsage::GROUP_AUTHOR_SIGNATURE_VALIDATION:
+    case RsIdentityUsage::MESSAGE_AUTHOR_SIGNATURE_CREATION:    // most common use case. Messages are signed by authors in e.g. forums.
+    case RsIdentityUsage::GROUP_AUTHOR_KEEP_ALIVE:               // Identities are stamped regularly by crawlign the set of messages for all groups. That helps keepign the useful identities in hand.
+        break ;
+    case RsIdentityUsage::MESSAGE_AUTHOR_SIGNATURE_VALIDATION:
+    case RsIdentityUsage::MESSAGE_AUTHOR_KEEP_ALIVE:             // Identities are stamped regularly by crawlign the set of messages for all groups. That helps keepign the useful identities in hand.
+	{
+		RetroShareLink l;
+		l.createGxsMessageLink(service_type,u.mGrpId,u.mMsgId,tr("Message/vote/comment"));
+		return tr("%1 in %2 tab").arg(l.toHtml()).arg(service_name) ;
+	}
+    case RsIdentityUsage::CHAT_LOBBY_MSG_VALIDATION:             // Chat lobby msgs are signed, so each time one comes, or a chat lobby event comes, a signature verificaiton happens.
+    {
+        // there is no link for chat lobby yet.
+		return tr("Message in chat lobby %1").arg(u.mAdditionalId) ;
+    }
+    case RsIdentityUsage::GLOBAL_ROUTER_SIGNATURE_CHECK:         // Global router message validation
+    {
+		return tr("Distant message signature validation.");
+    }
+    case RsIdentityUsage::GLOBAL_ROUTER_SIGNATURE_CREATION:      // Global router message signature
+    {
+		return tr("Distant message signature creation.");
+    }
+    case RsIdentityUsage::GXS_TUNNEL_DH_SIGNATURE_CHECK:         //
+    {
+		return tr("Signature validation in distant tunnel system.");
+    }
+    case RsIdentityUsage::GXS_TUNNEL_DH_SIGNATURE_CREATION:      //
+    {
+		return tr("Signature in distant tunnel system.");
+    }
+    case RsIdentityUsage::IDENTITY_DATA_UPDATE:                  // Group update on that identity data. Can be avatar, name, etc.
+    {
+		return tr("Update of identity data.");
+    }
+    case RsIdentityUsage::IDENTITY_GENERIC_SIGNATURE_CHECK:      // Any signature verified for that identity
+    {
+		return tr("Generic signature validation.");
+    }
+    case RsIdentityUsage::IDENTITY_GENERIC_SIGNATURE_CREATION:   // Any signature made by that identity
+    {
+		return tr("Generic signature.");
+    }
+	case RsIdentityUsage::IDENTITY_GENERIC_ENCRYPTION:
+    {
+		return tr("Generic encryption.");
+    }
+	case RsIdentityUsage::IDENTITY_GENERIC_DECRYPTION:
+    {
+		return tr("Generic decryption.");
+    }
+	case RsIdentityUsage::CIRCLE_MEMBERSHIP_CHECK:
+    {
+		return tr("Membership verification in circle %1.").arg(QString::fromStdString(u.mGrpId.toStdString()));
+    }
+
+#warning TODO! Add the different strings and translations here.
+	default:
+		return QString("Undone yet");
+    }
+    return QString("Unknown");
 }
 
 void IdDialog::modifyReputation()
@@ -1900,6 +2046,22 @@ void IdDialog::modifyReputation()
 	return;
 }
 	
+void IdDialog::navigate(const RsGxsId& gxs_id)
+{
+    std::cerr << "IdDialog::navigate to " << gxs_id.toStdString() << std::endl;
+
+    // in order to do this, we just select the correct ID in the ID list
+
+    QList<QTreeWidgetItem*> select = ui->idTreeWidget->findItems(QString::fromStdString(gxs_id.toStdString()),Qt::MatchExactly | Qt::MatchRecursive | Qt::MatchWrap,RSID_COL_KEYID) ;
+
+    if(select.empty())
+    {
+        std::cerr << "Cannot find item with ID " << gxs_id << " in ID list." << std::endl;
+        return ;
+    }
+    ui->idTreeWidget->setCurrentItem(*select.begin(),true);
+
+}
 void IdDialog::updateDisplay(bool complete)
 {
 	/* Update identity list */
@@ -2300,27 +2462,16 @@ void IdDialog::sendInvite()
 	{
 		return;
 	}
-    /* create a message */
-    MessageComposer *composer = MessageComposer::newMsg();
 
-    composer->setTitleText(tr("You have a friend invite"));
+    RsGxsId id(ui->lineEdit_KeyId->text().toStdString());
     
-    RsPeerId ownId = rsPeers->getOwnId();
-    RetroShareLink link;
-    link.createCertificate(ownId);
+    if ((QMessageBox::question(this, tr("Send invite?"),tr("Do you really want send a invite with your Certificate?"),QMessageBox::Yes|QMessageBox::No, QMessageBox::Yes))== QMessageBox::Yes)
+	{
+        MessageComposer::sendInvite(id);
+        ui->inviteFrame->show();
+        ui->inviteButton->setEnabled(false);
+	}
     
-    std::string keyId = item->text(RSID_COL_KEYID).toStdString();
-    
-    QString sMsgText = inviteMessage();
-    sMsgText += "<br><br>";
-    sMsgText += tr("Respond now:") + "<br>";
-    sMsgText += link.toHtml() + "<br>";
-    sMsgText += "<br>";
-    sMsgText += tr("Thanks, <br>") + QString::fromUtf8(rsPeers->getGPGName(rsPeers->getGPGOwnId()).c_str());
-    composer->setMsgText(sMsgText);
-    composer->addRecipient(MessageComposer::TO,  RsGxsId(keyId));
-
-    composer->show();
 
 }
 
@@ -2399,3 +2550,7 @@ QList<QTreeWidgetItem *> selected_items = ui->idTreeWidget->selectedItems();
 	requestIdList();
 }
 
+void IdDialog::on_closeInfoFrameButton_clicked()
+{
+	ui->inviteFrame->setVisible(false);
+}

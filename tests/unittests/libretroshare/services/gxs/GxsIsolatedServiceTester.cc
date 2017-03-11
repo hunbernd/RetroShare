@@ -28,11 +28,11 @@ GxsIsolatedServiceTester::GxsIsolatedServiceTester(const RsPeerId &ownId, const 
 { 
 	// extract bits we need.
 	PeerNode *node = getPeerNode();
-	p3PeerMgr *peerMgr = node->getPeerMgr();
-	p3LinkMgr *linkMgr = node->getLinkMgr();
-	p3NetMgr  *netMgr = node->getNetMgr();
+	//p3PeerMgr *peerMgr = node->getPeerMgr();
+	//p3LinkMgr *linkMgr = node->getLinkMgr();
+	//p3NetMgr  *netMgr = node->getNetMgr();
 	RsNxsNetMgr *nxsMgr = node->getNxsNetMgr();
-	p3ServiceControl *serviceCtrl = node->getServiceControl();	
+	//p3ServiceControl *serviceCtrl = node->getServiceControl();
 
 	// Create Service for Testing.
 	// Specific Testing service here.
@@ -50,7 +50,7 @@ GxsIsolatedServiceTester::GxsIsolatedServiceTester(const RsPeerId &ownId, const 
         mTestNs = new RsGxsNetService(
                         RS_SERVICE_GXS_TYPE_TEST, mTestDs, nxsMgr,
                         mTestService, mTestService->getServiceInfo(),
-                        mGxsIdService, mGxsCircles);
+                        NULL, mGxsCircles);
 
 	node->AddService(mTestNs);
 

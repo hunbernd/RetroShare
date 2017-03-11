@@ -1,7 +1,7 @@
 /****************************************************************
  *  RetroShare is distributed under the following license:
  *
- *  Copyright (C) 2006 - 2009 RetroShare Team
+ *  Copyright (C) 2016, defnax
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -15,41 +15,54 @@
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, 
  *  Boston, MA  02110-1301, USA.
  ****************************************************************/
+ 
+#ifndef HOMEPAGE_H
+#define HOMEPAGE_H
 
-#ifndef DIRECTORIESPAGE_H
-#define DIRECTORIESPAGE_H
+#include <retroshare-gui/mainpage.h>
+#include <retroshare/rsfiles.h>
+#include <retroshare/rspeers.h>
 
-#include <retroshare-gui/configpage.h>
-#include "ui_DirectoriesPage.h"
+#include <QWidget>
 
-class DirectoriesPage: public ConfigPage
+
+class QAction;
+
+namespace Ui {
+class HomePage;
+}
+
+class HomePage : public MainPage
 {
-  Q_OBJECT
+	Q_OBJECT
 
 public:
-    DirectoriesPage(QWidget * parent = 0, Qt::WindowFlags flags = 0);
-
-    /** Saves the changes on this page */
-    virtual bool save(QString &errmsg);
-    /** Loads the settings for this page */
-    virtual void load();
-
-	 virtual QPixmap iconPixmap() const { return QPixmap(":/icons/settings/directories.svg") ; }
-	 virtual QString pageName() const { return tr("Directories") ; }
-	 virtual QString helpText() const { return ""; }
+	explicit HomePage(QWidget *parent);
+	~HomePage();
+	
+	  virtual QIcon iconPixmap() const { return QPixmap(":/icons/svg/profile.svg") ; } //MainPage
+    virtual QString pageName() const { return tr("Home") ; } //MainPage
+    virtual QString helpText() const { return ""; } //MainPage
 
 private slots:
-    void editDirectories() ;
-    void setIncomingDirectory();
-    void setPartialsDirectory();
-	void toggleAutoCheckDirectories(bool);
+	void updateOwnCert();
+	void runEmailClient();
+	void copyCert();
+	void saveCert();
+  void addFriend();
+  void webMail();
+  void loadCert();
+	void runStartWizard() ;
+	void openWebHelp() ;
+	void recommendFriends();
 
 private:
-   Ui::DirectoriesPage ui;
+	Ui::HomePage *ui;
+	
+
 };
 
-#endif // !GENERALPAGE_H
-
+#endif // HomePage_H

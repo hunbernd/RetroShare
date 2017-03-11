@@ -614,7 +614,6 @@ bool ChatWidget::eventFilter(QObject *obj, QEvent *event)
 					else {
 						completionWord.clear();
 					}
-				}
 					if ((keyEvent->modifiers() & ui->chatTextEdit->getCompleterKeyModifiers()) && keyEvent->key() == ui->chatTextEdit->getCompleterKey()) {
 						completer->setModel(modelFromPeers());
 					}
@@ -622,6 +621,7 @@ bool ChatWidget::eventFilter(QObject *obj, QEvent *event)
 						ui->chatTextEdit->forceCompleterShowNextKeyEvent("@");
 						completer->setModel(modelFromPeers());
 					}
+				}
 				if (keyEvent->key() == Qt::Key_Enter || keyEvent->key() == Qt::Key_Return) {
 					// Enter pressed
 					if (Settings->getChatSendMessageWithCtrlReturn()) {
@@ -631,7 +631,7 @@ bool ChatWidget::eventFilter(QObject *obj, QEvent *event)
 							return true; // eat event
 						}
 					} else {
-						if (keyEvent->modifiers() & Qt::ControlModifier) {
+						if ((keyEvent->modifiers() & Qt::ControlModifier) || (keyEvent->modifiers() & Qt::ShiftModifier)){
 							// insert return
 							ui->chatTextEdit->textCursor().insertText("\n");
 						} else {
@@ -1006,10 +1006,10 @@ void ChatWidget::pasteText(const QString& S)
 	setColorAndFont(false);
 }
 
-void ChatWidget::pasteCreateMsgLink()
-{
-	RSettingsWin::showYourself(this, RSettingsWin::Chat);
-}
+//void ChatWidget::pasteCreateMsgLink()
+//{
+//	RSettingsWin::showYourself(this, RSettingsWin::Chat);
+//}
 
 void ChatWidget::contextMenuTextBrowser(QPoint point)
 {
@@ -1088,8 +1088,8 @@ void ChatWidget::updateStatusTyping()
 #ifdef ONLY_FOR_LINGUIST
 		tr("is typing...");
 #endif
-
-        rsMsgs->sendStatusString(chatId, "is typing...");
+		if(!Settings->getChatDoNotSendIsTyping())
+			rsMsgs->sendStatusString(chatId, "is typing...");
 		lastStatusSendTime = time(NULL) ;
 	}
 }
@@ -1620,7 +1620,7 @@ void ChatWidget::updateStatus(const QString &peer_id, int status)
 	    switch (status) {
 	    case RS_STATUS_OFFLINE:
 		    ui->infoFrame->setVisible(true);
-		    ui->infoLabel->setText(peerName + " " + tr("appears to be Offline.") +"\n" + tr("Messages you send will be delivered after Friend is again Online"));
+		    ui->infoLabel->setText(peerName + " " + tr("appears to be Offline.") +"\n" + tr("Messages you send will be delivered after Friend is again Online."));
 		    break;
 
 	    case RS_STATUS_INACTIVE:
@@ -1738,9 +1738,9 @@ void ChatWidget::quote()
 	if(text.length() > 0)
 	{
 		QStringList sl = text.split(QRegExp("[\r\n]"),QString::SkipEmptyParts);
-		text = sl.join("\n>");
-		text.replace(QChar(-4),"");//Char used when image on text.
-		emit ui->chatTextEdit->append(QString(">") + text);
+		text = sl.join("\n> ");
+		text.replace(QChar(-4)," ");//Char used when image on text.
+		emit ui->chatTextEdit->append(QString("> ") + text);
 	}
 }
 

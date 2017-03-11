@@ -151,7 +151,7 @@ HEADERS += $$PUBLIC_HEADERS
 
 ################################# Linux ##########################################
 linux-* {
-	CONFIG += link_pkgconfig
+    CONFIG += link_pkgconfig
 
 	QMAKE_CXXFLAGS *= -Wall -D_FILE_OFFSET_BITS=64
 	QMAKE_CC = $${QMAKE_CXX}
@@ -191,8 +191,6 @@ linux-* {
 		DEFINES *= PATCHED_LIBUPNP
 	}
 
-	DEFINES *= HAS_GNOME_KEYRING
-	PKGCONFIG *= gnome-keyring-1
 	PKGCONFIG *= libssl libupnp
 	PKGCONFIG *= libcrypto zlib
 	LIBS *= -lpthread -ldl
@@ -380,7 +378,8 @@ HEADERS +=	ft/ftchunkmap.h \
 			ft/fttransfermodule.h \
 			ft/ftturtlefiletransferitem.h 
 
-HEADERS += crypto/chacha20.h 
+HEADERS += crypto/chacha20.h \
+				crypto/hashstream.h
 
 HEADERS += directory_updater.h \
 				directory_list.h \
@@ -541,7 +540,8 @@ SOURCES +=	ft/ftchunkmap.cc \
 			ft/fttransfermodule.cc \
 			ft/ftturtlefiletransferitem.cc 
 
-SOURCES += crypto/chacha20.cpp
+SOURCES += crypto/chacha20.cpp \
+			  crypto/hashstream.cc
 
 SOURCES += chat/distantchat.cc \
 			  chat/p3chatservice.cc \
@@ -912,4 +912,6 @@ android-g++ {
     INCLUDEPATH += $$NDK_TOOLCHAIN_PATH/sysroot/usr/include
     DEPENDPATH += $$NDK_TOOLCHAIN_PATH/sysroot/usr/include
     PRE_TARGETDEPS += $$NDK_TOOLCHAIN_PATH/sysroot/usr/lib/libcrypto.a
+
+    HEADERS += util/androiddebug.h
 }

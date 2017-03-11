@@ -33,6 +33,8 @@
 #include "util/rsrandom.h"
 #include "util/rsstring.h"
 #include "util/radix64.h"
+#include "util/rsdir.h"
+#include "crypto/hashstream.h"
 #include "gxs/gxssecurity.h"
 #include "retroshare/rspeers.h"
 
@@ -60,7 +62,8 @@
 
 // unused keys are deleted according to some heuristic that should favor known keys, signed keys etc. 
 
-static const time_t MAX_KEEP_KEYS_BANNED       =     2 * 86400 ; // get rid of banned ids after 1 days. That gives a chance to un-ban someone before he gets definitely kicked out
+static const time_t MAX_KEEP_KEYS_BANNED_DEFAULT =     2 * 86400 ; // get rid of banned ids after 1 days. That gives a chance to un-ban someone before he gets definitely kicked out
+
 static const time_t MAX_KEEP_KEYS_DEFAULT      =     5 * 86400 ; // default for unsigned identities: 5 days
 static const time_t MAX_KEEP_KEYS_SIGNED       =     8 * 86400 ; // signed identities by unknown key
 static const time_t MAX_KEEP_KEYS_SIGNED_KNOWN =    30 * 86400 ; // signed identities by known node keys
@@ -128,8 +131,9 @@ RsIdentity *rsIdentity = NULL;
 
 /* delays */
 
-#define CACHETEST_PERIOD	        60
+#define CACHETEST_PERIOD	            60
 #define DELAY_BETWEEN_CONFIG_UPDATES   300
+#define GXS_MAX_KEY_TS_USAGE_MAP_SIZE    5
 
 #define OWNID_RELOAD_DELAY		10
 
@@ -161,6 +165,7 @@ p3IdService::p3IdService(RsGeneralDataService *gds, RsNetworkExchangeService *ne
     mLastKeyCleaningTime = time(NULL) - int(MAX_DELAY_BEFORE_CLEANING * 0.9) ;
     mLastConfigUpdate = 0 ;
     mOwnIdsLoaded = false ;
+    mMaxKeepKeysBanned = MAX_KEEP_KEYS_BANNED_DEFAULT;
 
 	// Kick off Cache Testing, + Others.
 	RsTickEvent::schedule_in(GXSID_EVENT_PGPHASH, PGPHASH_PERIOD);
@@ -255,23 +260,49 @@ void p3IdService::slowIndicateConfigChanged()
 }
 time_t p3IdService::locked_getLastUsageTS(const RsGxsId& gxs_id)
 {
-    std::map<RsGxsId,time_t>::const_iterator it = mKeysTS.find(gxs_id) ;
+    std::map<RsGxsId,keyTSInfo>::const_iterator it = mKeysTS.find(gxs_id) ;
 
     if(it == mKeysTS.end())
         return 0 ;
     else
-        return it->second ;
+        return it->second.TS ;
 }
-void p3IdService::timeStampKey(const RsGxsId& gxs_id)
+void p3IdService::timeStampKey(const RsGxsId& gxs_id, const RsIdentityUsage& reason)
 {
     if(rsReputations->isIdentityBanned(gxs_id) )
     {
         std::cerr << "(II) p3IdService:timeStampKey(): refusing to time stamp key " << gxs_id << " because it is banned." << std::endl;
         return ;
     }
+#ifdef DEBUG_IDS
+    std::cerr << "(II) time stamping key " << gxs_id << " for the following reason: " << reason << std::endl;
+#endif
 
     RS_STACK_MUTEX(mIdMtx) ;
-    mKeysTS[gxs_id] = time(NULL) ;
+
+    time_t now = time(NULL) ;
+
+    keyTSInfo& info(mKeysTS[gxs_id]) ;
+
+    info.TS = now ;
+    info.usage_map[reason] = now;
+
+    while(info.usage_map.size() > GXS_MAX_KEY_TS_USAGE_MAP_SIZE)
+    {
+        // This is very costly, but normally the outerloop should never be rolled more than once.
+
+        std::map<RsIdentityUsage,time_t>::iterator best_it ;
+        time_t best_time = now+1;
+
+        for(std::map<RsIdentityUsage,time_t>::iterator it(info.usage_map.begin());it!=info.usage_map.end();++it)
+            if(it->second < best_time)
+            {
+                best_time = it->second ;
+                best_it = it;
+            }
+
+        info.usage_map.erase(best_it) ;
+    }
 
     slowIndicateConfigChanged() ;
 }
@@ -286,10 +317,26 @@ bool p3IdService::loadList(std::list<RsItem*>& items)
         if( (lii = dynamic_cast<RsGxsIdLocalInfoItem*>(*it)) != NULL)
         {
             for(std::map<RsGxsId,time_t>::const_iterator it2 = lii->mTimeStamps.begin();it2!=lii->mTimeStamps.end();++it2)
-                mKeysTS.insert(*it2) ;
+                mKeysTS[it2->first].TS = it2->second;
 
             mContacts = lii->mContacts ;
         }
+
+	    RsConfigKeyValueSet *vitem = dynamic_cast<RsConfigKeyValueSet *>(*it);
+
+	    if(vitem)
+		    for(std::list<RsTlvKeyValue>::const_iterator kit = vitem->tlvkvs.pairs.begin(); kit != vitem->tlvkvs.pairs.end(); ++kit)
+		    {
+			    if(kit->key == "REMOVE_BANNED_IDENTITIES_DELAY")
+			    {
+				    int val ;
+				    if (sscanf(kit->value.c_str(), "%d", &val) == 1)
+				    {
+					    mMaxKeepKeysBanned = val ;
+					    std::cerr << "Setting mMaxKeepKeysBanned threshold to " << val << std::endl ;
+				    }
+			    };
+            }
 
         delete *it ;
     }
@@ -297,6 +344,23 @@ bool p3IdService::loadList(std::list<RsItem*>& items)
     items.clear() ;
     return true ;
 }
+
+void p3IdService::setDeleteBannedNodesThreshold(uint32_t days)
+{
+    RsStackMutex stack(mIdMtx); /****** LOCKED MUTEX *******/
+    if(mMaxKeepKeysBanned != days*86400)
+    {
+        mMaxKeepKeysBanned = days*86400 ;
+        IndicateConfigChanged();
+    }
+}
+uint32_t p3IdService::deleteBannedNodesThreshold()
+{
+    RsStackMutex stack(mIdMtx); /****** LOCKED MUTEX *******/
+
+    return mMaxKeepKeysBanned/86400;
+}
+
 
 bool p3IdService::saveList(bool& cleanup,std::list<RsItem*>& items)
 {
@@ -307,17 +371,30 @@ bool p3IdService::saveList(bool& cleanup,std::list<RsItem*>& items)
     RS_STACK_MUTEX(mIdMtx) ;
     cleanup = true ;
     RsGxsIdLocalInfoItem *item = new RsGxsIdLocalInfoItem ;
-    item->mTimeStamps = mKeysTS ;
+
+    for(std::map<RsGxsId,keyTSInfo>::const_iterator it(mKeysTS.begin());it!=mKeysTS.end();++it)
+		item->mTimeStamps[it->first] = it->second.TS;
+
     item->mContacts = mContacts ;
 
     items.push_back(item) ;
+
+    RsConfigKeyValueSet *vitem = new RsConfigKeyValueSet ;
+	RsTlvKeyValue kv;
+
+	kv.key = "REMOVE_BANNED_IDENTITIES_DELAY" ;
+	rs_sprintf(kv.value, "%d", mMaxKeepKeysBanned);
+	vitem->tlvkvs.pairs.push_back(kv) ;
+
+    items.push_back(vitem) ;
+
     return true ;
 }
 
 class IdCacheEntryCleaner
 {
 public:
-    IdCacheEntryCleaner(const std::map<RsGxsId,time_t>& last_usage_TSs) : mLastUsageTS(last_usage_TSs) {}
+    IdCacheEntryCleaner(const std::map<RsGxsId,p3IdService::keyTSInfo>& last_usage_TSs,uint32_t m) : mLastUsageTS(last_usage_TSs),mMaxKeepKeysBanned(m) {}
 
     bool processEntry(RsGxsIdCache& entry)
     {
@@ -330,47 +407,64 @@ public:
         bool is_signed_id = (bool)(entry.details.mFlags & RS_IDENTITY_FLAGS_PGP_LINKED) ;
         bool is_a_contact = (bool)(entry.details.mFlags & RS_IDENTITY_FLAGS_IS_A_CONTACT) ;
 
+#ifdef DEBUG_IDS
         std::cerr << "Identity: " << gxs_id << ": banned: " << is_id_banned << ", own: " << is_own_id << ", contact: " << is_a_contact << ", signed: " << is_signed_id << ", known: " << is_known_id;
+#endif
 
         if(is_own_id || is_a_contact)
         {
+#ifdef DEBUG_IDS
             std::cerr << " => kept" << std::endl;
+#endif
             return true ;
         }
 
-        std::map<RsGxsId,time_t>::const_iterator it = mLastUsageTS.find(gxs_id) ;
+        std::map<RsGxsId,p3IdService::keyTSInfo>::const_iterator it = mLastUsageTS.find(gxs_id) ;
 
         bool no_ts = (it == mLastUsageTS.end()) ;
 
-        time_t last_usage_ts = no_ts?0:(it->second);
+        time_t last_usage_ts = no_ts?0:(it->second.TS);
         time_t max_keep_time ;
+        bool should_check = true ;
 
         if(no_ts)
             max_keep_time = 0 ;
-        else if(is_id_banned)
-            max_keep_time = MAX_KEEP_KEYS_BANNED ;
-        else if(is_known_id)
+		else if(is_id_banned)
+        {
+			if(mMaxKeepKeysBanned == 0)
+				should_check = false ;
+			else
+				max_keep_time = mMaxKeepKeysBanned ;
+        }
+		else if(is_known_id)
             max_keep_time = MAX_KEEP_KEYS_SIGNED_KNOWN ;
         else if(is_signed_id)
             max_keep_time = MAX_KEEP_KEYS_SIGNED ;
         else
             max_keep_time = MAX_KEEP_KEYS_DEFAULT ;
 
+#ifdef DEBUG_IDS
         std::cerr << ". Max keep = " << max_keep_time/86400 << " days. Unused for " << (now - last_usage_ts + 86399)/86400 << " days " ;
+#endif
 
-        if(now > last_usage_ts + max_keep_time)
+        if(should_check && now > last_usage_ts + max_keep_time)
         {
+#ifdef DEBUG_IDS
             std::cerr << " => delete " << std::endl;
+#endif
             ids_to_delete.push_back(gxs_id) ;
         }
+#ifdef DEBUG_IDS
         else
             std::cerr << " => keep " << std::endl;
+#endif
 
         return true;
     }
 
     std::list<RsGxsId> ids_to_delete ;
-    const std::map<RsGxsId,time_t>& mLastUsageTS;
+    const std::map<RsGxsId,p3IdService::keyTSInfo>& mLastUsageTS;
+    uint32_t mMaxKeepKeysBanned ;
 };
 
 void p3IdService::cleanUnusedKeys()
@@ -390,7 +484,7 @@ void p3IdService::cleanUnusedKeys()
         }
 
         // grab at most 10 identities to delete. No need to send too many requests to the token queue at once.
-        IdCacheEntryCleaner idcec(mKeysTS) ;
+        IdCacheEntryCleaner idcec(mKeysTS,mMaxKeepKeysBanned) ;
 
         mKeyCache.applyToAllCachedEntries(idcec,&IdCacheEntryCleaner::processEntry);
 
@@ -400,7 +494,9 @@ void p3IdService::cleanUnusedKeys()
 
     for(std::list<RsGxsId>::const_iterator it(ids_to_delete.begin());it!=ids_to_delete.end();++it)
     {
+#ifdef DEBUG_IDS
         std::cerr << "Deleting identity " << *it << " which is too old." << std::endl;
+#endif
         uint32_t token ;
         RsGxsIdGroup group;
         group.mMeta.mGroupId=RsGxsGroupId(*it);
@@ -434,7 +530,9 @@ bool p3IdService::acceptNewGroup(const RsGxsGrpMetaData *grpMeta)
 {
     bool res = !rsReputations->isIdentityBanned(RsGxsId(grpMeta->mGroupId)) ;
 
+#ifdef DEBUG_IDS
     std::cerr << "p3IdService::acceptNewGroup: ID=" << grpMeta->mGroupId << ": " << (res?"ACCEPTED":"DENIED") << std::endl;
+#endif
 
     return res ;
 }
@@ -495,7 +593,7 @@ void p3IdService::notifyChanges(std::vector<RsGxsNotify *> &changes)
 
                     // also time_stamp the key that this group represents
 
-                    timeStampKey(RsGxsId(*git)) ;
+                    timeStampKey(RsGxsId(*git),RsIdentityUsage(serviceType(),RsIdentityUsage::IDENTITY_DATA_UPDATE)) ;
 
                     ++git;
                 }
@@ -552,7 +650,16 @@ bool p3IdService::getIdDetails(const RsGxsId &id, RsIdentityDetails &details)
                 rsReputations->setOwnOpinion(id,RsReputations::OPINION_POSITIVE) ;
 
             details = data.details;
-            details.mLastUsageTS = locked_getLastUsageTS(id) ;
+
+			std::map<RsGxsId,keyTSInfo>::const_iterator it = mKeysTS.find(id) ;
+
+			if(it == mKeysTS.end())
+				details.mLastUsageTS = 0 ;
+            else
+            {
+				details.mLastUsageTS = it->second.TS ;
+				details.mUseCases = it->second.usage_map ;
+            }
 
             // one utf8 symbol can be at most 4 bytes long - would be better to measure real unicode length !!!
             if(details.mNickname.length() > RSID_MAXIMUM_NICKNAME_SIZE*4)
@@ -568,17 +675,6 @@ bool p3IdService::getIdDetails(const RsGxsId &id, RsIdentityDetails &details)
     cache_request_load(id);
 
     return false;
-}
-
-bool p3IdService::isBanned(const RsGxsId &id)
-{
-    RsIdentityDetails det ;
-    getIdDetails(id,det) ;
-
-#ifdef DEBUG_REPUTATION
-    std::cerr << "isIdentityBanned(): returning " << (det.mReputation.mAssessment == RsReputations::ASSESSMENT_BAD) << " for GXS id " << id << std::endl;
-#endif
-    return det.mReputation.mAssessment == RsReputations::ASSESSMENT_BAD ;
 }
 
 bool p3IdService::isOwnId(const RsGxsId& id)
@@ -608,16 +704,31 @@ bool p3IdService::createIdentity(uint32_t& token, RsIdentityParameters &params)
     RsGxsIdGroup id;
 
     id.mMeta.mGroupName = params.nickname;
+    id.mMeta.mCircleType = GXS_CIRCLE_TYPE_PUBLIC ;
     id.mImage = params.mImage;
 
     if (params.isPgpLinked)
     {
-        id.mMeta.mGroupFlags = RSGXSID_GROUPFLAG_REALID;
+#warning Backward compatibility issue to fix here in v0.7.0
+
+        // This is a hack, because a bad decision led to having RSGXSID_GROUPFLAG_REALID be equal to GXS_SERV::FLAG_PRIVACY_PRIVATE.
+        // In order to keep backward compatibility, we'll also add the new value
+        // When the ID is not PGP linked, the group flag cannot be let empty, so we use PUBLIC.
+        //
+        // The correct combination of flags should be:
+        //		PGP-linked:		GXS_SERV::FLAGS_PRIVACY_PUBLIC | RSGXSID_GROUPFLAG_REALID
+        //		Anonymous :		GXS_SERV::FLAGS_PRIVACY_PUBLIC
+
+        id.mMeta.mGroupFlags |= GXS_SERV::FLAG_PRIVACY_PRIVATE;	// this is also equal to RSGXSID_GROUPFLAG_REALID_deprecated
+        id.mMeta.mGroupFlags |= RSGXSID_GROUPFLAG_REALID;
+
+        // The current version should be able to produce new identities that old peers will accept as well.
+        // In the future, we need to:
+        //     - set the current group flags here (see above)
+        //	   - replace all occurences of RSGXSID_GROUPFLAG_REALID_deprecated by RSGXSID_GROUPFLAG_REALID in the code.
     }
     else
-    {
-        id.mMeta.mGroupFlags = 0;
-    }
+        id.mMeta.mGroupFlags |= GXS_SERV::FLAG_PRIVACY_PUBLIC;
 
     createGroup(token, id);
 
@@ -630,6 +741,7 @@ bool p3IdService::updateIdentity(uint32_t& token, RsGxsIdGroup &group)
     std::cerr << "p3IdService::updateIdentity()";
     std::cerr << std::endl;
 #endif
+    group.mMeta.mCircleType = GXS_CIRCLE_TYPE_PUBLIC ;
 
     updateGroup(token, group);
 
@@ -752,7 +864,7 @@ static void mergeIds(std::map<RsGxsId,std::list<RsPeerId> >& idmap,const RsGxsId
         old_peers.push_back(*it) ;
 }
 
-bool p3IdService::requestKey(const RsGxsId &id, const std::list<RsPeerId>& peers)
+bool p3IdService::requestKey(const RsGxsId &id, const std::list<RsPeerId>& peers,const RsIdentityUsage& use_info)
 {
     if(id.isNull())
     {
@@ -768,17 +880,19 @@ bool p3IdService::requestKey(const RsGxsId &id, const std::list<RsPeerId>& peers
         // Normally we should call getIdDetails(), but since the key is not known, we need to digg a possibly old information
         // from the reputation system, which keeps its own list of banned keys. Of course, the owner ID is not known at this point.
 
+#ifdef DEBUG_IDS
         std::cerr << "p3IdService::requesting key " << id <<std::endl;
+#endif
 
         RsReputations::ReputationInfo info ;
         rsReputations->getReputationInfo(id,RsPgpId(),info) ;
 
-        if(info.mAssessment == RsReputations::ASSESSMENT_BAD)
+        if(info.mOverallReputationLevel == RsReputations::REPUTATION_LOCALLY_NEGATIVE)
         {
             std::cerr << "(II) not requesting Key " << id << " because it has been banned." << std::endl;
 
             {
-                RsStackMutex stack(mIdMtx); /********** STACK LOCKED MTX ******/
+                RS_STACK_MUTEX(mIdMtx); /********** STACK LOCKED MTX ******/
                 mIdsNotPresent.erase(id) ;
             }
             return true;
@@ -795,6 +909,10 @@ bool p3IdService::requestKey(const RsGxsId &id, const std::list<RsPeerId>& peers
 
             return true ;
         }
+    }
+    {
+		RS_STACK_MUTEX(mIdMtx); /********** STACK LOCKED MTX ******/
+		mKeysTS[id].usage_map[use_info] = time(NULL) ;
     }
 
     return cache_request_load(id, peers);
@@ -892,10 +1010,11 @@ bool p3IdService::signData(const uint8_t *data,uint32_t data_size,const RsGxsId&
         return false ;
     }
     error_status = RS_GIXS_ERROR_NO_ERROR ;
-    timeStampKey(own_gxs_id) ;
+    timeStampKey(own_gxs_id,RsIdentityUsage(serviceType(),RsIdentityUsage::IDENTITY_GENERIC_SIGNATURE_CREATION)) ;
+
     return true ;
 }
-bool p3IdService::validateData(const uint8_t *data,uint32_t data_size,const RsTlvKeySignature& signature,bool force_load,uint32_t& signing_error)
+bool p3IdService::validateData(const uint8_t *data,uint32_t data_size,const RsTlvKeySignature& signature,bool force_load,const RsIdentityUsage& info,uint32_t& signing_error)
 {
     // RsIdentityDetails details ;
     // getIdDetails(signature.keyId,details);
@@ -929,7 +1048,7 @@ bool p3IdService::validateData(const uint8_t *data,uint32_t data_size,const RsTl
     }
     signing_error = RS_GIXS_ERROR_NO_ERROR ;
 
-    timeStampKey(signature.keyId) ;
+    timeStampKey(signature.keyId,info);
     return true ;
 }
 bool p3IdService::encryptData(const uint8_t *decrypted_data,uint32_t decrypted_data_size,uint8_t *& encrypted_data,uint32_t& encrypted_data_size,const RsGxsId& encryption_key_id,bool force_load,uint32_t& error_status)
@@ -957,7 +1076,7 @@ bool p3IdService::encryptData(const uint8_t *decrypted_data,uint32_t decrypted_d
         return false ;
     }
     error_status = RS_GIXS_ERROR_NO_ERROR ;
-    timeStampKey(encryption_key_id) ;
+    timeStampKey(encryption_key_id,RsIdentityUsage(serviceType(),RsIdentityUsage::IDENTITY_GENERIC_ENCRYPTION)) ;
 
     return true ;
 }
@@ -989,12 +1108,13 @@ bool p3IdService::decryptData(const uint8_t *encrypted_data,uint32_t encrypted_d
         return false ;
     }
     error_status = RS_GIXS_ERROR_NO_ERROR ;
-    timeStampKey(key_id) ;
+    timeStampKey(key_id,RsIdentityUsage(serviceType(),RsIdentityUsage::IDENTITY_GENERIC_DECRYPTION)) ;
 
     return true ;
 }
 
 
+#ifdef TO_BE_REMOVED
 /********************************************************************************/
 /******************* RsGixsReputation     ***************************************/
 /********************************************************************************/
@@ -1048,6 +1168,7 @@ bool p3IdService::getReputation(const RsGxsId &id, GixsReputation &rep)
     }
     return false;
 }
+#endif
 
 #if 0
 class RegistrationRequest
@@ -1169,7 +1290,7 @@ bool p3IdService::opinion_handlerequest(uint32_t token)
     }
 
     // update IdScore too.
-    bool pgpId = (meta.mGroupFlags & RSGXSID_GROUPFLAG_REALID);
+    bool pgpId = (meta.mGroupFlags & RSGXSID_GROUPFLAG_REALID_kept_for_compatibility);
     ssdata.score.rep.updateIdScore(pgpId, ssdata.pgp.validatedSignature);
     ssdata.score.rep.update();
 
@@ -1328,17 +1449,14 @@ bool p3IdService::updateGroup(uint32_t& token, RsGxsIdGroup &group)
 
 bool 	p3IdService::deleteGroup(uint32_t& token, RsGxsIdGroup &group)
 {
-    RsGxsId id = RsGxsId(group.mMeta.mGroupId.toStdString());
-    RsGxsIdGroupItem* item = new RsGxsIdGroupItem();
-
-    item->fromGxsIdGroup(group,false) ;
+    RsGxsId id(group.mMeta.mGroupId);
 
 #ifdef DEBUG_IDS
     std::cerr << "p3IdService::deleteGroup() Deleting RsGxsId: " << id;
     std::cerr << std::endl;
 #endif
 
-    RsGenExchange::deleteGroup(token, item);
+    RsGenExchange::deleteGroup(token,group.mMeta.mGroupId);
 
     // if its in the cache - clear it.
     {
@@ -1785,7 +1903,7 @@ void RsGxsIdCache::init(const RsGxsIdGroupItem *item, const RsTlvPublicRSAKey& i
     details.mFlags = 0 ;
 
     if(item->meta.mSubscribeFlags & GXS_SERV::GROUP_SUBSCRIBE_ADMIN)		details.mFlags |= RS_IDENTITY_FLAGS_IS_OWN_ID;
-    if(item->meta.mGroupFlags     & RSGXSID_GROUPFLAG_REALID)			details.mFlags |= RS_IDENTITY_FLAGS_PGP_LINKED;
+    if(item->meta.mGroupFlags     & RSGXSID_GROUPFLAG_REALID_kept_for_compatibility)			details.mFlags |= RS_IDENTITY_FLAGS_PGP_LINKED;
 
     // do some tests
     if(details.mFlags & RS_IDENTITY_FLAGS_IS_OWN_ID)
@@ -2224,6 +2342,11 @@ bool p3IdService::cache_load_for_token(uint32_t token)
             for(std::map<RsGxsId,std::list<RsPeerId> >::const_iterator itt(mPendingCache.begin());itt!=mPendingCache.end();++itt)
                 if(!itt->second.empty())
                     mergeIds(mIdsNotPresent,itt->first,itt->second) ;
+#ifdef DEBUG_IDS
+				else
+                    std::cerr << "(WW) empty list of peers to request ID " << itt->first << ": cannot request" << std::endl;
+#endif
+
 
 			mPendingCache.clear();
 
@@ -2399,7 +2522,8 @@ bool p3IdService::cache_load_ownids(uint32_t token)
 
                     // This prevents automatic deletion to get rid of them.
                     // In other words, own ids are always used.
-                    mKeysTS[RsGxsId(item->meta.mGroupId)] = time(NULL) ;
+
+                    mKeysTS[RsGxsId(item->meta.mGroupId)].TS = time(NULL) ;
 				}
 				delete item ;
             }
@@ -2493,7 +2617,7 @@ bool p3IdService::cachetest_handlerequest(uint32_t token)
 				if (!haveKey(*vit))
 				{
                     std::list<RsPeerId> nullpeers;
-					requestKey(*vit, nullpeers);
+					requestKey(*vit, nullpeers,RsIdentityUsage(serviceType(),RsIdentityUsage::UNKNOWN_USAGE));
 
 #ifdef DEBUG_IDS
 					std::cerr << "p3IdService::cachetest_request() Requested Key Id: " << *vit;
@@ -2691,7 +2815,7 @@ RsGenExchange::ServiceCreate_Return p3IdService::service_CreateGroup(RsGxsGrpIte
         std::cerr << std::endl;
         return SERVICE_CREATE_FAIL;
     }
-    mKeysTS[RsGxsId(item->meta.mGroupId)] = time(NULL) ;
+    mKeysTS[RsGxsId(item->meta.mGroupId)].TS = time(NULL) ;
 
     /********************* TEMP HACK UNTIL GXS FILLS IN GROUP_ID *****************/
 
@@ -2733,7 +2857,7 @@ RsGenExchange::ServiceCreate_Return p3IdService::service_CreateGroup(RsGxsGrpIte
 
     ServiceCreate_Return createStatus;
 
-    if (item->meta.mGroupFlags & RSGXSID_GROUPFLAG_REALID)
+    if (item->meta.mGroupFlags & RSGXSID_GROUPFLAG_REALID_kept_for_compatibility)
     {
         /* create the hash */
         Sha1CheckSum hash;
@@ -2851,7 +2975,7 @@ RsGenExchange::ServiceCreate_Return p3IdService::service_CreateGroup(RsGxsGrpIte
         if (std::find(mOwnIds.begin(), mOwnIds.end(), gxsId) == mOwnIds.end())
         {
             mOwnIds.push_back(gxsId);
-            mKeysTS[gxsId] = time(NULL) ;
+            mKeysTS[gxsId].TS = time(NULL) ;
         }
     }
 
@@ -2936,7 +3060,7 @@ bool p3IdService::pgphash_handlerequest(uint32_t token)
 #endif // DEBUG_IDS
 
 			/* Filter based on IdType */
-			if (!(vit->mMeta.mGroupFlags & RSGXSID_GROUPFLAG_REALID))
+			if (!(vit->mMeta.mGroupFlags & RSGXSID_GROUPFLAG_REALID_kept_for_compatibility))
 			{
 #ifdef DEBUG_IDS
 				std::cerr << "p3IdService::pgphash_request() discarding AnonID";
@@ -3512,7 +3636,7 @@ bool p3IdService::recogn_process()
 	ssdata.recogntags.publishTs = item->meta.mPublishTs;
 
 	// update IdScore too.
-	bool pgpId = (item->meta.mGroupFlags & RSGXSID_GROUPFLAG_REALID);
+	bool pgpId = (item->meta.mGroupFlags & RSGXSID_GROUPFLAG_REALID_kept_for_compatibility);
 	ssdata.score.rep.updateIdScore(pgpId, ssdata.pgp.validatedSignature);
 	ssdata.score.rep.update();
 
@@ -3733,7 +3857,7 @@ void p3IdService::generateDummy_FriendPGP()
 
 	RsGxsIdGroup id;
 
-	id.mMeta.mGroupFlags = RSGXSID_GROUPFLAG_REALID;
+	id.mMeta.mGroupFlags = RSGXSID_GROUPFLAG_REALID_kept_for_compatibility;
 
 	int idx = RSRandom::random_f32() * (gpgids.size() - 1);
 	it = gpgids.begin();
@@ -3770,7 +3894,7 @@ void p3IdService::generateDummy_UnknownPGP()
 	RsGxsIdGroup id;
 
 	// FAKE DATA.
-	id.mMeta.mGroupFlags = RSGXSID_GROUPFLAG_REALID;
+	id.mMeta.mGroupFlags = RSGXSID_GROUPFLAG_REALID_kept_for_compatibility;
 	id.mPgpIdHash = Sha1CheckSum::random() ;
 	id.mPgpIdSign = RSRandom::random_alphaNumericString(20) ;
 	id.mMeta.mGroupName = RSRandom::random_alphaNumericString(10) ;
@@ -4071,6 +4195,36 @@ void p3IdService::handle_event(uint32_t event_type, const std::string &/*elabel*
 			std::cerr << std::endl;
 			break;
 	}
+}
+
+RsIdentityUsage::RsIdentityUsage(uint16_t service,const RsIdentityUsage::UsageCode& code,const RsGxsGroupId& gid,const RsGxsMessageId& mid,uint64_t additional_id,const std::string& comment)
+    	: mServiceId(service), mUsageCode(code), mGrpId(gid), mMsgId(mid),mAdditionalId(additional_id),mComment(comment)
+{
+#ifdef DEBUG_IDS
+	// This is a hack, since it will hash also mHash, but because it is initialized to 0, and only computed in the constructor here, it should be ok.
+    std::cerr << "New identity usage: " << std::endl;
+    std::cerr << "  service=" << std::hex << service << std::endl;
+    std::cerr << "  code   =" << std::hex << code << std::endl;
+    std::cerr << "  grpId  =" << std::hex << gid << std::endl;
+    std::cerr << "  msgId  =" << std::hex << mid << std::endl;
+    std::cerr << "  add id =" << std::hex << additional_id << std::endl;
+    std::cerr << "  commnt =\"" << std::hex << comment << "\"" << std::endl;
+#endif
+
+    librs::crypto::HashStream hs(librs::crypto::HashStream::SHA1) ;
+
+    hs << (uint32_t)service ;
+    hs << (uint8_t)code ;
+    hs << gid ;
+    hs << mid ;
+    hs << (uint64_t)additional_id ;
+    hs << comment ;
+
+	mHash = hs.hash();
+
+#ifdef DEBUG_IDS
+    std::cerr << "  hash   =\"" << std::hex << mHash << "\"" << std::endl;
+#endif
 }
 
 
