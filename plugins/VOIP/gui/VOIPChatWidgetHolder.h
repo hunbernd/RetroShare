@@ -32,6 +32,7 @@
 //retroshare-gui
 #include <gui/chat/ChatWidget.h>
 #include <gui/common/RsButtonOnText.h>
+#include <retroshare/rspeers.h>
 
 class QToolButton;
 class QAudioInput;
@@ -50,7 +51,7 @@ class VOIPChatWidgetHolder : public QObject, public ChatWidgetHolder
 	Q_OBJECT
 
 public:
-	VOIPChatWidgetHolder(ChatWidget *chatWidget, VOIPNotify *notify);
+	VOIPChatWidgetHolder(ChatWidget *chatWidget, VOIPNotify *notify, RsPeers* rspeers);
 	virtual ~VOIPChatWidgetHolder();
 
 	virtual void updateStatus(int status);
@@ -95,6 +96,7 @@ private:
 	void addNewAudioButtonMap(const RsPeerId &peer_id);
 	void replaceFullscreenWidget();
 	void showNormalView();
+	RsPeers* mPeers;
 
 protected:
 	bool eventFilter(QObject *obj, QEvent *event);

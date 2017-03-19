@@ -30,8 +30,8 @@
 /*libretroshare*/
 #include "retroshare/rspeers.h"
 
-VOIPToasterNotify::VOIPToasterNotify(RsVOIP *VOIP, VOIPNotify *notify, QObject *parent)
-  : ToasterNotify(parent), mVOIP(VOIP), mVOIPNotify(notify)
+VOIPToasterNotify::VOIPToasterNotify(RsVOIP *VOIP, VOIPNotify *notify, RsPeers *rspeers, QObject *parent)
+  : ToasterNotify(parent), mVOIP(VOIP), mVOIPNotify(notify), mPeers(rspeers)
 {
 	mMutex = new QMutex();
 
@@ -171,7 +171,7 @@ ToasterItem *VOIPToasterNotify::toasterItem()
 ToasterItem* VOIPToasterNotify::testToasterItem(QString tag)
 {
 	ToasterItem* toaster = NULL;
-	RsPeerId ownId = rsPeers->getOwnId();
+	RsPeerId ownId = mPeers->getOwnId();
 #ifdef VOIPTOASTERNOTIFY_ALL
 	if (tag == "Accept") toaster = new ToasterItem(new VOIPToasterItem(ownId, tr("Test VOIP Accept"), VOIPToasterItem::Accept));
 	if (tag == "BandwidthInfo") toaster = new ToasterItem(new VOIPToasterItem(ownId, tr("Test VOIP BandwidthInfo"), VOIPToasterItem::BandwidthInfo));
@@ -322,7 +322,7 @@ void VOIPToasterNotify::voipAudioCallReceived(const RsPeerId &peer_id)
 	if (!mToasterAudioCall.contains(peer_id)){
 		ToasterItemData toasterItemData;
 		toasterItemData.mPeerId = peer_id;
-		toasterItemData.mMsg = QString::fromUtf8(rsPeers->getPeerName(toasterItemData.mPeerId).c_str()) + " " + tr("calling");
+		toasterItemData.mMsg = QString::fromUtf8(mPeers->getPeerName(toasterItemData.mPeerId).c_str()) + " " + tr("calling");
 
 		mPendingToasterAudioCall.push_back(toasterItemData);
 		mToasterAudioCall.insert(peer_id, NULL);
@@ -346,7 +346,7 @@ void VOIPToasterNotify::voipVideoCallReceived(const RsPeerId &peer_id)
 	if (!mToasterVideoCall.contains(peer_id)){
 		ToasterItemData toasterItemData;
 		toasterItemData.mPeerId = peer_id;
-		toasterItemData.mMsg = QString::fromUtf8(rsPeers->getPeerName(toasterItemData.mPeerId).c_str()) + " " + tr("calling");
+		toasterItemData.mMsg = QString::fromUtf8(mPeers->getPeerName(toasterItemData.mPeerId).c_str()) + " " + tr("calling");
 
 		mPendingToasterVideoCall.push_back(toasterItemData);
 		mToasterVideoCall.insert(peer_id, NULL);

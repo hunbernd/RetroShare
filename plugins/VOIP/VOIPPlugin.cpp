@@ -144,7 +144,7 @@ ChatWidgetHolder *VOIPPlugin::qt_get_chat_widget_holder(ChatWidget *chatWidget) 
 {
 	switch (chatWidget->chatType()) {
 	case ChatWidget::CHATTYPE_PRIVATE:
-		return new VOIPChatWidgetHolder(chatWidget, mVOIPNotify);
+		return new VOIPChatWidgetHolder(chatWidget, mVOIPNotify, mPeers);
 	case ChatWidget::CHATTYPE_UNKNOWN:
 	case ChatWidget::CHATTYPE_LOBBY:
 	case ChatWidget::CHATTYPE_DISTANT:
@@ -238,7 +238,7 @@ void VOIPPlugin::qt_sound_events(SoundEvents &events) const
 
 ToasterNotify *VOIPPlugin::qt_toasterNotify(){
 	if (!mVOIPToasterNotify) {
-		mVOIPToasterNotify = new VOIPToasterNotify(mVOIP, mVOIPNotify);
+		mVOIPToasterNotify = new VOIPToasterNotify(mVOIP, mVOIPNotify, mPeers);
 	}
 	return mVOIPToasterNotify;
 }

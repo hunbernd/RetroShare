@@ -29,6 +29,7 @@
 #include "gui/common/ToasterNotify.h"
 
 #include <QMutex>
+#include <retroshare/rspeers.h>
 
 //#define VOIPTOASTERNOTIFY_ALL //To get all notification
 
@@ -48,7 +49,7 @@ protected:
 	};
 
 public:
-	VOIPToasterNotify(RsVOIP *VOIP, VOIPNotify *notify, QObject *parent = 0);
+	VOIPToasterNotify(RsVOIP *VOIP, VOIPNotify *notify, RsPeers* rspeers, QObject *parent = 0);
 	~VOIPToasterNotify();
 
 	/// From ToasterNotify ///
@@ -82,6 +83,7 @@ private slots:
 private:
 	RsVOIP *mVOIP;
 	VOIPNotify *mVOIPNotify;
+	RsPeers* mPeers;
 
     // comment electron: i don't think the mutex is needed, because everything happens in the GUI thread
     // (Qt signals are send to slots in the gui thread)
