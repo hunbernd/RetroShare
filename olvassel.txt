@@ -4,7 +4,7 @@ Figyelmeztetés:
 Mindig csinálj biztonsági mentést az adat mappádról!
 Ez a verzió módosításokat tartalmaz, de mindenben kompatibilis a hivatalos verzióval.
 
-A FriendMap kiegészítõnek van némi stabilitási problémája. Ha nem indul az RS, töröld a FriendMap.dll-t.
+Qt frissítve lett, telepítés elõtt ajánlott törölni mindent a Data mappa kivételével.
 
 A fájlmegosztási rendszerben jelentõs változások történtek.
 Amire számíts: az összes megosztott fájl újrahashelése elsõ indításkor, megosztott mappák hiányozhatnak, újra meg kell õket osztani.
@@ -19,7 +19,6 @@ Megváltoztatott dolgok a hivataloshoz verzióhoz képest:
 +kiegészítõk betöltése a RetroShare\extensions6 mappából is
 +PaintChat kiegészítõ
 +ExportImport kiegészítõ
-+FriendMap kiegészítõ
 +SocialCompass kiegészítõ
 +Lua4RS kiegészítõ
 

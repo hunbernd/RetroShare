@@ -4,7 +4,7 @@ Disclaimer:
 Always do backup from your data folder!
 This version contains modifications, but fully compatible with the official stable version.
 
-The FriendMap plugin has stability issues. If RS cannot start, delete the FriendMap.dll.
+Qt was updated, it is recommended to delete everything before install except the Data folder.
 
 There were large changes in file sharing system.
 Expect: rehashing all of the shared files at the first startup, shared folders may be missing, you have to share them again.
@@ -19,7 +19,6 @@ Changed things from the official version:
 +loading extensions from RetroShare\extensions6 folder too
 +PaintChat extension
 +ExportImport extension
-+FriendMap extension
 +SocialCompass extension
 +Lua4RS extension
 
