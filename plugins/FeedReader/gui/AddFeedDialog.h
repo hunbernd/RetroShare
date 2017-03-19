@@ -25,6 +25,7 @@
 #include <QDialog>
 #include "interface/rsFeedReader.h"
 #include "util/TokenQueue.h"
+#include <retroshare/rsgxsforums.h>
 
 namespace Ui {
 class AddFeedDialog;
@@ -39,7 +40,7 @@ class AddFeedDialog : public QDialog, public TokenResponse
 	Q_OBJECT
     
 public:
-	AddFeedDialog(RsFeedReader *feedReader, FeedReaderNotify *notify, QWidget *parent);
+	AddFeedDialog(RsFeedReader *feedReader, FeedReaderNotify *notify, RsGxsForums *gxsForums, QWidget *parent);
 	~AddFeedDialog();
 
 	void setParent(const std::string &parentId);
@@ -71,6 +72,7 @@ private:
 private:
 	RsFeedReader *mFeedReader;
 	FeedReaderNotify *mNotify;
+	RsGxsForums *mGxsForums;
 	std::string mFeedId;
 	std::string mParentId;
 	std::string mFillForumId;

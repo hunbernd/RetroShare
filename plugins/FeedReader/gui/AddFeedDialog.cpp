@@ -35,8 +35,8 @@
 
 #define TOKEN_TYPE_FORUM_GROUPS 1
 
-AddFeedDialog::AddFeedDialog(RsFeedReader *feedReader, FeedReaderNotify *notify, QWidget *parent)
-	: QDialog(parent, Qt::Window), mFeedReader(feedReader), mNotify(notify), ui(new Ui::AddFeedDialog)
+AddFeedDialog::AddFeedDialog(RsFeedReader *feedReader, FeedReaderNotify *notify, RsGxsForums *gxsForums, QWidget *parent)
+	: QDialog(parent, Qt::Window), mFeedReader(feedReader), mNotify(notify), ui(new Ui::AddFeedDialog), mGxsForums(gxsForums)
 {
 	ui->setupUi(this);
 
@@ -47,7 +47,7 @@ AddFeedDialog::AddFeedDialog(RsFeedReader *feedReader, FeedReaderNotify *notify,
 	mStateHelper->addWidget(TOKEN_TYPE_FORUM_GROUPS, ui->buttonBox->button(QDialogButtonBox::Ok), UISTATE_LOADING_DISABLED);
 
 	/* Setup TokenQueue */
-	mTokenQueue = new TokenQueue(rsGxsForums->getTokenService(), this);
+	mTokenQueue = new TokenQueue(mGxsForums->getTokenService(), this);
 
 	/* Connect signals */
 	connect(ui->buttonBox->button(QDialogButtonBox::Ok), SIGNAL(clicked()), this, SLOT(createFeed()));
@@ -389,7 +389,7 @@ void AddFeedDialog::requestForumGroups()
 void AddFeedDialog::loadForumGroups(const uint32_t &token)
 {
 	std::vector<RsGxsForumGroup> groups;
-	rsGxsForums->getGroupData(token, groups);
+	mGxsForums->getGroupData(token, groups);
 
 	ui->forumComboBox->clear();
 

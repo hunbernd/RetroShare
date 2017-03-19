@@ -24,6 +24,7 @@
 
 #include <retroshare-gui/mainpage.h>
 #include "interface/rsFeedReader.h"
+#include <retroshare/rsgxsforums.h>
 
 namespace Ui {
 class FeedReaderDialog;
@@ -40,7 +41,7 @@ class FeedReaderDialog : public MainPage
 	Q_OBJECT
 
 public:
-	FeedReaderDialog(RsFeedReader *feedReader, FeedReaderNotify *notify, QWidget *parent = 0);
+	FeedReaderDialog(RsFeedReader *feedReader, FeedReaderNotify *notify, RsGxsForums *gxsForums, QWidget *parent = 0);
 	~FeedReaderDialog();
 
 	virtual UserNotify *getUserNotify(QObject *parent);
@@ -92,6 +93,7 @@ private:
 	QTreeWidgetItem *mRootItem;
 	RSTreeWidgetItemCompareRole *mFeedCompareRole;
 	FeedReaderMessageWidget *mMessageWidget;
+	RsGxsForums *mGxsForums;
 
 	// gui interface
 	RsFeedReader *mFeedReader;

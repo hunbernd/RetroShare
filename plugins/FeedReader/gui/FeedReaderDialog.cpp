@@ -56,8 +56,8 @@
 #define ROLE_FEED_ERROR       Qt::UserRole + 9
 #define ROLE_FEED_DEACTIVATED Qt::UserRole + 10
 
-FeedReaderDialog::FeedReaderDialog(RsFeedReader *feedReader, FeedReaderNotify *notify, QWidget *parent)
-	: MainPage(parent), mFeedReader(feedReader), mNotify(notify), ui(new Ui::FeedReaderDialog)
+FeedReaderDialog::FeedReaderDialog(RsFeedReader *feedReader, FeedReaderNotify *notify, RsGxsForums *gxsForums, QWidget *parent)
+	: MainPage(parent), mFeedReader(feedReader), mNotify(notify), ui(new Ui::FeedReaderDialog), mGxsForums(gxsForums)
 {
 	/* Invoke the Qt Designer generated object setup routine */
 	ui->setupUi(this);
@@ -749,7 +749,7 @@ void FeedReaderDialog::newFolder()
 
 void FeedReaderDialog::newFeed()
 {
-	AddFeedDialog dialog(mFeedReader, mNotify, this);
+	AddFeedDialog dialog(mFeedReader, mNotify, mGxsForums, this);
 	dialog.setParent(currentFeedId());
 	dialog.exec();
 }
@@ -799,7 +799,7 @@ void FeedReaderDialog::editFeed()
 			FeedReaderStringDefs::showError(this, result, tr("Create folder"), tr("Cannot create folder."));
 		}
 	} else {
-		AddFeedDialog dialog(mFeedReader, mNotify, this);
+		AddFeedDialog dialog(mFeedReader, mNotify, mGxsForums, this);
 		if (!dialog.fillFeed(feedId)) {
 			return;
 		}

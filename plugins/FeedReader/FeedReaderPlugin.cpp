@@ -108,7 +108,7 @@ ConfigPage *FeedReaderPlugin::qt_config_page() const
 MainPage *FeedReaderPlugin::qt_page() const
 {
 	if (mainpage == NULL) {
-		mainpage = new FeedReaderDialog(mFeedReader, mNotify);
+		mainpage = new FeedReaderDialog(mFeedReader, mNotify, mInterfaces.mGxsForums);
 	}
 
 	return mainpage;
