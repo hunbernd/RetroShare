@@ -34,9 +34,10 @@
 #include "retroshare/rsfiles.h"
 #include "retroshare/rsversion.h"
 #include "util/rsinitedptr.h"
+#include "retroshare/globalvar.h"
 
 class RsPluginHandler ;
-extern RsPluginHandler *rsPlugins ;
+GLOBALVAR( RsPluginHandler *rsPlugins; )
 
 class p3Service ;
 class RsServiceControl ;
@@ -50,6 +51,9 @@ class RsGxsForums;
 class RsGxsChannels;
 class RsNotify;
 class RsServiceControl;
+class RsGRouter;
+class RsServerConfig;
+class RsAccountsDetail;
 class p3LinkMgr ;
 class MainPage ;
 class QIcon ;
@@ -117,6 +121,9 @@ public:
     RsUtil::inited_ptr<RsNotify> mNotify;
     RsUtil::inited_ptr<RsServiceControl> mServiceControl;
     RsUtil::inited_ptr<RsPluginHandler> mPluginHandler;
+	RsUtil::inited_ptr<RsGRouter> mGRouter;
+	RsUtil::inited_ptr<RsServerConfig> mConfig;
+	RsUtil::inited_ptr<RsAccountsDetail> mAccounts;
 
     // gxs
     std::string     mGxsDir;

@@ -30,10 +30,11 @@
 #include <string>
 #include <list>
 #include <retroshare/rstypes.h>
+#include "retroshare/globalvar.h"
 
 /* The Main Interface Class - for information about your Peers */
 class RsRtt;
-extern RsRtt *rsRtt;
+GLOBALVAR( RsRtt *rsRtt; )
 
 
 class RsRttPongResult

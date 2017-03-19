@@ -28,7 +28,8 @@
 
 class RsStatus;
 
-extern RsStatus *rsStatus;
+#include "retroshare/globalvar.h"
+GLOBALVAR( RsStatus *rsStatus; )
 
 #include <iostream>
 #include <string>

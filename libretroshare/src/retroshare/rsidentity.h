@@ -36,10 +36,11 @@
 #include "retroshare/rsids.h"
 #include "serialiser/rstlvimage.h"
 #include "retroshare/rsgxscommon.h"
+#include "retroshare/globalvar.h"
 
 /* The Main Interface Class - for information about your Peers */
 class RsIdentity;
-extern RsIdentity *rsIdentity;
+GLOBALVAR( RsIdentity *rsIdentity; )
 
 
 // GroupFlags: Only one so far:

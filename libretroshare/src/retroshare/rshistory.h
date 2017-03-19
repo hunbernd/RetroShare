@@ -29,7 +29,8 @@
 class RsHistory;
 class ChatId;
 
-extern RsHistory *rsHistory;
+#include "retroshare/globalvar.h"
+GLOBALVAR( RsHistory *rsHistory; )
 
 #include <string>
 #include <inttypes.h>

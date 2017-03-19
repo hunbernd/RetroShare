@@ -35,12 +35,13 @@
 #include "services/p3service.h"
 #include "pqi/pqiservicemonitor.h"
 #include "retroshare/rsconfig.h" // for datatypes.
+#include "retroshare/globalvar.h"
 
 class pqipersongrp;
 
 // Extern is defined here - as this is bundled with rsconfig.h
 class p3BandwidthControl;
-extern p3BandwidthControl *rsBandwidthControl;
+GLOBALVAR( p3BandwidthControl *rsBandwidthControl; )
 
 
 class BwCtrlData

@@ -29,6 +29,7 @@
 #include "retroshare/rsids.h"
 #include "retroshare/rsturtle.h"
 #include "retroshare/rsgxsifacetypes.h"
+#include "retroshare/globalvar.h"
 
 class RsGxsTunnelService
 {
@@ -134,4 +135,4 @@ public:
 
 // To access the GRouter from anywhere
 //
-extern RsGxsTunnelService *rsGxsTunnel ;
+GLOBALVAR( RsGxsTunnelService *rsGxsTunnel; )

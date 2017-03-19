@@ -30,10 +30,11 @@
 #include <string>
 #include <list>
 #include "rsgxsservice.h"
+#include "retroshare/globalvar.h"
 
 /* The Main Interface Class - for information about your Peers */
 class RsPhoto;
-extern RsPhoto *rsPhoto;
+GLOBALVAR( RsPhoto *rsPhoto; )
 
 /******************* NEW STUFF FOR NEW CACHE SYSTEM *********/
 

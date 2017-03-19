@@ -30,10 +30,11 @@
 #include <string>
 #include <list>
 #include <retroshare/rsidentityVEG.h>
+#include "retroshare/globalvar.h"
 
 /* The Main Interface Class - for information about your Peers */
 class RsPostedVEG;
-extern RsPostedVEG *rsPostedVEG;
+GLOBALVAR( RsPostedVEG *rsPostedVEG; )
 
 
 class RsPostedGroup

@@ -33,12 +33,13 @@
 #include "retroshare/rstokenservice.h"
 #include "retroshare/rsgxsifacehelper.h"
 #include "retroshare/rsgxscommon.h"
+#include "retroshare/globalvar.h"
 
 
 
 /* The Main Interface Class - for information about your Peers */
 class RsGxsChannels;
-extern RsGxsChannels *rsGxsChannels;
+GLOBALVAR( RsGxsChannels *rsGxsChannels; )
 
 
 // These should be in rsgxscommon.h

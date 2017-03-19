@@ -32,6 +32,7 @@
 #include <set>
 
 #include "retroshare/rstypes.h"
+#include "retroshare/globalvar.h"
 
 //typedef std::string RsGxsCircleId;
 //typedef RsPgpId RsPgpId;
@@ -45,7 +46,7 @@
 
 /* The Main Interface Class - for information about your Peers */
 class RsGxsCircles;
-extern RsGxsCircles *rsGxsCircles;
+GLOBALVAR( RsGxsCircles *rsGxsCircles; )
 
 typedef RsPgpId RsPgpId;
 

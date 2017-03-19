@@ -28,6 +28,7 @@
 #include "util/rsdir.h"
 #include "retroshare/rsids.h"
 #include "retroshare/rsgxsifacetypes.h"
+#include "retroshare/globalvar.h"
 
 typedef RsGxsId  GRouterKeyId ;	// we use SSLIds, so that it's easier in the GUI to mix up peer ids with grouter ids.
 typedef uint32_t GRouterServiceId ;
@@ -107,4 +108,4 @@ public:
 
 // To access the GRouter from anywhere
 //
-extern RsGRouter *rsGRouter ;
+GLOBALVAR( RsGRouter *rsGRouter; )

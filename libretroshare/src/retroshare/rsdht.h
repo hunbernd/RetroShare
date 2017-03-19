@@ -31,10 +31,11 @@
 #include <list>
 #include <retroshare/rstypes.h>
 #include "util/rsnet.h"
+#include "retroshare/globalvar.h"
 
 /* The Main Interface Class - for information about your Peers */
 class RsDht;
-extern RsDht *rsDht;
+GLOBALVAR( RsDht *rsDht; )
 
 //std::ostream &operator<<(std::ostream &out, const RsPhotoShowDetails &detail);
 //std::ostream &operator<<(std::ostream &out, const RsPhotoDetails &detail);

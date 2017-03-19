@@ -26,9 +26,10 @@
 #pragma once
 
 #include "util/rsnet.h"
+#include "retroshare/globalvar.h"
 
 class RsBanList;
-extern RsBanList *rsBanList ;
+GLOBALVAR( RsBanList *rsBanList; )
 
 #define RSBANLIST_ORIGIN_UNKNOWN	0
 #define RSBANLIST_ORIGIN_SELF		1

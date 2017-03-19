@@ -29,10 +29,11 @@
 #include <inttypes.h>
 #include <string>
 #include <list>
+#include "retroshare/globalvar.h"
 
 /* The Main Interface Class - for information about your Peers */
 class RsDsdv;
-extern RsDsdv *rsDsdv;
+GLOBALVAR( RsDsdv *rsDsdv; )
 
 
 #define RSDSDV_IDTYPE_PEER	0x0001

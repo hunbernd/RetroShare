@@ -35,6 +35,7 @@
 
 #include "rstypes.h"
 #include "rsgxsifacetypes.h"
+#include "retroshare/globalvar.h"
 
 /********************** For Messages and Channels *****************/
 
@@ -388,7 +389,7 @@ class ChatLobbyInfo
 std::ostream &operator<<(std::ostream &out, const Rs::Msgs::MessageInfo &info);
 
 class RsMsgs;
-extern RsMsgs   *rsMsgs;
+GLOBALVAR( RsMsgs *rsMsgs; )
 
 class RsMsgs 
 {

@@ -32,12 +32,12 @@
 
 #include "retroshare/rstokenservice.h"
 #include "retroshare/rsgxsifacehelper.h"
-
+#include "retroshare/globalvar.h"
 
 
 /* The Main Interface Class - for information about your Peers */
 class RsGxsForums;
-extern RsGxsForums *rsGxsForums;
+GLOBALVAR( RsGxsForums *rsGxsForums; )
 
 class RsGxsForumGroup
 {

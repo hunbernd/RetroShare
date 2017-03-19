@@ -35,13 +35,14 @@
 
 #include "rsturtle.h"
 #include "rsgxsifacetypes.h"
+#include "retroshare/globalvar.h"
 
 class ChatId;
 class ChatMessage;
 class RsGxsChanges;
 
 class RsNotify;
-extern RsNotify   *rsNotify;
+GLOBALVAR( RsNotify *rsNotify; )
 
 const uint32_t RS_SYS_ERROR 	= 0x0001;
 const uint32_t RS_SYS_WARNING 	= 0x0002;

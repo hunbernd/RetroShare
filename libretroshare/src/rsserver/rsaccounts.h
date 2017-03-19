@@ -37,6 +37,7 @@
 #include <list>
 #include <map>
 #include "retroshare/rstypes.h"
+#include "retroshare/globalvar.h"
 
 class AccountDetails
 {
@@ -160,5 +161,5 @@ class RsAccountsDetail
 };
 
 // Global singleton declaration of data.
-extern RsAccountsDetail *rsAccounts;
+GLOBALVAR( RsAccountsDetail *rsAccounts; )
 

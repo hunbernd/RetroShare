@@ -32,10 +32,11 @@
 
 #include "retroshare/rstokenservice.h"
 #include "retroshare/rsgxsifacehelper.h"
+#include "retroshare/globalvar.h"
 
 /* The Main Interface Class - for information about your Peers */
 class RsWiki;
-extern RsWiki *rsWiki;
+GLOBALVAR( RsWiki *rsWiki; )
 
 
 /* so the basic idea of Wiki is a set of Collections about subjects.

@@ -32,10 +32,11 @@
 #include <map>
 #include <set>
 #include <retroshare/rstypes.h>
+#include "retroshare/globalvar.h"
 
 /* The Main Interface Class - for information about your Peers */
 class RsServiceControl;
-extern RsServiceControl *rsServiceControl;
+GLOBALVAR( RsServiceControl *rsServiceControl; )
 
 class RsServiceInfo
 {

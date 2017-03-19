@@ -32,11 +32,12 @@
 
 #include "retroshare/rstokenservice.h"
 #include "retroshare/rsgxsifacehelper.h"
+#include "retroshare/globalvar.h"
 
 
 /* The Main Interface Class - for information about your Peers */
 class RsWire;
-extern RsWire *rsWire;
+GLOBALVAR( RsWire *rsWire; )
 
 class RsWireGroup
 {

@@ -34,12 +34,13 @@
 #include <vector>
 
 #include "retroshare/rstypes.h"
+#include "retroshare/globalvar.h"
 
 namespace RsRegularExpression { class LinearizedExpression ; }
 class RsTurtleClientService ;
 
 class RsTurtle;
-extern RsTurtle   *rsTurtle ;
+GLOBALVAR( RsTurtle *rsTurtle; )
 
 typedef uint32_t TurtleRequestId ;
 

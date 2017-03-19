@@ -31,10 +31,11 @@
 #include <string>
 #include <list>
 #include <map>
+#include "retroshare/globalvar.h"
 
 /* The New Config Interface Class */
 class RsServerConfig;
-extern RsServerConfig *rsConfig;
+GLOBALVAR( RsServerConfig *rsConfig; )
 
 #define RSNET_NETWORK_UNKNOWN		1
 #define RSNET_NETWORK_RESTARTING	2

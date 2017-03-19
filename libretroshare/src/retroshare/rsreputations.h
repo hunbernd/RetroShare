@@ -27,6 +27,7 @@
 
 #include "retroshare/rsids.h"
 #include "retroshare/rsgxsifacetypes.h"
+#include "retroshare/globalvar.h"
 
 class RsReputations
 {
@@ -92,4 +93,4 @@ public:
 
 // To access reputations from anywhere
 //
-extern RsReputations *rsReputations ;
+GLOBALVAR( RsReputations *rsReputations; )

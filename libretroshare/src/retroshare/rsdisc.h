@@ -31,10 +31,11 @@
 #include <list>
 #include <map>
 #include <retroshare/rstypes.h>
+#include "retroshare/globalvar.h"
 
 /* The Main Interface Class - for information about your Peers */
 class RsDisc;
-extern RsDisc   *rsDisc;
+GLOBALVAR( RsDisc *rsDisc; )
 
 class RsDisc
 {

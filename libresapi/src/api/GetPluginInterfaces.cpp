@@ -8,11 +8,14 @@
 #include <retroshare/rsdht.h>
 #include <retroshare/rsnotify.h>
 #include <retroshare/rsservicecontrol.h>
+#include <retroshare/rsgrouter.h>
+#include <retroshare/rsconfig.h>
 
 #include <retroshare/rsidentity.h>
 #include <retroshare/rsgxscircles.h>
 #include <retroshare/rsgxsforums.h>
 #include <retroshare/rsgxschannels.h>
+#include <rsserver/rsaccounts.h>
 
 namespace resource_api{
 
@@ -31,6 +34,9 @@ bool getPluginInterfaces(RsPlugInInterfaces& interfaces)
     interfaces.mNotify = rsNotify;
     interfaces.mServiceControl = rsServiceControl;
     interfaces.mPluginHandler  = rsPlugins;
+	interfaces.mGRouter	= rsGRouter;
+	interfaces.mConfig = rsConfig;
+	interfaces.mAccounts = rsAccounts;
 
     // gxs
     interfaces.mGxsDir          = "";

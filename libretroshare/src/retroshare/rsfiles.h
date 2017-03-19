@@ -32,9 +32,10 @@
 #include <string>
 
 #include "rstypes.h"
+#include "retroshare/globalvar.h"
 
 class RsFiles;
-extern RsFiles  *rsFiles;
+GLOBALVAR( RsFiles  *rsFiles; )
 
 namespace RsRegularExpression { class Expression; }
 

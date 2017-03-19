@@ -6,6 +6,8 @@ CONFIG *= plugin
 DEPENDPATH += $$PWD/../../libretroshare/src/ $$PWD/../../retroshare-gui/src/
 INCLUDEPATH += $$PWD/../../libretroshare/src/ $$PWD/../../retroshare-gui/src/
 
+DEFINES += PLUGIN
+
 unix {
 	target.path = "$${PLUGIN_DIR}"
 	INSTALLS += target

@@ -74,6 +74,8 @@
 
 #pragma once
 
+#include "retroshare/globalvar.h"
+
 typedef RsPeerId SSLId ;
 typedef RsPgpId GPGId ;
 typedef uint64_t    RsGroupId ;
@@ -147,5 +149,5 @@ class p3GroupManagement: public RsGroupManagement, public p3Config
 
 // This is the entry point for external interface.
 //
-extern RsGroupManagement *rsGroups ;
+GLOBALVAR( RsGroupManagement *rsGroups; )
 

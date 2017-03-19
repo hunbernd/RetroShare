@@ -33,6 +33,7 @@
 #include <retroshare/rstypes.h>
 #include <retroshare/rsfiles.h>
 #include <retroshare/rsids.h>
+#include <retroshare/globalvar.h>
 
 /* The Main Interface Class - for information about your Peers
  * A peer is another RS instance, means associated with an SSL certificate
@@ -40,7 +41,7 @@
  * Thus a peer have SSL cert details, and also the parent GPG details
  */
 class RsPeers;
-extern RsPeers *rsPeers;
+GLOBALVAR( RsPeers *rsPeers; )
 
 /* TODO: 2015/12/31 As for type safetyness all those constant must be declared as enum!
  * C++ now supports typed enum so there is no ambiguity in serialization size
