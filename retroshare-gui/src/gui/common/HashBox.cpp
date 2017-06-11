@@ -191,6 +191,44 @@ void HashBox::addAttachments(const QStringList& files,TransferRequestFlags tfl, 
 	checkAttachmentReady();
 }
 
+void HashBox::addAttachmentImage(const QString &filename, const QString &imghtml, TransferRequestFlags tfl)
+{
+	/* add a AttachFileItem to the attachment section */
+	std::cerr << "HashBox::addExtraFile() hashing file." << std::endl;
+
+	if (filename.isEmpty()) {
+		return;
+	}
+
+	if (mAutoHide) {
+		show();
+	}
+
+
+	/* add widget in for new destination */
+	AttachFileItem* file = new AttachFileItem(filename,tfl);
+	QObject::connect(file, SIGNAL(fileFinished(AttachFileItem*)), this, SLOT(fileFinished(AttachFileItem*)));
+
+	HashingInfo hashingInfo;
+	hashingInfo.item = file;
+	hashingInfo.embeddedimage = imghtml;
+	mHashingInfos.push_back(hashingInfo);
+	ui->verticalLayout->addWidget(file, 1, 0);
+
+	QApplication::processEvents();
+
+	// workaround for Qt bug, the size from the first call to QScrollArea::sizeHint() is stored in QWidgetItemV2 and
+	// QScrollArea::sizeHint() is never called again so that widgetResizable of QScrollArea doesn't work
+	// the next line clears the member QScrollArea::widgetSize for recalculation of the added children in QScrollArea::sizeHint()
+	setWidget(takeWidget());
+	// the next line set the cache to dirty
+	updateGeometry();
+
+	emit fileHashingStarted();
+
+	checkAttachmentReady();
+}
+
 void HashBox::fileFinished(AttachFileItem* file)
 {
 	std::cerr << "HashBox::fileHashingFinished() started." << std::endl;
@@ -240,6 +278,7 @@ void HashBox::checkAttachmentReady()
 			hashedFile.hash = hashingInfo.item->FileHash();
 			hashedFile.size = hashingInfo.item->FileSize();
 			hashedFile.flag = hashingInfo.flag;
+			hashedFile.embeddedimage = hashingInfo.embeddedimage;
 			hashedFiles.push_back(hashedFile);
 
 			ui->verticalLayout->removeWidget(hashingInfo.item);

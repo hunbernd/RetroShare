@@ -72,9 +72,9 @@ void ImageUtil::optimizeSize(QString &html, const QImage& original, QImage &opti
 	int minwidth = qSqrt(100.0 * whratio);
 
 	//Use binary search to find a suitable image size + linear regression to guess the file size
-	double maxsize = (double)checkSize(html, original.scaledToWidth(maxwidth, Qt::SmoothTransformation).convertToFormat(QImage::Format_Indexed8, ct), maxBytes);
+	double maxsize = (double)checkSize(html, optimized = original.scaledToWidth(maxwidth, Qt::SmoothTransformation).convertToFormat(QImage::Format_Indexed8, ct), maxBytes);
 	if(maxsize <= maxBytes) return;	//success
-	double minsize = (double)checkSize(html, original.scaledToWidth(minwidth, Qt::SmoothTransformation).convertToFormat(QImage::Format_Indexed8, ct), maxBytes);
+	double minsize = (double)checkSize(html, optimized = original.scaledToWidth(minwidth, Qt::SmoothTransformation).convertToFormat(QImage::Format_Indexed8, ct), maxBytes);
 	if(minsize > maxBytes) return; //impossible
 
 //	std::cout << "maxS: " << maxsize << " minS: " << minsize << std::endl;
@@ -86,7 +86,7 @@ void ImageUtil::optimizeSize(QString &html, const QImage& original, QImage &opti
 		double b = maxsize - m * ((double)maxwidth * (double)maxwidth / whratio);
 		double a = ((double)(maxBytes - region/2) - b) / m; //maxBytes - region/2 target the center of the accepted region
 		int nextwidth = qSqrt((qreal)(a * whratio));
-		double nextsize = (double)checkSize(html, original.scaledToWidth(nextwidth, Qt::SmoothTransformation).convertToFormat(QImage::Format_Indexed8, ct), maxBytes);
+		double nextsize = (double)checkSize(html, optimized = original.scaledToWidth(nextwidth, Qt::SmoothTransformation).convertToFormat(QImage::Format_Indexed8, ct), maxBytes);
 		if(nextsize <= maxBytes) {
 			minsize = nextsize;
 			minwidth = nextwidth;

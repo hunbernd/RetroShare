@@ -47,6 +47,7 @@ public:
 	uint64_t size;
     RsFileHash hash;
 	Flags flag;
+	QString embeddedimage;
 
 public:
 	HashedFile();
@@ -62,6 +63,7 @@ public:
 
 	void setAutoHide(bool autoHide);
 	void addAttachments(const QStringList& files,TransferRequestFlags tfl, HashedFile::Flags flag = HashedFile::NoFlag);
+	void addAttachmentImage(const QString& file, const QString& imghtml, TransferRequestFlags tfl);
 
 	void setDropWidget(QWidget* widget);
 	void setDefaultTransferRequestFlags(TransferRequestFlags flags) { mDefaultTransferFlags = flags ; }
@@ -83,6 +85,7 @@ private:
 	public:
 		AttachFileItem* item;
 		HashedFile::Flags flag;
+		QString embeddedimage;
 	};
 
 	QList<HashingInfo> mHashingInfos;
