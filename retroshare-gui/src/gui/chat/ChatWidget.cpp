@@ -1564,8 +1564,23 @@ void ChatWidget::addExtraPicture()
 		if (RsHtml::makeEmbeddedImage(file, encodedImage, 640*480)) {
 			QTextDocumentFragment fragment = QTextDocumentFragment::fromHtml(encodedImage);
 			ui->chatTextEdit->textCursor().insertFragment(fragment);
+		} else {
+			// ask user
+			QMessageBox msgBox;
+			msgBox.setText(QString(QApplication::translate("RsHtml", "Image is oversized for transmission.\nReducing image size.\nDo you want to link the original image?")));
+			msgBox.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel | QMessageBox::No);
+			msgBox.setDefaultButton(QMessageBox::Ok);
+			int result = msgBox.exec();
+			if(result == QMessageBox::Cancel) {
+				return;
+			} else if(result == QMessageBox::No) {
+				QTextDocumentFragment fragment = QTextDocumentFragment::fromHtml(encodedImage);
+				ui->chatTextEdit->textCursor().insertFragment(fragment);
+			} else { //Yes
+				ui->hashBox->addAttachmentImage(file, encodedImage, mDefaultExtraFileFlags);
 		}
 	}
+}
 }
 
 void ChatWidget::fileHashingFinished(QList<HashedFile> hashedFiles)
@@ -1586,6 +1601,7 @@ void ChatWidget::fileHashingFinished(QList<HashedFile> hashedFiles)
 		else
 			link = RetroShareLink::createExtraFile(hashedFile.filename, hashedFile.size, QString::fromStdString(hashedFile.hash.toStdString()),QString::fromStdString(rsPeers->getOwnId().toStdString()));
 
+		if(hashedFile.embeddedimage.isEmpty()) {
 		if (hashedFile.flag & HashedFile::Picture) {
 			message += QString("<img src=\"file:///%1\" width=\"100\" height=\"100\">").arg(hashedFile.filepath);
 			message+="<br>";
@@ -1596,7 +1612,11 @@ void ChatWidget::fileHashingFinished(QList<HashedFile> hashedFiles)
 			}
 		}
 		message += link.toHtmlSize();
-
+		} else {
+			message += ("<a title=\"Click here to download the original image:" + hashedFile.filename + "\" href=\"" + link.toString() + "\">");
+			message += hashedFile.embeddedimage;
+			message += "</a>" ;
+		}
 		if (it != hashedFiles.end()) {
 			message += "<BR>";
 		}

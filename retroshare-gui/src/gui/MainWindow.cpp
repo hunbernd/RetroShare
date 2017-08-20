@@ -512,10 +512,13 @@ void MainWindow::setNewPage(int page)
 		ui->stackPages->setCurrentIndex(page);
 		ui->listWidget->setCurrentRow(page);
 	} else {
-		QString procName = ui->listWidget->item(page)->data(Qt::UserRole).toString();
-		FunctionType function = _functionList[procName];
-		if (function) (this->*function)();
-
+		QListWidgetItem* lwitem = ui->listWidget->item(page);
+		if(lwitem) //avoid crash when some icons were removed after last run, for example disabled plugins
+		{
+			QString procName = lwitem->data(Qt::UserRole).toString();
+			FunctionType function = _functionList[procName];
+			if (function) (this->*function)();
+		}
 		ui->listWidget->setCurrentRow(ui->stackPages->currentIndex());
 	}
 }
