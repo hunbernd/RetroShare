@@ -54,7 +54,7 @@ public:
 class HashStorage: public RsTickingThread
 {
 public:
-    HashStorage(const std::string& save_file_name) ;
+    explicit HashStorage(const std::string& save_file_name) ;
 
     /*!
      * \brief requestHash  Requests the hash for the given file, assuming size and mod_time are the same.
@@ -84,6 +84,8 @@ public:
     uint32_t rememberHashFilesDuration() const { return mMaxStorageDurationDays ; }
     void clear() { mFiles.clear(); mChanged=true; }												// drop all known hashes. Not something to do, except if you want to rehash the entire database
     bool empty() const { return mFiles.empty() ; }
+	void togglePauseHashingProcess() ;
+	bool hashingProcessPaused();
 
     // Functions called by the thread
 
@@ -112,10 +114,12 @@ private:
     std::map<std::string, HashStorageInfo> mFiles ;	// stored as (full_path, hash_info)
     std::string mFilePath ;							// file where the hash database is stored
     bool mChanged ;
+	bool mHashingProcessPaused ;
 
     struct FileHashJob
     {
-        std::string full_path;
+        std::string full_path;		// canonicalized file name (means: symlinks removed, loops removed, etc)
+        std::string real_path;		// path supplied by the client.
         uint64_t size ;
         HashStorageClient *client;
         uint32_t client_param ;
@@ -136,5 +140,11 @@ private:
     uint64_t mTotalHashedSize ;
     uint64_t mTotalFilesToHash ;
     time_t mLastSaveTime ;
+
+	// The following is used to estimate hashing speed.
+
+	double mHashingTime ;
+	uint64_t mHashedBytes ;
+	uint32_t mCurrentHashingSpeed ; // in MB/s
 };
 

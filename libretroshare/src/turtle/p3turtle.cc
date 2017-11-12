@@ -1447,7 +1447,7 @@ void p3turtle::handleTunnelRequest(RsTurtleOpenTunnelItem *item)
 	// We're off-mutex here.
 
 	bool found = false ;
-	std::string info ;
+	//std::string info ;
 	RsTurtleClientService *service = NULL ;
 
 	if(item->PeerId() != _own_id)
@@ -1872,13 +1872,12 @@ void p3turtle::monitorTunnels(const RsFileHash& hash,RsTurtleClientService *clie
 
 		// First, check if the hash is tagged for removal (there's a delay)
 
-        if(_hashes_to_remove.find(hash) != _hashes_to_remove.end())
-        {
-            _hashes_to_remove.erase(hash) ;
+		if(_hashes_to_remove.erase(hash) > 0)
+		{
 #ifdef P3TURTLE_DEBUG
-            std::cerr << "p3turtle: File hash " << hash << " Was scheduled for removal. Canceling the removal." << std::endl ;
+			std::cerr << "p3turtle: File hash " << hash << " Was scheduled for removal. Canceling the removal." << std::endl ;
 #endif
-        }
+		}
 
 		// Then, check if the hash is already there
 		//
@@ -2018,6 +2017,25 @@ void p3turtle::getTrafficStatistics(TurtleTrafficStatisticsInfo& info) const
 
 		info.forward_probabilities.push_back(forward_probability) ;
 	}
+}
+
+std::string p3turtle::getPeerNameForVirtualPeerId(const RsPeerId& virtual_peer_id)
+{
+	RsStackMutex stack(mTurtleMtx); /********** STACK LOCKED MTX ******/
+	std::string name = "unknown";
+	std::map<TurtleVirtualPeerId,TurtleTunnelId>::const_iterator it(_virtual_peers.find(virtual_peer_id)) ;
+	if(it != _virtual_peers.end())
+	{
+		std::map<TurtleTunnelId,TurtleTunnel>::iterator it2( _local_tunnels.find(it->second) ) ;	
+		if(it2 != _local_tunnels.end())
+		{
+			if(it2->second.local_src == _own_id)
+				mLinkMgr->getPeerName(it2->second.local_dst,name);
+			else
+				mLinkMgr->getPeerName(it2->second.local_src,name);
+		}
+	}
+	return name;
 }
 
 void p3turtle::getInfo(	std::vector<std::vector<std::string> >& hashes_info,

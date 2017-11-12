@@ -181,7 +181,8 @@ SOURCES += \
     util/ContentTypes.cpp \
     api/ApiPluginHandler.cpp \
     api/ChannelsHandler.cpp \
-    api/StatsHandler.cpp
+    api/StatsHandler.cpp \
+    api/FileSharingHandler.cpp
 
 HEADERS += \
 	api/ApiServer.h \
@@ -208,7 +209,8 @@ HEADERS += \
     util/ContentTypes.h \
     api/ApiPluginHandler.h \
     api/ChannelsHandler.h \
-    api/StatsHandler.h
+    api/StatsHandler.h \
+    api/FileSharingHandler.h
 
 libresapilocalserver {
     CONFIG *= qt
