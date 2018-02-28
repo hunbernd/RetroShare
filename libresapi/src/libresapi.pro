@@ -26,7 +26,7 @@ retroshare_android_service {
         LIBS += -luuid -lole32 -liphlpapi -lcrypt32 -lgdi32
         LIBS += -lwinmm
 
-        DEFINES *= WINDOWS_SYS WIN32_LEAN_AND_MEAN _USE_32BIT_TIME_T
+        DEFINES *= WINDOWS_SYS WIN32_LEAN_AND_MEAN
 
         DEPENDPATH += . $$INC_DIR
         INCLUDEPATH += . $$INC_DIR

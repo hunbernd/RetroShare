@@ -31,31 +31,6 @@ retroshare_nogui {
     retroshare_nogui.target = retroshare_nogui
 }
 
-retroshare_android_service {
-    SUBDIRS += retroshare_android_service
-    retroshare_android_service.file = retroshare-android-service/src/retroshare-android-service.pro
-    retroshare_android_service.depends = libresapi
-    retroshare_android_service.target = retroshare_android_service
-}
-
-retroshare_android_notify_service {
-    SUBDIRS += retroshare_android_notify_service
-    retroshare_android_notify_service.file = retroshare-android-notify-service/src/retroshare-android-notify-service.pro
-    retroshare_android_notify_service.depends = retroshare_android_service
-    retroshare_android_notify_service.target = retroshare_android_notify_service
-}
-
-retroshare_qml_app {
-    SUBDIRS += retroshare_qml_app
-    retroshare_qml_app.file = retroshare-qml-app/src/retroshare-qml-app.pro
-    retroshare_qml_app.depends = retroshare_android_service
-    retroshare_qml_app.target = retroshare_qml_app
-
-    android-g++ {
-        retroshare_qml_app.depends += retroshare_android_notify_service
-    }
-}
-
 retroshare_plugins {
     SUBDIRS += plugins
     plugins.file = plugins/plugins.pro

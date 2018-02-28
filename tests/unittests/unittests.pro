@@ -112,9 +112,6 @@ win32-x-g++ {
 #################################### Windows #####################################
 
 win32 {
-	# Switch on extra warnings
-	QMAKE_CFLAGS += -Wextra
-	QMAKE_CXXFLAGS += -Wextra
 
 	# solve linker warnings because of the order of the libraries
 	QMAKE_LFLAGS += -Wl,--start-group
@@ -149,7 +146,7 @@ win32 {
 	LIBS += -luuid -lole32 -liphlpapi -lcrypt32 -lgdi32
 	LIBS += -lwinmm
 
-	DEFINES *= WINDOWS_SYS WIN32_LEAN_AND_MEAN _USE_32BIT_TIME_T
+        DEFINES *= WINDOWS_SYS WIN32_LEAN_AND_MEAN
 
 	# create lib directory
 	message(CHK_DIR_EXISTS=$(CHK_DIR_EXISTS))

@@ -67,13 +67,9 @@ win32 {
 		QMAKE_CC = $${QMAKE_CXX}
 		OBJECTS_DIR = temp/obj
 		MOC_DIR = temp/moc
-		DEFINES *= STATICLIB WIN32_LEAN_AND_MEAN _USE_32BIT_TIME_T
+                DEFINES *= STATICLIB WIN32_LEAN_AND_MEAN
 		# These have been replaced by _WIN32 && __MINGW32__
 		#DEFINES *= WINDOWS_SYS WIN32 STATICLIB MINGW
-
-		# Switch on extra warnings
-		QMAKE_CFLAGS += -Wextra
-		QMAKE_CXXFLAGS += -Wextra
 
 		# Switch off optimization for release version
 		QMAKE_CXXFLAGS_RELEASE -= -O2

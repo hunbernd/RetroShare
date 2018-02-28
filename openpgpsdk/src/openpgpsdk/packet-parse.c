@@ -2683,7 +2683,7 @@ static int parse_pk_session_key(ops_region_t *region,
     // \todo FIXME RW
     //    const size_t sz_unencoded_m_buf=CAST_KEY_LENGTH+1+2;
     const size_t sz_unencoded_m_buf=1024;
-    unsigned char unencoded_m_buf[sz_unencoded_m_buf];
+	unsigned char unencoded_m_buf[1024];
     
     if(!limited_read(c,1,region,pinfo))
 	return 0;

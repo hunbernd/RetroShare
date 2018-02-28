@@ -39,7 +39,7 @@ static int debug=0;
 static ops_boolean_t check_binary_signature(const unsigned len,
 		const unsigned char *data,
 		const ops_signature_t *sig, 
-		const ops_public_key_t *signer __attribute__((unused)))
+		const ops_public_key_t *signer)
 {
 	// Does the signed hash match the given hash?
 

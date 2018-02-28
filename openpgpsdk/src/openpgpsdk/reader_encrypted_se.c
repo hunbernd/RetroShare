@@ -107,7 +107,7 @@ static int encrypted_data_reader(void *dest,size_t length,ops_error_t **errors,
 			arg->decrypted_count-=n;
 			arg->decrypted_offset+=n;
 			length-=n;
-			dest+=n;
+			((char*)dest) +=n;
 		}
 		else
 		{

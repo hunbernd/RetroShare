@@ -163,10 +163,6 @@ win32 {
 		CONFIG += console
 	}
 
-	# Switch on extra warnings
-	QMAKE_CFLAGS += -Wextra
-	QMAKE_CXXFLAGS += -Wextra
-
 	CONFIG(debug, debug|release) {
 	} else {
 		# Tell linker to use ASLR protection
@@ -210,7 +206,7 @@ win32 {
 		QMAKE_PRE_LINK = $(CHK_DIR_EXISTS) lib || $(MKDIR) lib
 	}
 
-	DEFINES *= WINDOWS_SYS WIN32_LEAN_AND_MEAN _USE_32BIT_TIME_T
+        DEFINES *= WINDOWS_SYS WIN32_LEAN_AND_MEAN
 
 	DEPENDPATH += . $$INC_DIR
 	INCLUDEPATH += . $$INC_DIR

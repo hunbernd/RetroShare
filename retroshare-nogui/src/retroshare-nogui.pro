@@ -85,7 +85,7 @@ win32 {
 
 	RC_FILE = resources/retroshare_win.rc
 
-	DEFINES *= WINDOWS_SYS _USE_32BIT_TIME_T
+        DEFINES *= WINDOWS_SYS
 
 	DEPENDPATH += . $$INC_DIR
 	INCLUDEPATH += . $$INC_DIR

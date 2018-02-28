@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <string>
-#include <unistd.h>
 #include <time.h>
 #include "util/bdrandom.h"
 

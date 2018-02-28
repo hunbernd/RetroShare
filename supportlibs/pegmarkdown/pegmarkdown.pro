@@ -35,16 +35,13 @@ win32 {
 		OBJECTS_DIR = temp/obj
 		MOC_DIR = temp/moc
 
-		# Switch on extra warnings
-		QMAKE_CFLAGS += -Wextra
-
 		# Switch off optimization for release version
 		QMAKE_CFLAGS_RELEASE -= -O2
 		QMAKE_CFLAGS_RELEASE += -O0
 
 		CONFIG += dummy_glib 
 
-		DEFINES *= _USE_32BIT_TIME_T
+                DEFINES *=
 
 		# With GCC package 4.8, including io.h either directly or indirectly causes off64_t not to be defined when compiling with -ansi switch
 		DEFINES *= off64_t=_off64_t

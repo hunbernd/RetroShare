@@ -33,7 +33,6 @@
 
 #include <string.h>
 #include <fcntl.h>
-#include <unistd.h>
 
 #include <openpgpsdk/final.h>
 #include <openpgpsdk/opsdir.h>

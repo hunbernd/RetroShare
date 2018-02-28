@@ -24,10 +24,6 @@ win32 {
 		QMAKE_LFLAGS = -Wl,-enable-stdcall-fixup -Wl,-enable-auto-import -Wl,-enable-runtime-pseudo-reloc
 	}
 
-	# Switch on extra warnings
-	QMAKE_CFLAGS += -Wextra
-	QMAKE_CXXFLAGS += -Wextra
-
 	CONFIG(debug, debug|release) {
 	} else {
 		# Tell linker to use ASLR protection
@@ -44,7 +40,7 @@ win32 {
 	RCC_DIR = temp/qrc
 	UI_DIR  = temp/ui
 
-	DEFINES += WINDOWS_SYS WIN32 STATICLIB MINGW WIN32_LEAN_AND_MEAN _USE_32BIT_TIME_T
+        DEFINES += WINDOWS_SYS WIN32 STATICLIB MINGW WIN32_LEAN_AND_MEAN
 	#DEFINES += MINIUPNPC_VERSION=13
 #	DESTDIR = lib
 

@@ -23,6 +23,7 @@
  */
 
 #include <openssl/cast.h>
+#include "../../fix.h"
 
 #include <openpgpsdk/armour.h>
 #include <openpgpsdk/create.h>
