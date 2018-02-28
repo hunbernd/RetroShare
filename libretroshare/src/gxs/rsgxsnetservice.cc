@@ -210,6 +210,7 @@
 #include "retroshare/rspeers.h"
 #include "pgp/pgpauxutils.h"
 #include "util/rsdir.h"
+#include "util/rstime.h"
 #include "util/rsmemory.h"
 #include "util/stacktrace.h"
 
@@ -244,11 +245,13 @@
 // A small value for MAX_REQLIST_SIZE is likely to help messages to propagate in a chaotic network, but will also slow them down.
 // A small SYNC_PERIOD fasten message propagation, but is likely to overload the server side of transactions (e.g. overload outqueues).
 //
-static const uint32_t GIXS_CUT_OFF                            =            0;
+//static const uint32_t GIXS_CUT_OFF                            =            0;
 static const uint32_t SYNC_PERIOD                             =           60;
 static const uint32_t MAX_REQLIST_SIZE                        =           20; // No more than 20 items per msg request list => creates smaller transactions that are less likely to be cancelled.
 static const uint32_t TRANSAC_TIMEOUT                         =         2000; // In seconds. Has been increased to avoid epidemic transaction cancelling due to overloaded outqueues.
+#ifdef TO_REMOVE
 static const uint32_t SECURITY_DELAY_TO_FORCE_CLIENT_REUPDATE =         3600; // force re-update if there happens to be a large delay between our server side TS and the client side TS of friends
+#endif
 static const uint32_t REJECTED_MESSAGE_RETRY_DELAY            =      24*3600; // re-try rejected messages every 24hrs. Most of the time this is because the peer's reputation has changed.
 static const uint32_t GROUP_STATS_UPDATE_DELAY                =          240; // update unsubscribed group statistics every 3 mins
 static const uint32_t GROUP_STATS_UPDATE_NB_PEERS             =            2; // number of peers to which the group stats are asked
@@ -268,7 +271,7 @@ static const uint32_t RS_NXS_ITEM_ENCRYPTION_STATUS_GXS_KEY_MISSING     = 0x05 ;
 
 static const RsPeerId     peer_to_print     = RsPeerId(std::string(""))   ;
 static const RsGxsGroupId group_id_to_print = RsGxsGroupId(std::string("")) ;	// use this to allow to this group id only, or "" for all IDs
-static const uint32_t     service_to_print  = 0x215 ;                       	// use this to allow to this service id only, or 0 for all services
+static const uint32_t     service_to_print  = RS_SERVICE_TYPE_GXS_TRANS ;                       	// use this to allow to this service id only, or 0 for all services
 										// warning. Numbers should be SERVICE IDS (see serialiser/rsserviceids.h. E.g. 0x0215 for forums)
 
 class nullstream: public std::ostream {};
@@ -311,7 +314,7 @@ RsGxsNetService::RsGxsNetService(uint16_t servType, RsGeneralDataService *gds,
                                  RsNxsNetMgr *netMgr, RsNxsObserver *nxsObs,
                                  const RsServiceInfo serviceInfo,
                                  RsGixsReputation* reputations, RsGcxs* circles, RsGixs *gixs,
-                                 PgpAuxUtils *pgpUtils, bool grpAutoSync,bool msgAutoSync)
+                                 PgpAuxUtils *pgpUtils, bool grpAutoSync, bool msgAutoSync, uint32_t default_store_period, uint32_t default_sync_period)
                                  : p3ThreadedService(), p3Config(), mTransactionN(0),
                                    mObserver(nxsObs), mDataStore(gds),
                                    mServType(servType), mTransactionTimeOut(TRANSAC_TIMEOUT),
@@ -321,11 +324,20 @@ RsGxsNetService::RsGxsNetService(uint16_t servType, RsGeneralDataService *gds,
                                    mCircles(circles), mGixs(gixs),
                                    mReputations(reputations), mPgpUtils(pgpUtils),
                                    mGrpAutoSync(grpAutoSync), mAllowMsgSync(msgAutoSync),
-                                   mServiceInfo(serviceInfo)
+                                   mServiceInfo(serviceInfo), mDefaultMsgStorePeriod(default_store_period),
+                                   mDefaultMsgSyncPeriod(default_sync_period)
 {
 	addSerialType(new RsNxsSerialiser(mServType));
 	mOwnId = mNetMgr->getOwnId();
     mUpdateCounter = 0;
+
+	// check the consistency
+
+	if(mDefaultMsgStorePeriod > 0 && mDefaultMsgSyncPeriod > mDefaultMsgStorePeriod)
+	{
+		std::cerr << "(WW) in GXS service \"" << getServiceInfo().mServiceName << "\":  too large message sync period will be set to message store period." << std::endl;
+		mDefaultMsgSyncPeriod = mDefaultMsgStorePeriod ;
+	}
 }
 
 void RsGxsNetService::getItemNames(std::map<uint8_t,std::string>& names) const
@@ -447,6 +459,9 @@ void RsGxsNetService::rejectMessage(const RsGxsMessageId& msg_id)
 {
     RS_STACK_MUTEX(mNxsMutex) ;
 
+#ifdef NXS_NET_DEBUG_0
+    GXSNETDEBUG___ << "adding message " << msg_id << " to rejection list for 24hrs." << std::endl;
+#endif
     mRejectedMessages[msg_id] = time(NULL) ;
 }
 void RsGxsNetService::cleanRejectedMessages()
@@ -537,14 +552,13 @@ void RsGxsNetService::syncWithPeers()
 
 #ifndef GXS_DISABLE_SYNC_MSGS
 
-    typedef RsGxsMetaDataTemporaryMap<RsGxsGrpMetaData> GrpMetaMap;
-    GrpMetaMap grpMeta;
+    RsGxsGrpMetaTemporaryMap grpMeta;
 
     mDataStore->retrieveGxsGrpMetaData(grpMeta);
 
-    GrpMetaMap toRequest;
+    RsGxsGrpMetaTemporaryMap toRequest;
 
-    for(GrpMetaMap::iterator mit = grpMeta.begin(); mit != grpMeta.end(); ++mit)
+    for(RsGxsGrpMetaTemporaryMap::iterator mit = grpMeta.begin(); mit != grpMeta.end(); ++mit)
     {
 	    RsGxsGrpMetaData* meta = mit->second;
 
@@ -582,7 +596,7 @@ void RsGxsNetService::syncWithPeers()
 	GXSNETDEBUG_P_(peerId) << "  syncing messages with peer " << peerId << std::endl;
 #endif
 
-        GrpMetaMap::const_iterator mmit = toRequest.begin();
+        RsGxsGrpMetaTemporaryMap::const_iterator mmit = toRequest.begin();
         for(; mmit != toRequest.end(); ++mmit)
         {
             const RsGxsGrpMetaData* meta = mmit->second;
@@ -595,9 +609,9 @@ void RsGxsNetService::syncWithPeers()
 #ifdef NXS_NET_DEBUG_0
 	    GXSNETDEBUG_PG(peerId,grpId) << "    peer can send messages for group " << grpId ;
 	    if(!encrypt_to_this_circle_id.isNull())
-		    std::cerr << " request should be encrypted for circle ID " << encrypt_to_this_circle_id << std::endl;
+		    GXSNETDEBUG_PG(peerId,grpId) << " request should be encrypted for circle ID " << encrypt_to_this_circle_id << std::endl;
 	    else
-		    std::cerr << " request should be sent in clear." << std::endl;
+		    GXSNETDEBUG_PG(peerId,grpId) << " request should be sent in clear." << std::endl;
 
 #endif
             // On default, the info has never been received so the TS is 0, meaning the peer has sent that it had no information.
@@ -620,8 +634,8 @@ void RsGxsNetService::syncWithPeers()
             msg->PeerId(peerId);
             msg->updateTS = updateTS;
 
-            int req_delay  = (int)mServerGrpConfigMap[grpId].msg_req_delay ;
-            int keep_delay = (int)mServerGrpConfigMap[grpId].msg_keep_delay ;
+            int req_delay  = (int)locked_getGrpConfig(grpId).msg_req_delay ;
+            int keep_delay = (int)locked_getGrpConfig(grpId).msg_keep_delay ;
 
             // If we store for less than we request, we request less, otherwise the posts will be deleted after being obtained.
 
@@ -664,7 +678,7 @@ void RsGxsNetService::syncGrpStatistics()
 #ifdef NXS_NET_DEBUG_6
     GXSNETDEBUG___<< "Sync-ing group statistics." << std::endl;
 #endif
-    RsGxsMetaDataTemporaryMap<RsGxsGrpMetaData> grpMeta;
+    RsGxsGrpMetaTemporaryMap grpMeta;
 
     mDataStore->retrieveGxsGrpMetaData(grpMeta);
 
@@ -676,14 +690,15 @@ void RsGxsNetService::syncGrpStatistics()
 
     time_t now = time(NULL) ;
 
-    for(std::map<RsGxsGroupId,RsGxsGrpMetaData*>::const_iterator it(grpMeta.begin());it!=grpMeta.end();++it)
+    for(auto it(grpMeta.begin());it!=grpMeta.end();++it)
     {
-	    const RsGxsGrpConfig& rec = mServerGrpConfigMap[it->first] ;
+	    const RsGxsGrpConfig& rec = locked_getGrpConfig(it->first) ;
+
 #ifdef NXS_NET_DEBUG_6
 	    GXSNETDEBUG__G(it->first) << "    group " << it->first ;
 #endif
 
-	    if(rec.update_TS + GROUP_STATS_UPDATE_DELAY < now && rec.suppliers.ids.size() > 0)
+	    if(rec.statistics_update_TS + GROUP_STATS_UPDATE_DELAY < now && rec.suppliers.ids.size() > 0)
 	    {
 #ifdef NXS_NET_DEBUG_6
 		    GXSNETDEBUG__G(it->first) << " needs update. Randomly asking to some friends" << std::endl;
@@ -736,12 +751,12 @@ void RsGxsNetService::handleRecvSyncGrpStatistics(RsNxsSyncGrpStatsItem *grs)
 #ifdef NXS_NET_DEBUG_6
 	    GXSNETDEBUG_PG(grs->PeerId(),grs->grpId) << "Received Grp update stats Request for group " << grs->grpId << " from friend " << grs->PeerId() << std::endl;
 #endif
-	RsGxsMetaDataTemporaryMap<RsGxsGrpMetaData> grpMetas;
+	RsGxsGrpMetaTemporaryMap grpMetas;
 	    grpMetas[grs->grpId] = NULL;
 
 	    mDataStore->retrieveGxsGrpMetaData(grpMetas);
 
-	    RsGxsGrpMetaData* grpMeta = grpMetas[grs->grpId];
+	    const RsGxsGrpMetaData* grpMeta = grpMetas[grs->grpId];
 
 	if(grpMeta == NULL)
             {
@@ -783,7 +798,10 @@ void RsGxsNetService::handleRecvSyncGrpStatistics(RsNxsSyncGrpStatsItem *grs)
 	    grs_resp->grpId = grs->grpId;
 	    grs_resp->PeerId(grs->PeerId()) ;
 
-	    grs_resp->last_post_TS = 0 ;
+	    grs_resp->last_post_TS = grpMeta->mPublishTs ;	// This is not zero, and necessarily older than any message in the group up to clock precision.
+														// This allows us to use 0 as "uninitialized" proof. If the group meta has been changed, this time
+														// will be more recent than some messages. This shouldn't be a problem, since this value can only
+														// be used to discard groups that are not used.
 
 	    for(uint32_t i=0;i<vec.size();++i)
 	    {
@@ -804,14 +822,16 @@ void RsGxsNetService::handleRecvSyncGrpStatistics(RsNxsSyncGrpStatsItem *grs)
 	   GXSNETDEBUG_PG(grs->PeerId(),grs->grpId) << "Received Grp update stats item from peer " << grs->PeerId() << " for group " << grs->grpId << ", reporting " << grs->number_of_posts << " posts." << std::endl;
 #endif
 	   RS_STACK_MUTEX(mNxsMutex) ;
-	   RsGxsGrpConfig& rec(mServerGrpConfigMap[grs->grpId]) ;
+
+	   RsGxsGrpConfig& rec(locked_getGrpConfig(grs->grpId)) ;
 
 	   uint32_t old_count = rec.max_visible_count ;
 	   uint32_t old_suppliers_count = rec.suppliers.ids.size() ;
 
 	   rec.suppliers.ids.insert(grs->PeerId()) ;
 	   rec.max_visible_count = std::max(rec.max_visible_count,grs->number_of_posts) ;
-	   rec.update_TS = time(NULL) ;
+	   rec.statistics_update_TS = time(NULL) ;
+	   rec.last_group_modification_TS = grs->last_post_TS;
 
 	   if (old_count != rec.max_visible_count || old_suppliers_count != rec.suppliers.ids.size())
 		  mNewStatsToNotify.insert(grs->grpId) ;
@@ -845,8 +865,8 @@ void RsGxsNetService::subscribeStatusChanged(const RsGxsGroupId& grpId,bool subs
 
 #ifdef NXS_NET_DEBUG_0
     GXSNETDEBUG__G(grpId) << "Changing subscribe status for grp " << grpId << " to " << subscribed << ": reseting all server msg time stamps for this group, and server global TS." << std::endl;
-#endif
     std::map<RsGxsGroupId,RsGxsServerMsgUpdate>::iterator it = mServerMsgUpdateMap.find(grpId) ;
+#endif
 
     RsGxsServerMsgUpdate& item(mServerMsgUpdateMap[grpId]) ;
 
@@ -1419,7 +1439,7 @@ bool RsGxsNetService::loadList(std::list<RsItem *> &load)
 
 		// the update time stamp is randomised so as not to ask all friends at once about group statistics.
 
-		it->second.update_TS = now - GROUP_STATS_UPDATE_DELAY + (RSRandom::random_u32()%(GROUP_STATS_UPDATE_DELAY/10)) ;
+		it->second.statistics_update_TS = now - GROUP_STATS_UPDATE_DELAY + (RSRandom::random_u32()%(GROUP_STATS_UPDATE_DELAY/10)) ;
 
 		// Similarly, we remove all suppliers.
 		// Actual suppliers will come back automatically.
@@ -1768,7 +1788,7 @@ void RsGxsNetService::data_tick()
     static const double timeDelta = 0.5;
 
         //Start waiting as nothing to do in runup
-        usleep((int) (timeDelta * 1000 * 1000)); // timeDelta sec
+        rstime::rs_usleep((int) (timeDelta * 1000 * 1000)); // timeDelta sec
 
         if(mUpdateCounter >= 120) // 60 seconds
         {
@@ -1839,7 +1859,7 @@ void RsGxsNetService::debugDump()
 		    GXSNETDEBUG_PG(it->first,it2->first) << "      group " << it2->first << " - last updated at peer (secs ago): " << nice_time_stamp(time(NULL),it2->second.time_stamp) << ". Message count=" << it2->second.message_count << std::endl;
     }
 
-    GXSNETDEBUG___<< "  List of rejected message ids: " << mRejectedMessages.size() << std::endl;
+    GXSNETDEBUG___<< "  List of rejected message ids: " << std::dec << mRejectedMessages.size() << std::endl;
 #endif
 }
 
@@ -1885,7 +1905,7 @@ void RsGxsNetService::updateClientSyncTS()
 
 void RsGxsNetService::updateServerSyncTS()
 {
-	RsGxsMetaDataTemporaryMap<RsGxsGrpMetaData> gxsMap;
+	RsGxsGrpMetaTemporaryMap gxsMap;
 
 #ifdef NXS_NET_DEBUG_0
     	GXSNETDEBUG___<< "updateServerSyncTS(): updating last modification time stamp of local data." << std::endl;
@@ -1932,7 +1952,7 @@ void RsGxsNetService::updateServerSyncTS()
     	// finally, update timestamps.
 	bool change = false;
 
-	for(std::map<RsGxsGroupId, RsGxsGrpMetaData*>::const_iterator mit = gxsMap.begin();mit != gxsMap.end(); ++mit)
+	for(auto mit = gxsMap.begin();mit != gxsMap.end(); ++mit)
 	{
         	// Check if the group is subscribed and restricted to a circle. If the circle has changed, update the
         	// global TS to reflect that change to clients who may be able to see/subscribe to that particular group.
@@ -2293,6 +2313,7 @@ bool RsGxsNetService::getGroupNetworkStats(const RsGxsGroupId& gid,RsGroupNetwor
     stats.mMaxVisibleCount = it->second.max_visible_count ;
     stats.mAllowMsgSync = mAllowMsgSync ;
     stats.mGrpAutoSync = mGrpAutoSync ;
+    stats.mLastGroupModificationTS = it->second.last_group_modification_TS ;
 
     return true ;
 }
@@ -2412,7 +2433,9 @@ void RsGxsNetService::locked_processCompletedIncomingTrans(NxsTransaction* tr)
             RsPeerId peerFrom = tr->mTransaction->PeerId();
             uint32_t updateTS = tr->mTransaction->updateTS;
 
+#ifdef NXS_NET_DEBUG_0
             ClientGrpMap::iterator it = mClientGrpUpdateMap.find(peerFrom);
+#endif
 
             RsGxsGrpUpdate& item(mClientGrpUpdateMap[peerFrom]) ;
 
@@ -2681,7 +2704,7 @@ void RsGxsNetService::locked_genReqMsgTransaction(NxsTransaction* tr)
     uint32_t mcount = msgItemL.size() ;
     RsPeerId pid = msgItemL.front()->PeerId() ;
 
-    RsGxsGrpConfig& gnsr(mServerGrpConfigMap[grpId]) ;
+    RsGxsGrpConfig& gnsr(locked_getGrpConfig(grpId));
 
     std::set<RsPeerId>::size_type oldSuppliersCount = gnsr.suppliers.ids.size();
     uint32_t oldVisibleCount = gnsr.max_visible_count;
@@ -2696,11 +2719,11 @@ void RsGxsNetService::locked_genReqMsgTransaction(NxsTransaction* tr)
     GXSNETDEBUG_PG(item->PeerId(),grpId) << "  grpId = " << grpId << std::endl;
     GXSNETDEBUG_PG(item->PeerId(),grpId) << "  retrieving grp mesta data..." << std::endl;
 #endif
-    RsGxsMetaDataTemporaryMap<RsGxsGrpMetaData> grpMetaMap;
+    RsGxsGrpMetaTemporaryMap grpMetaMap;
     grpMetaMap[grpId] = NULL;
 
     mDataStore->retrieveGxsGrpMetaData(grpMetaMap);
-    RsGxsGrpMetaData* grpMeta = grpMetaMap[grpId];
+    const RsGxsGrpMetaData* grpMeta = grpMetaMap[grpId];
 
     if(grpMeta == NULL) // this should not happen, but just in case...
     {
@@ -2954,7 +2977,7 @@ void RsGxsNetService::locked_genReqGrpTransaction(NxsTransaction* tr)
 #endif
 
     std::list<RsNxsSyncGrpItem*> grpItemL;
-    RsGxsMetaDataTemporaryMap<RsGxsGrpMetaData> grpMetaMap;
+    RsGxsGrpMetaTemporaryMap grpMetaMap;
 
     for(std::list<RsNxsItem*>::iterator lit = tr->mItems.begin(); lit != tr->mItems.end(); ++lit)
     {
@@ -3063,7 +3086,7 @@ void RsGxsNetService::locked_genSendGrpsTransaction(NxsTransaction* tr)
 
 	std::list<RsNxsItem*>::iterator lit = tr->mItems.begin();
 
-    	RsGxsMetaDataTemporaryMap<RsNxsGrp> grps ;
+    	t_RsGxsGenericDataTemporaryMap<RsGxsGroupId,RsNxsGrp> grps ;
 
 	for(;lit != tr->mItems.end(); ++lit)
 	{
@@ -3780,7 +3803,7 @@ void RsGxsNetService::handleRecvSyncGroup(RsNxsSyncGrpReqItem *item)
 	    return;
     }
 
-    RsGxsMetaDataTemporaryMap<RsGxsGrpMetaData> grp;
+    RsGxsGrpMetaTemporaryMap grp;
     mDataStore->retrieveGxsGrpMetaData(grp);
 
 #ifdef NXS_NET_DEBUG_0
@@ -3803,9 +3826,9 @@ void RsGxsNetService::handleRecvSyncGroup(RsNxsSyncGrpReqItem *item)
     GXSNETDEBUG_P_(peer) << "  Group list beings being sent: " << std::endl;
 #endif
 
-    for(std::map<RsGxsGroupId, RsGxsGrpMetaData*>::iterator mit = grp.begin(); mit != grp.end(); ++mit)
+    for(auto mit = grp.begin(); mit != grp.end(); ++mit)
     {
-	    RsGxsGrpMetaData* grpMeta = mit->second;
+	    const RsGxsGrpMetaData* grpMeta = mit->second;
 
 	    // Only send info about subscribed groups.
 
@@ -3877,7 +3900,7 @@ void RsGxsNetService::handleRecvSyncGroup(RsNxsSyncGrpReqItem *item)
 
 
 
-bool RsGxsNetService::canSendGrpId(const RsPeerId& sslId, RsGxsGrpMetaData& grpMeta, std::vector<GrpIdCircleVet>& /* toVet */, bool& should_encrypt)
+bool RsGxsNetService::canSendGrpId(const RsPeerId& sslId, const RsGxsGrpMetaData& grpMeta, std::vector<GrpIdCircleVet>& /* toVet */, bool& should_encrypt)
 {
 #ifdef NXS_NET_DEBUG_4
 	GXSNETDEBUG_PG(sslId,grpMeta.mGroupId) << "RsGxsNetService::canSendGrpId()"<< std::endl;
@@ -4055,7 +4078,7 @@ void RsGxsNetService::handleRecvSyncMessage(RsNxsSyncMsgReqItem *item,bool item_
 
     if(grp_is_known || mServerGrpConfigMap.find(item->grpId)!=mServerGrpConfigMap.end())
     {
-	    RsGxsGrpConfig & rec(mServerGrpConfigMap[item->grpId]) ;	// this creates it if needed. When the grp is unknown (and hashed) this will would create a unused entry
+	    RsGxsGrpConfig& rec(locked_getGrpConfig(item->grpId)); // this creates it if needed. When the grp is unknown (and hashed) this will would create a unused entry
 	    rec.suppliers.ids.insert(peer) ;
     }
     if(!peer_can_receive_update)
@@ -4066,11 +4089,11 @@ void RsGxsNetService::handleRecvSyncMessage(RsNxsSyncMsgReqItem *item,bool item_
 	    return;
     }
 
-    RsGxsMetaDataTemporaryMap<RsGxsGrpMetaData> grpMetas;
+    RsGxsGrpMetaTemporaryMap grpMetas;
     grpMetas[item->grpId] = NULL;
 
     mDataStore->retrieveGxsGrpMetaData(grpMetas);
-    RsGxsGrpMetaData* grpMeta = grpMetas[item->grpId];
+    const RsGxsGrpMetaData* grpMeta = grpMetas[item->grpId];
 
     if(grpMeta == NULL)
     {
@@ -4125,7 +4148,7 @@ void RsGxsNetService::handleRecvSyncMessage(RsNxsSyncMsgReqItem *item,bool item_
 
     time_t now = time(NULL) ;
 
-    uint32_t max_send_delay = mServerGrpConfigMap[item->grpId].msg_req_delay;	// we should use "sync" but there's only one variable used in the GUI: the req one.
+    uint32_t max_send_delay = locked_getGrpConfig(item->grpId).msg_req_delay;	// we should use "sync" but there's only one variable used in the GUI: the req one.
 
     if(canSendMsgIds(msgMetas, *grpMeta, peer, should_encrypt_to_this_circle_id))
     {
@@ -4414,7 +4437,7 @@ bool RsGxsNetService::checkPermissionsForFriendGroup(const RsPeerId& sslId,const
 
 void RsGxsNetService::pauseSynchronisation(bool /* enabled */)
 {
-
+	std::cerr << "(EE) RsGxsNetService::pauseSynchronisation() called, but not implemented." << std::endl;
 }
 
 void RsGxsNetService::setSyncAge(const RsGxsGroupId &grpId, uint32_t age_in_secs)
@@ -4423,7 +4446,7 @@ void RsGxsNetService::setSyncAge(const RsGxsGroupId &grpId, uint32_t age_in_secs
 
     locked_checkDelay(age_in_secs) ;
 
-    RsGxsGrpConfig& conf(mServerGrpConfigMap[grpId]) ;
+    RsGxsGrpConfig& conf(locked_getGrpConfig(grpId));
 
     if(conf.msg_req_delay != age_in_secs)
     {
@@ -4441,7 +4464,7 @@ void RsGxsNetService::setKeepAge(const RsGxsGroupId &grpId, uint32_t age_in_secs
 
     locked_checkDelay(age_in_secs) ;
 
-    RsGxsGrpConfig& conf(mServerGrpConfigMap[grpId]) ;
+    RsGxsGrpConfig& conf(locked_getGrpConfig(grpId));
 
     if(conf.msg_keep_delay != age_in_secs)
     {
@@ -4450,27 +4473,39 @@ void RsGxsNetService::setKeepAge(const RsGxsGroupId &grpId, uint32_t age_in_secs
     }
 }
 
+RsGxsGrpConfig& RsGxsNetService::locked_getGrpConfig(const RsGxsGroupId& grp_id)
+{
+	GrpConfigMap::iterator it = mServerGrpConfigMap.find(grp_id);
+
+	if(it == mServerGrpConfigMap.end())
+	{
+		RsGxsGrpConfig& conf(mServerGrpConfigMap[grp_id]) ;
+
+		conf.msg_keep_delay = mDefaultMsgStorePeriod;
+		conf.msg_send_delay = mDefaultMsgSyncPeriod;
+		conf.msg_req_delay  = mDefaultMsgSyncPeriod;
+
+		conf.max_visible_count = 0 ;
+		conf.statistics_update_TS = 0 ;
+		conf.last_group_modification_TS = 0 ;
+
+		return conf ;
+	}
+	else
+		return it->second;
+}
+
 uint32_t RsGxsNetService::getSyncAge(const RsGxsGroupId& grpId)
 {
 	RS_STACK_MUTEX(mNxsMutex) ;
 
-    GrpConfigMap::const_iterator it = mServerGrpConfigMap.find(grpId) ;
-
-    if(it == mServerGrpConfigMap.end())
-        return RS_GXS_DEFAULT_MSG_REQ_PERIOD ;
-    else
-        return it->second.msg_req_delay ;
+	return locked_getGrpConfig(grpId).msg_req_delay ;
 }
-uint32_t RsGxsNetService::getKeepAge(const RsGxsGroupId& grpId,uint32_t default_value)
+uint32_t RsGxsNetService::getKeepAge(const RsGxsGroupId& grpId)
 {
     RS_STACK_MUTEX(mNxsMutex) ;
 
-    GrpConfigMap::const_iterator it = mServerGrpConfigMap.find(grpId) ;
-
-    if(it == mServerGrpConfigMap.end())
-        return default_value ;
-    else
-        return it->second.msg_keep_delay ;
+	return locked_getGrpConfig(grpId).msg_keep_delay ;
 }
 
 int RsGxsNetService::requestGrp(const std::list<RsGxsGroupId>& grpId, const RsPeerId& peerId)
@@ -4593,13 +4628,13 @@ void RsGxsNetService::sharePublishKeysPending()
 
         // Get the meta data for this group Id
         //
-        RsGxsMetaDataTemporaryMap<RsGxsGrpMetaData> grpMetaMap;
+        RsGxsGrpMetaTemporaryMap grpMetaMap;
         grpMetaMap[mit->first] = NULL;
         mDataStore->retrieveGxsGrpMetaData(grpMetaMap);
 
         // Find the publish keys in the retrieved info
 
-        RsGxsGrpMetaData *grpMeta = grpMetaMap[mit->first] ;
+        const RsGxsGrpMetaData *grpMeta = grpMetaMap[mit->first] ;
 
         if(grpMeta == NULL)
         {
@@ -4677,14 +4712,14 @@ void RsGxsNetService::handleRecvPublishKeys(RsNxsGroupPublishKeyItem *item)
 
 	// Get the meta data for this group Id
 	//
-	RsGxsMetaDataTemporaryMap<RsGxsGrpMetaData> grpMetaMap;
+	RsGxsGrpMetaTemporaryMap grpMetaMap;
 	grpMetaMap[item->grpId] = NULL;
 
 	mDataStore->retrieveGxsGrpMetaData(grpMetaMap);
 
 	// update the publish keys in this group meta info
 
-	RsGxsGrpMetaData *grpMeta = grpMetaMap[item->grpId] ;
+	const RsGxsGrpMetaData *grpMeta = grpMetaMap[item->grpId] ;
 	if (!grpMeta) {
 		std::cerr << "(EE) RsGxsNetService::handleRecvPublishKeys() grpMeta not found." << std::endl;
 		return ;
@@ -4726,9 +4761,10 @@ void RsGxsNetService::handleRecvPublishKeys(RsNxsGroupPublishKeyItem *item)
 
 	// Store/update the info.
 
-	grpMeta->keys.private_keys[item->private_key.keyId] = item->private_key ;
+	RsTlvSecurityKeySet keys = grpMeta->keys ;
+	keys.private_keys[item->private_key.keyId] = item->private_key ;
 
-	bool ret = mDataStore->updateGroupKeys(item->grpId,grpMeta->keys, grpMeta->mSubscribeFlags | GXS_SERV::GROUP_SUBSCRIBE_PUBLISH) ;
+	bool ret = mDataStore->updateGroupKeys(item->grpId,keys, grpMeta->mSubscribeFlags | GXS_SERV::GROUP_SUBSCRIBE_PUBLISH) ;
 
 	if(ret)
 	{
@@ -4772,6 +4808,8 @@ bool RsGxsNetService::removeGroups(const std::list<RsGxsGroupId>& groups)
 #ifdef NXS_NET_DEBUG_0
 		GXSNETDEBUG__G(*git) << "  deleting info for group " << *git << std::endl;
 #endif
+
+		// Here we do not use locked_getGrpConfig() because we dont want the entry to be created if it doesnot already exist.
 
         GrpConfigMap::iterator it = mServerGrpConfigMap.find(*git) ;
 

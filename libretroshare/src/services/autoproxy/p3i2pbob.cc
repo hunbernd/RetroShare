@@ -8,6 +8,7 @@
 #include "util/radix32.h"
 #include "util/radix64.h"
 #include "util/rsdebug.h"
+#include "util/rstime.h"
 #include "util/rsprint.h"
 #include "util/rsrandom.h"
 
@@ -34,12 +35,12 @@ static const int sleepFactorDefault   = 10; // 0.5s
 static const int sleepFactorFast      = 1;  // 0.05s
 static const int sleepFactorSlow      = 20; // 1s
 
-static struct RsLog::logInfo i2pBobLogInfo = {RsLog::Debug_All, "p3I2pBob"};
+static struct RsLog::logInfo i2pBobLogInfo = {RsLog::Default, "p3I2pBob"};
 
 static const time_t selfCheckPeroid = 30;
 
 void doSleep(useconds_t timeToSleepMS) {
-	usleep((useconds_t) (timeToSleepMS * 1000));
+	rstime::rs_usleep((useconds_t) (timeToSleepMS * 1000));
 }
 
 p3I2pBob::p3I2pBob(p3PeerMgr *peerMgr)

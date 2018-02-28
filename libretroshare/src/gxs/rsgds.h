@@ -36,8 +36,8 @@
 #include "rsitems/rsnxsitems.h"
 #include "gxs/rsgxsdata.h"
 #include "rsgxs.h"
+#include "rsgxsutil.h"
 #include "util/contentvalue.h"
-
 
 class RsGxsSearchModule  {
 
@@ -60,6 +60,8 @@ public:
     RsGxsGrpMsgIdPair msgId;
     ContentValue val;
 };
+
+typedef std::map<RsGxsGroupId,RsGxsGrpMetaData*> RsGxsGrpMetaTemporaryMap;
 
 /*!
  * This allows modification of local
@@ -92,6 +94,7 @@ public:
     uint32_t mMaxVisibleCount ;
     bool     mGrpAutoSync ;
     bool     mAllowMsgSync;
+	time_t   mLastGroupModificationTS ;
 };
 
 typedef std::map<RsGxsGroupId,      std::vector<RsNxsMsg*> > NxsMsgDataResult;
@@ -167,7 +170,7 @@ public:
      *            , if grpId is failed to be retrieved it will be erased from map
      * @return error code
      */
-    virtual int retrieveGxsGrpMetaData(std::map<RsGxsGroupId, RsGxsGrpMetaData*>& grp) = 0;
+    virtual int retrieveGxsGrpMetaData(RsGxsGrpMetaTemporaryMap& grp) = 0;
 
     /*!
      * Retrieves meta data of all groups stored (most current versions only)
@@ -222,14 +225,14 @@ public:
      * @param msg map of message and decoded meta data information
      * @return error code
      */
-    virtual int storeMessage(std::map<RsNxsMsg*, RsGxsMsgMetaData*>& msgs) = 0;
+    virtual int storeMessage(const std::list<RsNxsMsg*>& msgs) = 0;
 
     /*!
      * Stores a list of groups in data store
      * @param grp map of group and decoded meta data
      * @return error code
      */
-    virtual int storeGroup(std::map<RsNxsGrp*, RsGxsGrpMetaData*>& grsp) = 0;
+    virtual int storeGroup(const std::list<RsNxsGrp*>& grsp) = 0;
 
 
     /*!
@@ -237,7 +240,7 @@ public:
 	 * @param grp map of group and decoded meta data
 	 * @return error code
 	 */
-    virtual int updateGroup(std::map<RsNxsGrp*, RsGxsGrpMetaData*>& grsp) = 0;
+    virtual int updateGroup(const std::list<RsNxsGrp*>& grsp) = 0;
 
     /*!
      * @param metaData

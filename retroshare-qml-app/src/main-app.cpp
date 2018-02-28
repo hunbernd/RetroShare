@@ -30,10 +30,16 @@
 #	include <QtAndroid>
 #	include <QtAndroidExtras/QAndroidJniObject>
 #	include <atomic>
+#	include "androidplatforminteracions.h"
+#else
+#	include "defaultplatforminteracions.h"
 #endif // Q_OS_ANDROID
+
 
 #include "libresapilocalclient.h"
 #include "rsqmlappengine.h"
+#include "androidimagepicker.h"
+#include "platforminteracions.h"
 
 int main(int argc, char *argv[])
 {
@@ -46,6 +52,7 @@ int main(int argc, char *argv[])
 	            "org.retroshare.qml_components.LibresapiLocalClient", 1, 0,
 	            "LibresapiLocalClient");
 
+
 	QString sockPath = QDir::homePath() + "/.retroshare";
 	sockPath.append("/libresapi.sock");
 
@@ -55,10 +62,20 @@ int main(int argc, char *argv[])
 	RsQmlAppEngine engine(true);
 	QQmlContext& rootContext = *engine.rootContext();
 
+	qmlRegisterType<AndroidImagePicker>(
+	            "org.retroshare.qml_components.AndroidImagePicker", 1, 0,
+	            "AndroidImagePicker");
+
+	AndroidImagePicker androidImagePicker;
+	engine.rootContext()->setContextProperty("androidImagePicker",
+	                                  &androidImagePicker);
+
 	QStringList mainArgs = app.arguments();
 
 #ifdef Q_OS_ANDROID
 	rootContext.setContextProperty("Q_OS_ANDROID", QVariant(true));
+
+	AndroidPlatformInteracions platformGW(&app);
 
 	/* Add Activity Intent data to args, because onNewIntent is called only if
 	 * the Intet was triggered when the Activity was already created, so only in
@@ -114,10 +131,12 @@ int main(int argc, char *argv[])
 
 	if(!uriStr.isEmpty()) mainArgs.append(uriStr);
 #else
+	DefaultPlatformInteracions platformGW(&app);
 	rootContext.setContextProperty("Q_OS_ANDROID", QVariant(false));
 #endif
 
 	rootContext.setContextProperty("mainArgs", mainArgs);
+	rootContext.setContextProperty("platformGW", &platformGW);
 
 #ifdef QT_DEBUG
 	rootContext.setContextProperty("QT_DEBUG", QVariant(true));

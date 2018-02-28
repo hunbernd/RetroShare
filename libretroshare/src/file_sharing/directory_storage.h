@@ -97,7 +97,7 @@ class DirectoryStorage
 		class FileIterator
 		{
 			public:
-                FileIterator(DirIterator& d);	// crawls all files in specified directory
+                explicit FileIterator(DirIterator& d);	// crawls all files in specified directory
                 FileIterator(DirectoryStorage *d,EntryIndex e);		// crawls all files in specified directory
 
 				FileIterator& operator++() ;
@@ -203,6 +203,18 @@ public:
      * \return
      */
     time_t& lastSweepTime() { return mLastSweepTime ; }
+	
+	/*!
+     * \brief searchHash
+     * 				Looks into local database of shared files for the given hash. 
+     * \param hash			hash to look for
+     * \param results		Entry index of the file that is found
+     * \return
+     * 						true is a file is found
+     * 						false otherwise.
+     */
+    virtual int searchHash(const RsFileHash& hash, EntryIndex& results) const ;
+
 private:
     time_t mLastSweepTime ;
 };

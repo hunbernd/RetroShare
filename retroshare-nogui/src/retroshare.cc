@@ -30,7 +30,8 @@
 #include "notifytxt.h"
 
 #include <unistd.h>
-#include <util/argstream.h>
+#include "util/argstream.h"
+#include "util/rstime.h"
 #include <iostream>
 #ifdef WINDOWS_SYS
 #include <winsock2.h>
@@ -100,9 +101,18 @@ int main(int argc, char **argv)
     }
 
     resource_api::TerminalApiClient tac(&api);
+	tac.start();
+	bool already = false ;
+
     while(ctrl_mod.processShouldExit() == false)
     {
-        usleep(20*1000);
+        rstime::rs_usleep(1000*1000);
+
+		if(!tac.isRunning() && !already)
+		{
+			std::cerr << "Terminal API client terminated." << std::endl;
+			already = true ;
+		}
     }
 
     if(httpd)
@@ -215,7 +225,7 @@ int main(int argc, char **argv)
 #endif
 		}
 
-		usleep(1000);
+		rstime::rs_usleep(1000);
 
 	}
 	return 1;

@@ -151,7 +151,7 @@ class p3ConfigMgr
 		/**
 		 * @param bdir base directory: where config files will be saved
 		 */
-        p3ConfigMgr(std::string bdir);
+	explicit p3ConfigMgr(std::string bdir);
 
         /**
          * checks and update all added configurations
@@ -213,8 +213,9 @@ class p3ConfigMgr
  * Aimed at rs services that uses RsItem config data, provide a way for RS
  * services to save and load particular configurations as items.
  */
-struct p3Config : pqiConfig
+class p3Config : public pqiConfig
 {
+public:
 	p3Config();
 
 	virtual bool loadConfiguration(RsFileHash &loadHash);

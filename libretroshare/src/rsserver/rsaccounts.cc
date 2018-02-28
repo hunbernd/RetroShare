@@ -56,7 +56,7 @@
 RsAccountsDetail *rsAccounts;
 
 /* Uses private class - so must be hidden */
-static bool checkAccount(std::string accountdir, AccountDetails &account,std::map<std::string,std::vector<std::string> >& unsupported_keys);
+static bool checkAccount(const std::string &accountdir, AccountDetails &account,std::map<std::string,std::vector<std::string> >& unsupported_keys);
 
 AccountDetails::AccountDetails()
   :mSslId(""), mAccountDir(""), mPgpId(""), mPgpName(""), mPgpEmail(""),
@@ -71,8 +71,11 @@ RsAccountsDetail::RsAccountsDetail() : mAccountsLocked(false), mPreferredId("")
 bool RsAccountsDetail::loadAccounts()
 {
 	int failing_accounts ;
-
-	getAvailableAccounts(mAccounts,failing_accounts,mUnsupportedKeys);
+#ifdef RETROTOR
+	getAvailableAccounts(mAccounts,failing_accounts,mUnsupportedKeys,true);
+#else
+	getAvailableAccounts(mAccounts,failing_accounts,mUnsupportedKeys,false);
+#endif
 
 	loadPreferredAccount();
 	checkPreferredId();
@@ -109,6 +112,8 @@ bool RsAccountsDetail::checkAccountDirectory()
 	return setupAccount(PathAccountDirectory());
 }
 
+#warning we need to clean that up. Login should only ask for a SSL id, instead of a std::string.
+
 bool RsAccountsDetail::selectAccountByString(const std::string &prefUserString)
 {
 	if (mAccountsLocked)
@@ -125,7 +130,7 @@ bool RsAccountsDetail::selectAccountByString(const std::string &prefUserString)
 
 	std::cerr << "RsAccountsDetail::selectAccountByString(" << prefUserString << ")" << std::endl;
 	
-	bool pgpNameFound = false;
+	//bool pgpNameFound = false;
 	std::map<RsPeerId, AccountDetails>::const_iterator it;
 	for(it = mAccounts.begin() ; it!= mAccounts.end() ; ++it)
 	{
@@ -136,10 +141,15 @@ bool RsAccountsDetail::selectAccountByString(const std::string &prefUserString)
 		if(prefUserString == it->second.mPgpName || pgp_id == it->second.mPgpId || ssl_id == it->second.mSslId)
 		{
 			mPreferredId = it->second.mSslId;
-			pgpNameFound = true;
+			//pgpNameFound = true;
+
+			std::cerr << "Account selected: " << ssl_id << std::endl;
+
+			return true;
 		}
 	}
-	return pgpNameFound;
+	std::cerr << "No suitable candidate found." << std::endl;
+	return false;
 }
 
 
@@ -453,15 +463,19 @@ bool     RsAccountsDetail::getPreferredAccountId(RsPeerId &id)
 bool     RsAccountsDetail::getAccountIds(std::list<RsPeerId> &ids)
 {
 	std::map<RsPeerId, AccountDetails>::iterator it;
+#ifdef DEBUG_ACCOUNTS
 	std::cerr << "getAccountIds:" << std::endl;
+#endif
 
 	for(it = mAccounts.begin(); it != mAccounts.end(); ++it)
 	{
+#ifdef DEBUG_ACCOUNTS
 		std::cerr << "SSL Id: " << it->second.mSslId << " PGP Id " << it->second.mPgpId;
 		std::cerr << " PGP Name: " << it->second.mPgpName;
 		std::cerr << " PGP Email: " << it->second.mPgpEmail;
 		std::cerr << " Location: " << it->second.mLocation;
 		std::cerr << std::endl;
+#endif
 
 		ids.push_back(it->first);
 	}
@@ -501,7 +515,7 @@ bool RsAccountsDetail::getAccountOptions(bool &ishidden, bool &isFirstTimeRun)
 
 
 /* directories with valid certificates in the expected location */
-bool RsAccountsDetail::getAvailableAccounts(std::map<RsPeerId, AccountDetails> &accounts,int& failing_accounts,std::map<std::string,std::vector<std::string> >& unsupported_keys)
+bool RsAccountsDetail::getAvailableAccounts(std::map<RsPeerId, AccountDetails> &accounts,int& failing_accounts,std::map<std::string,std::vector<std::string> >& unsupported_keys,bool hidden_only)
 {
 	failing_accounts = 0 ;
 	/* get the directories */
@@ -604,6 +618,9 @@ bool RsAccountsDetail::getAvailableAccounts(std::map<RsPeerId, AccountDetails> &
 			continue;
 		}
 
+		if(hidden_only && !hidden_location)
+			continue ;
+
 		if(valid_prefix && isHexaString(lochex) && (lochex).length() == 32)
 		{
 			std::string accountdir = mBaseDirectory + "/" + *it;
@@ -649,7 +666,7 @@ bool RsAccountsDetail::getAvailableAccounts(std::map<RsPeerId, AccountDetails> &
 
 
 
-static bool checkAccount(std::string accountdir, AccountDetails &account,std::map<std::string,std::vector<std::string> >& unsupported_keys)
+static bool checkAccount(const std::string &accountdir, AccountDetails &account,std::map<std::string,std::vector<std::string> >& unsupported_keys)
 {
 	/* check if the cert/key file exists */
 
@@ -660,7 +677,7 @@ static bool checkAccount(std::string accountdir, AccountDetails &account,std::ma
     basename += "user";
 
 	std::string cert_name = basename + "_cert.pem";
-	std::string userName;
+	//std::string userName;
 
 #ifdef AUTHSSL_DEBUG
 	std::cerr << "checkAccount() dir: " << accountdir << std::endl;
@@ -792,8 +809,10 @@ static bool checkAccount(std::string accountdir, AccountDetails &account,std::ma
 
 	/* Use RetroShare's exe dir */
 	dataDirectory = ".";
-
+#elif defined(ANDROID)
+	dataDirectory = defaultBaseDirectory()+"/usr/share/retroshare";
 #elif defined(DATA_DIR)
+	// cppcheck-suppress ConfigurationNotChecked
 	dataDirectory = DATA_DIR;
 	// For all other OS the data directory must be set in libretroshare.pro
 #else
@@ -868,12 +887,16 @@ bool RsAccountsDetail::SelectPGPAccount(const RsPgpId& pgpId)
 	if (0 < AuthGPG::getAuthGPG() -> GPGInit(pgpId))
 	{
 		retVal = true;
+#ifdef DEBUG_ACCOUNTS
 		std::cerr << "PGP Auth Success!";
+#endif
 	}
 	else
 		std::cerr << "PGP Auth Failed!";
 
+#ifdef DEBUG_ACCOUNTS
 	std::cerr << " ID: " << pgpId << std::endl;
+#endif
 
 	return retVal;
 }
@@ -987,7 +1010,7 @@ bool     RsAccountsDetail::GenerateSSLCertificate(const RsPgpId& pgp_id, const s
 
 	int nbits = 4096;
 
-	std::string pgp_name = AuthGPG::getAuthGPG()->getGPGName(pgp_id);
+	//std::string pgp_name = AuthGPG::getAuthGPG()->getGPGName(pgp_id);
 
 	// Create the filename .....
 	// Temporary Directory for creating files....
@@ -1038,8 +1061,7 @@ bool     RsAccountsDetail::GenerateSSLCertificate(const RsPgpId& pgp_id, const s
         bool gen_ok = true;
 
 		/* Print the signed Certificate! */
-		BIO *bio_out = NULL;
-		bio_out = BIO_new(BIO_s_file());
+		BIO *bio_out = BIO_new(BIO_s_file());
 		BIO_set_fp(bio_out,stdout,BIO_NOCLOSE);
 
 		/* Print it out */

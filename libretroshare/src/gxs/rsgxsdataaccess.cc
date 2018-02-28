@@ -25,6 +25,7 @@
 
 #include <time.h>
 
+#include "rsgxsutil.h"
 #include "rsgxsdataaccess.h"
 #include "retroshare/rsgxsflags.h"
 
@@ -45,6 +46,11 @@ RsGxsDataAccess::RsGxsDataAccess(RsGeneralDataService* ds) :
     mDataStore(ds), mDataMutex("RsGxsDataAccess"), mNextToken(0) {}
 
 
+RsGxsDataAccess::~RsGxsDataAccess()
+{
+    for(std::map<uint32_t, GxsRequest*>::const_iterator it(mRequests.begin());it!=mRequests.end();++it)
+		delete it->second ;
+}
 bool RsGxsDataAccess::requestGroupInfo(uint32_t &token, uint32_t ansType, const RsTokReqOptions &opts,
 		const std::list<RsGxsGroupId> &groupIds)
 {
@@ -372,7 +378,7 @@ bool RsGxsDataAccess::clearRequest(const uint32_t& token)
 	return true;
 }
 
-bool RsGxsDataAccess::getGroupSummary(const uint32_t& token, std::list<RsGxsGrpMetaData*>& groupInfo)
+bool RsGxsDataAccess::getGroupSummary(const uint32_t& token, std::list<const RsGxsGrpMetaData*>& groupInfo)
 {
 
 	RS_STACK_MUTEX(mDataMutex);
@@ -995,18 +1001,17 @@ bool RsGxsDataAccess::getGroupData(GroupDataReq* req)
 bool RsGxsDataAccess::getGroupSummary(GroupMetaReq* req)
 {
 
-	std::map<RsGxsGroupId, RsGxsGrpMetaData*> grpMeta;
+	RsGxsGrpMetaTemporaryMap grpMeta;
+	std::list<RsGxsGroupId> grpIdsOut;
 
-        std::list<RsGxsGroupId> grpIdsOut;
+	getGroupList(req->mGroupIds, req->Options, grpIdsOut);
 
-        getGroupList(req->mGroupIds, req->Options, grpIdsOut);
+	if(grpIdsOut.empty())
+		return true;
 
-        if(grpIdsOut.empty())
-            return true;
+	std::list<RsGxsGroupId>::const_iterator lit = grpIdsOut.begin();
 
-        std::list<RsGxsGroupId>::const_iterator lit = grpIdsOut.begin();
-
-        for(; lit != grpIdsOut.end(); ++lit)
+	for(; lit != grpIdsOut.end(); ++lit)
 		grpMeta[*lit] = NULL;
 
 	mDataStore->retrieveGxsGrpMetaData(grpMeta);
@@ -1028,28 +1033,17 @@ bool RsGxsDataAccess::getGroupList(GroupIdReq* req)
 
 bool RsGxsDataAccess::getGroupList(const std::list<RsGxsGroupId>& grpIdsIn, const RsTokReqOptions& opts, std::list<RsGxsGroupId>& grpIdsOut)
 {
-    std::map<RsGxsGroupId, RsGxsGrpMetaData*> grpMeta;
+	RsGxsGrpMetaTemporaryMap grpMeta;
 
-    std::list<RsGxsGroupId>::const_iterator lit = grpIdsIn.begin();
-
-    for(; lit != grpIdsIn.end(); ++lit)
-            grpMeta[*lit] = NULL;
+    for(auto lit = grpIdsIn.begin(); lit != grpIdsIn.end(); ++lit)
+		grpMeta[*lit] = NULL;
 
     mDataStore->retrieveGxsGrpMetaData(grpMeta);
 
-    std::map<RsGxsGroupId, RsGxsGrpMetaData*>::iterator mit = grpMeta.begin();
-
-    for(; mit != grpMeta.end(); ++mit)
-    {
-            grpIdsOut.push_back(mit->first);
-    }
+    for(auto mit = grpMeta.begin() ; mit != grpMeta.end(); ++mit)
+		grpIdsOut.push_back(mit->first);
 
     filterGrpList(grpIdsOut, opts, grpMeta);
-
-    for(mit = grpMeta.begin(); mit != grpMeta.end(); ++mit)
-    {
-            delete mit->second; // so wasteful!!
-    }
 
     return true;
 }
@@ -1617,11 +1611,9 @@ bool RsGxsDataAccess::getGroupStatistic(GroupStatisticRequest *req)
 // potentially very expensive!
 bool RsGxsDataAccess::getServiceStatistic(ServiceStatisticRequest *req)
 {
-    std::map<RsGxsGroupId, RsGxsGrpMetaData*> grpMeta;
+	RsGxsGrpMetaTemporaryMap grpMeta ;
 
     mDataStore->retrieveGxsGrpMetaData(grpMeta);
-
-    std::map<RsGxsGroupId, RsGxsGrpMetaData*>::iterator mit = grpMeta.begin();
 
     req->mServiceStatistic.mNumGrps = grpMeta.size();
     req->mServiceStatistic.mNumMsgs = 0;
@@ -1633,9 +1625,9 @@ bool RsGxsDataAccess::getServiceStatistic(ServiceStatisticRequest *req)
     req->mServiceStatistic.mNumChildMsgsNew = 0;
     req->mServiceStatistic.mNumChildMsgsUnread = 0;
 
-    for(; mit != grpMeta.end(); ++mit)
+    for(auto mit = grpMeta.begin(); mit != grpMeta.end(); ++mit)
     {
-        RsGxsGrpMetaData* m = mit->second;
+        const RsGxsGrpMetaData* m = mit->second;
         req->mServiceStatistic.mSizeOfGrps += m->mGrpSize + m->serial_size(RS_GXS_GRP_META_DATA_CURRENT_API_VERSION);
 
         if (IS_GROUP_SUBSCRIBED(m->mSubscribeFlags))
@@ -1653,8 +1645,6 @@ bool RsGxsDataAccess::getServiceStatistic(ServiceStatisticRequest *req)
             req->mServiceStatistic.mNumChildMsgsNew += gr.mGroupStatistic.mNumChildMsgsNew;
             req->mServiceStatistic.mNumChildMsgsUnread += gr.mGroupStatistic.mNumChildMsgsUnread;
         }
-
-        delete m;
     }
 
     req->mServiceStatistic.mSizeStore = req->mServiceStatistic.mSizeOfGrps + req->mServiceStatistic.mSizeOfMsgs;
@@ -1803,8 +1793,8 @@ bool RsGxsDataAccess::addGroupData(RsNxsGrp* grp) {
 
 	RsStackMutex stack(mDataMutex);
 
-	std::map<RsNxsGrp*, RsGxsGrpMetaData*> grpM;
-	grpM.insert(std::make_pair(grp, grp->metaData));
+	std::list<RsNxsGrp*> grpM;
+	grpM.push_back(grp);
 	return mDataStore->storeGroup(grpM);
 }
 
@@ -1812,8 +1802,8 @@ bool RsGxsDataAccess::updateGroupData(RsNxsGrp* grp) {
 
 	RsStackMutex stack(mDataMutex);
 
-	std::map<RsNxsGrp*, RsGxsGrpMetaData*> grpM;
-	grpM.insert(std::make_pair(grp, grp->metaData));
+	std::list<RsNxsGrp*> grpM;
+	grpM.push_back(grp);
 	return mDataStore->updateGroup(grpM);
 }
 
@@ -1821,8 +1811,8 @@ bool RsGxsDataAccess::addMsgData(RsNxsMsg* msg) {
 
 	RsStackMutex stack(mDataMutex);
 
-	std::map<RsNxsMsg*, RsGxsMsgMetaData*> msgM;
-	msgM.insert(std::make_pair(msg, msg->metaData));
+	std::list<RsNxsMsg*> msgM;
+	msgM.push_back(msg);
 	return mDataStore->storeMessage(msgM);
 }
 

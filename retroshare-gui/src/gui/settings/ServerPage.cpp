@@ -29,11 +29,13 @@
 
 #include <iostream>
 
+#include <retroshare/rsbanlist.h>
 #include <retroshare/rsconfig.h>
+#include <retroshare/rsdht.h>
 #include <retroshare/rspeers.h>
 #include <retroshare/rsturtle.h>
-#include <retroshare/rsbanlist.h>
 
+#include <QCheckBox>
 #include <QMovie>
 #include <QMenu>
 #include <QTcpSocket>
@@ -57,7 +59,26 @@
 ///
 /// \brief hiddenServiceIncomingTab index of hidden serice incoming tab
 ///
-const static uint32_t hiddenServiceIncomingTab = 2;
+///
+
+// Tabs numbers *after* non relevant tabs are removed. So do not use them to add/remove tabs!!
+#ifdef RETROTOR
+static const uint32_t TAB_HIDDEN_SERVICE_OUTGOING = 0;
+static const uint32_t TAB_HIDDEN_SERVICE_INCOMING = 1;
+
+static const uint32_t TAB_NETWORK                 = 0;
+static const uint32_t TAB_HIDDEN_SERVICE          = 1;
+static const uint32_t TAB_IP_FILTERS              = 99;	// This is a trick: these tabs do not exist, so enabling/disabling them has no effect
+static const uint32_t TAB_RELAYS                  = 99;
+#else
+const static uint32_t TAB_HIDDEN_SERVICE_OUTGOING = 0;
+const static uint32_t TAB_HIDDEN_SERVICE_INCOMING = 2;
+
+const static uint32_t TAB_NETWORK                 = 0;
+const static uint32_t TAB_IP_FILTERS              = 1;
+const static uint32_t TAB_HIDDEN_SERVICE          = 2;
+const static uint32_t TAB_RELAYS                  = 3;
+#endif
 
 //#define SERVER_DEBUG 1
 
@@ -69,6 +90,26 @@ ServerPage::ServerPage(QWidget * parent, Qt::WindowFlags flags)
 
   manager = NULL ;
 
+#ifdef RETROTOR
+  	// Here we use absolute numbers instead of consts defined above, because the consts correspond to the tab number *after* this tab removal.
+
+	ui.tabWidget->removeTab(3) ;	// remove relays. Not useful in Tor mode.
+	ui.tabWidget->removeTab(1) ;	// remove IP filters. Not useful in Tor mode.
+
+	ui.hiddenServiceTab->removeTab(1) ; // remove the Automatic I2P/BOB tab
+	ui.hiddenpage_proxyAddress_i2p->hide() ;
+	ui.hiddenpage_proxyLabel_i2p->hide() ;
+	ui.hiddenpage_proxyPort_i2p->hide() ;
+	ui.label_i2p_outgoing->hide() ;
+	ui.iconlabel_i2p_outgoing->hide() ;
+	ui.plainTextEdit->hide() ;
+	ui.hiddenpage_configuration->hide() ;
+	ui.l_hiddenpage_configuration->hide() ;
+	ui.hiddenpageInHelpPlainTextEdit->hide() ;
+
+	ui.hiddenpage_outHeader->setText(tr("Tor has been automatically configured by Retroshare. You shouldn't need to change anything here.")) ;
+	ui.hiddenpage_inHeader->setText(tr("Tor has been automatically configured by Retroshare. You shouldn't need to change anything here.")) ;
+#endif
     ui.filteredIpsTable->setHorizontalHeaderItem(COLUMN_RANGE,new QTableWidgetItem(tr("IP Range"))) ;
     ui.filteredIpsTable->setHorizontalHeaderItem(COLUMN_STATUS,new QTableWidgetItem(tr("Status"))) ;
     ui.filteredIpsTable->setHorizontalHeaderItem(COLUMN_ORIGIN,new QTableWidgetItem(tr("Origin"))) ;
@@ -96,7 +137,7 @@ ServerPage::ServerPage(QWidget * parent, Qt::WindowFlags flags)
     for(std::list<std::string>::const_iterator it(ip_servers.begin());it!=ip_servers.end();++it)
         ui.IPServersLV->addItem(QString::fromStdString(*it)) ;
 
-    ui.hiddenServiceTab->setTabEnabled(hiddenServiceIncomingTab, false);
+    ui.hiddenServiceTab->setTabEnabled(TAB_HIDDEN_SERVICE_INCOMING, false);
     ui.gbBob->setEnabled(false);
     ui.swBobAdvanced->setCurrentIndex(0);
 
@@ -150,7 +191,6 @@ ServerPage::ServerPage(QWidget * parent, Qt::WindowFlags flags)
     connect( ui.allowIpDeterminationCB, SIGNAL( toggled( bool ) ), this, SLOT( toggleIpDetermination(bool) ) );
     connect( ui.cleanKnownIPs_PB, SIGNAL( clicked( ) ), this, SLOT( clearKnownAddressList() ) );
     connect( ui.testIncoming_PB, SIGNAL( clicked( ) ), this, SLOT( saveAndTestInProxy() ) );
-    connect( ui.showDiscStatusBar,SIGNAL(toggled(bool)),this,SLOT(updateShowDiscStatusBar())) ;
 
 #ifdef SERVER_DEBUG
     std::cerr << "ServerPage::ServerPage() called";
@@ -158,18 +198,43 @@ ServerPage::ServerPage(QWidget * parent, Qt::WindowFlags flags)
 #endif
 
     connect(ui.netModeComboBox,SIGNAL(currentIndexChanged(int)),this,SLOT(saveAddresses()));
-    connect(ui.discComboBox,   SIGNAL(currentIndexChanged(int)),this,SLOT(saveAddresses()));
     connect(ui.localAddress,   SIGNAL(textChanged(QString)),this,SLOT(saveAddresses()));
     connect(ui.extAddress,     SIGNAL(textChanged(QString)),this,SLOT(saveAddresses()));
     connect(ui.dynDNS,         SIGNAL(textChanged(QString)),this,SLOT(saveAddresses()));
 
-    connect(ui.hiddenpage_proxyAddress_tor, SIGNAL(textChanged(QString)),this,SLOT(saveAddresses()));
-    connect(ui.hiddenpage_proxyPort_tor,    SIGNAL(valueChanged(int)),this,SLOT(saveAddresses()));
-    connect(ui.hiddenpage_proxyAddress_i2p, SIGNAL(textChanged(QString)),this,SLOT(saveAddresses()));
-    connect(ui.hiddenpage_proxyPort_i2p,    SIGNAL(valueChanged(int)),this,SLOT(saveAddresses()));
+    connect(ui.tabWidget, SIGNAL(currentChanged(int)), this, SLOT(tabChanged(int)));
+    connect(ui.hiddenpage_proxyAddress_tor, SIGNAL(editingFinished()),this,SLOT(saveAddresses()));
+    connect(ui.hiddenpage_proxyPort_tor,    SIGNAL(editingFinished()),this,SLOT(saveAddresses()));
+    connect(ui.hiddenpage_proxyAddress_i2p, SIGNAL(editingFinished()),this,SLOT(saveAddresses()));
+    connect(ui.hiddenpage_proxyPort_i2p,    SIGNAL(editingFinished()),this,SLOT(saveAddresses()));
 
     connect(ui.totalDownloadRate,SIGNAL(valueChanged(int)),this,SLOT(saveRates()));
     connect(ui.totalUploadRate,  SIGNAL(valueChanged(int)),this,SLOT(saveRates()));
+
+	//Relay Tab
+	QObject::connect(ui.noFriendSpinBox,SIGNAL(valueChanged(int)),this,SLOT(updateRelayOptions()));
+	QObject::connect(ui.noFOFSpinBox,SIGNAL(valueChanged(int)),this,SLOT(updateRelayOptions()));
+	QObject::connect(ui.noGeneralSpinBox,SIGNAL(valueChanged(int)),this,SLOT(updateRelayOptions()));
+	QObject::connect(ui.bandFriendSpinBox,SIGNAL(valueChanged(int)),this,SLOT(updateRelayOptions()));
+	QObject::connect(ui.bandFOFSpinBox,SIGNAL(valueChanged(int)),this,SLOT(updateRelayOptions()));
+	QObject::connect(ui.bandGeneralSpinBox,SIGNAL(valueChanged(int)),this,SLOT(updateRelayOptions()));
+
+	QObject::connect(ui.addPushButton,SIGNAL(clicked()),this,SLOT(addServer()));
+	QObject::connect(ui.removePushButton,SIGNAL(clicked()),this,SLOT(removeServer()));
+	QObject::connect(ui.DhtLineEdit,SIGNAL(textChanged(const QString &)),this,SLOT(checkKey()));
+
+	QObject::connect(ui.enableCheckBox,SIGNAL(stateChanged(int)),this,SLOT(updateEnabled()));
+	QObject::connect(ui.serverCheckBox,SIGNAL(stateChanged(int)),this,SLOT(updateEnabled()));
+
+	QObject::connect(ui.noFriendSpinBox,SIGNAL(valueChanged(int)),this,SLOT(updateTotals()));
+	QObject::connect(ui.bandFriendSpinBox,SIGNAL(valueChanged(int)),this,SLOT(updateTotals()));
+	QObject::connect(ui.noFOFSpinBox,SIGNAL(valueChanged(int)),this,SLOT(updateTotals()));
+	QObject::connect(ui.bandFOFSpinBox,SIGNAL(valueChanged(int)),this,SLOT(updateTotals()));
+	QObject::connect(ui.noGeneralSpinBox,SIGNAL(valueChanged(int)),this,SLOT(updateTotals()));
+	QObject::connect(ui.bandGeneralSpinBox,SIGNAL(valueChanged(int)),this,SLOT(updateTotals()));
+
+	QObject::connect(ui.enableCheckBox,SIGNAL(toggled(bool)),this,SLOT(updateRelayMode()));
+	QObject::connect(ui.serverCheckBox,SIGNAL(toggled(bool)),this,SLOT(updateRelayMode()));
 }
 
 void ServerPage::saveAndTestInProxy()
@@ -249,8 +314,6 @@ void ServerPage::toggleTunnelConnection(bool b)
         //rsPeers->allowTunnelConnection(b) ;
 }
 
-void ServerPage::updateShowDiscStatusBar() { Settings->setStatusBarFlag(STATUSBAR_DISC, ui.showDiscStatusBar->isChecked()); }
-
 /** Loads the settings for this page */
 void ServerPage::load()
 {
@@ -275,7 +338,8 @@ void ServerPage::load()
     if (mIsHiddenNode)
     {
         mHiddenType = detail.hiddenType;
-        ui.tabWidget->setTabEnabled(1,false) ;
+        ui.tabWidget->setTabEnabled(TAB_IP_FILTERS,false) ; // ip filter
+		ui.tabWidget->setTabEnabled(TAB_RELAYS,false) ; // relay
         loadHiddenNode();
         return;
     }
@@ -352,7 +416,6 @@ void ServerPage::load()
         /* set DynDNS */
         whileBlocking(ui.dynDNS) -> setText(QString::fromStdString(detail.dyndns));
 
-        whileBlocking(ui.showDiscStatusBar)->setChecked(Settings->getStatusBarFlags() & STATUSBAR_DISC);
 
         whileBlocking(ui.ipAddressList)->clear();
         for(std::list<std::string>::const_iterator it(detail.ipAddressList.begin());it!=detail.ipAddressList.end();++it)
@@ -371,8 +434,50 @@ void ServerPage::load()
         whileBlocking(ui.hiddenpage_proxyAddress_i2p) -> setText(QString::fromStdString(proxyaddr));
         whileBlocking(ui.hiddenpage_proxyPort_i2p) -> setValue(proxyport);
 
-        updateOutProxyIndicator();
     }
+
+	//Relay Tab
+	uint32_t count;
+	uint32_t bandwidth;
+	rsDht->getRelayAllowance(RSDHT_RELAY_CLASS_FRIENDS, count, bandwidth);
+	whileBlocking(ui.noFriendSpinBox)->setValue(count);
+	whileBlocking(ui.bandFriendSpinBox)->setValue(bandwidth / 1024);
+
+	rsDht->getRelayAllowance(RSDHT_RELAY_CLASS_FOF, count, bandwidth);
+	whileBlocking(ui.noFOFSpinBox)->setValue(count);
+	whileBlocking(ui.bandFOFSpinBox)->setValue(bandwidth / 1024);
+
+	rsDht->getRelayAllowance(RSDHT_RELAY_CLASS_GENERAL, count, bandwidth);
+	whileBlocking(ui.noGeneralSpinBox)->setValue(count);
+	whileBlocking(ui.bandGeneralSpinBox)->setValue(bandwidth / 1024);
+
+	updateTotals();
+
+
+	uint32_t relayMode = rsDht->getRelayMode();
+	if (relayMode & RSDHT_RELAY_ENABLED)
+	{
+		whileBlocking(ui.enableCheckBox)->setCheckState(Qt::Checked);
+		if ((relayMode & RSDHT_RELAY_MODE_MASK) == RSDHT_RELAY_MODE_OFF)
+		{
+			whileBlocking(ui.serverCheckBox)->setCheckState(Qt::Unchecked);
+		}
+		else
+		{
+			whileBlocking(ui.serverCheckBox)->setCheckState(Qt::Checked);
+		}
+	}
+	else
+	{
+		whileBlocking(ui.enableCheckBox)->setCheckState(Qt::Unchecked);
+		whileBlocking(ui.serverCheckBox)->setCheckState(Qt::Unchecked);
+	}
+
+	loadServers();
+	updateRelayOptions();
+	updateEnabled();
+	checkKey();
+
 }
 
 void ServerPage::toggleAutoIncludeFriends(bool b)
@@ -393,6 +498,9 @@ void ServerPage::toggleIpFiltering(bool b)
 
 void ServerPage::loadFilteredIps()
 {
+	if(rsBanList == NULL)
+		return ;
+
     if(rsBanList->ipFilteringEnabled())
     {
         whileBlocking(ui.denyAll_CB)->setChecked(true) ;
@@ -776,8 +884,6 @@ void ServerPage::updateStatus()
     else
         ui.iconlabel_ext->setPixmap(QPixmap(":/images/ledoff1.png"));
 
-    // check for Tor
-    updateOutProxyIndicator();
 }
 
 void ServerPage::toggleUPnP()
@@ -788,6 +894,8 @@ void ServerPage::toggleUPnP()
     {
         settingChangeable = true;
     }
+
+	// Shouldn't we use readOnly instead of enabled??
 
     if (settingChangeable)
     {
@@ -810,6 +918,9 @@ void ServerPage::saveAddresses()
     bool saveAddr = false;
 
     saveCommon();
+
+	if(ui.tabWidget->currentIndex() == TAB_HIDDEN_SERVICE) // hidden services tab
+		updateOutProxyIndicator();
 
     if (mIsHiddenNode) {
         saveAddressesHiddenNode();
@@ -892,6 +1003,12 @@ void ServerPage::saveRates()
     rsConfig->SetMaxDataRates( ui.totalDownloadRate->value(), ui.totalUploadRate->value() );
 }
 
+void ServerPage::tabChanged(int page)
+{
+	if(page == 2)
+		updateOutProxyIndicator();
+}
+
 /***********************************************************************************/
 /***********************************************************************************/
 /******* ALTERNATIVE VERSION IF HIDDEN NODE ***************************************/
@@ -933,10 +1050,24 @@ void ServerPage::loadHiddenNode()
     ui.iconlabel_upnp->hide();
     ui.label_nat->hide();
 
+	ui.label_warningBandwidth->hide();
+	ui.iconlabel_netLimited->hide();
+	ui.textlabel_netLimited->hide();
+	ui.iconlabel_ext->hide();
+	ui.textlabel_ext->hide();
+	ui.extPortLabel->hide();
+	
+	ui.ipAddressLabel->hide();
+	ui.cleanKnownIPs_PB->hide();
+	
+	ui.ipAddressList->hide();
+	ui.allowIpDeterminationCB->hide();
+	ui.IPServersLV->hide();
+	
     ui.textlabel_hiddenMode->show();
     ui.iconlabel_hiddenMode->show() ;
     ui.iconlabel_hiddenMode->setPixmap(QPixmap(":/images/ledon1.png"));
-
+    
     // CHANGE OPTIONS ON
     whileBlocking(ui.discComboBox)->removeItem(3);
     whileBlocking(ui.discComboBox)->removeItem(2);
@@ -967,7 +1098,7 @@ void ServerPage::loadHiddenNode()
     ui.label_dynDNS->setVisible(false);
     ui.dynDNS      ->setVisible(false);
 
-    ui.hiddenServiceTab->setTabEnabled(hiddenServiceIncomingTab, true);
+    ui.hiddenServiceTab->setTabEnabled(TAB_HIDDEN_SERVICE_INCOMING, true);
 
     /* Addresses must be set here - otherwise can't edit it */
         /* set local address */
@@ -976,9 +1107,6 @@ void ServerPage::loadHiddenNode()
         /* set the server address */
 
     whileBlocking(ui.extAddress)->setText(tr("Hidden - See Config"));
-
-    whileBlocking(ui.showDiscStatusBar)->setChecked(Settings->getStatusBarFlags() & STATUSBAR_DISC);
-    ui.showDiscStatusBar->hide() ;	// hidden because not functional at the moment.
 
     //ui._turtle_enabled_CB->setChecked(rsTurtle->enabled()) ;
 
@@ -1006,7 +1134,7 @@ void ServerPage::loadHiddenNode()
     whileBlocking(ui.hiddenpage_serviceAddress)->setText(QString::fromStdString(detail.hiddenNodeAddress));
     whileBlocking(ui.hiddenpage_servicePort) -> setValue(detail.hiddenNodePort);
     /* in I2P there is no port - there is only the address */
-    whileBlocking(ui.hiddenpage_servicePort)->setEnabled(detail.hiddenType != RS_HIDDEN_TYPE_I2P);
+    whileBlocking(ui.hiddenpage_servicePort)->setHidden(detail.hiddenType == RS_HIDDEN_TYPE_I2P);
 
     /* out proxy settings */
     std::string proxyaddr;
@@ -1020,8 +1148,6 @@ void ServerPage::loadHiddenNode()
     rsPeers->getProxyServer(RS_HIDDEN_TYPE_I2P, proxyaddr, proxyport, status);
     whileBlocking(ui.hiddenpage_proxyAddress_i2p) -> setText(QString::fromStdString(proxyaddr));
     whileBlocking(ui.hiddenpage_proxyPort_i2p) -> setValue(proxyport);
-
-    updateOutProxyIndicator();
 
     QString expected = "";
     switch (mHiddenType) {
@@ -1110,8 +1236,6 @@ void ServerPage::updateStatusHiddenNode()
         ui.iconlabel_ext->setPixmap(QPixmap(":/images/ledoff1.png"));
 
 #endif
-
-    updateOutProxyIndicator();
 }
 
 void ServerPage::saveAddressesHiddenNode()
@@ -1444,8 +1568,6 @@ void ServerPage::loadCommon()
     whileBlocking(ui.hiddenpage_proxyPort_i2p) -> setValue(proxyport);
     whileBlocking(ui.hiddenpage_proxyPort_i2p_2)->setValue(proxyport); // this one is for bob tab
 
-    updateOutProxyIndicator();
-
     // don't use whileBlocking here
     ui.cb_enableBob->setChecked(mBobSettings.enableBob);
 
@@ -1635,7 +1757,7 @@ void ServerPage::updateStatusBob()
         ui.pbBobStart->setToolTip("BOB is not accessible");
         ui.pbBobRestart->setEnabled(false);
         ui.pbBobRestart->setToolTip("BOB is not accessible");
-        ui.pbBobStop->setEnabled(false);
+        // don't disable the stop button! (in case bob is running you are otherwise unable to stop and disable it)
         ui.pbBobStop->setToolTip("BOB is not accessible");
     } else {
         ui.pbBobStart->setToolTip("");
@@ -1731,4 +1853,162 @@ void ServerPage::handleNetworkReply(QNetworkReply *reply)
         updateInProxyIndicatorResult(false);
 
     reply->close();
+}
+
+//#####################################################################
+//## Relay Tab
+//#####################################################################
+
+void ServerPage::updateTotals()
+{
+	int nFriends = ui.noFriendSpinBox->value();
+	int friendBandwidth = ui.bandFriendSpinBox->value();
+
+	int nFOF = ui.noFOFSpinBox->value();
+	int fofBandwidth = ui.bandFOFSpinBox->value();
+
+	int nGeneral = ui.noGeneralSpinBox->value();
+	int genBandwidth = ui.bandGeneralSpinBox->value();
+
+	int total = nFriends + nFOF + nGeneral;
+
+	rsDht->setRelayAllowance(RSDHT_RELAY_CLASS_ALL, total, 0);
+	rsDht->setRelayAllowance(RSDHT_RELAY_CLASS_FRIENDS, nFriends, 1024 * friendBandwidth);
+	rsDht->setRelayAllowance(RSDHT_RELAY_CLASS_FOF, nFOF, 1024 * fofBandwidth);
+	rsDht->setRelayAllowance(RSDHT_RELAY_CLASS_GENERAL, nGeneral, 1024 * genBandwidth);
+}
+
+/** Saves the changes on this page */
+
+void ServerPage::updateRelayMode()
+{
+	uint32_t relayMode = 0;
+	if (ui.enableCheckBox->isChecked())
+	{
+		relayMode |= RSDHT_RELAY_ENABLED;
+
+		if (ui.serverCheckBox->isChecked())
+		{
+			relayMode |= RSDHT_RELAY_MODE_ON;
+		}
+		else
+		{
+			relayMode |= RSDHT_RELAY_MODE_OFF;
+		}
+	}
+	else
+	{
+		relayMode |= RSDHT_RELAY_MODE_OFF;
+	}
+
+	rsDht->setRelayMode(relayMode);
+}
+
+void ServerPage::loadServers()
+{
+	std::list<std::string> servers;
+	std::list<std::string>::iterator it;
+
+	rsDht->getRelayServerList(servers);
+
+	ui.serverTreeWidget->clear();
+	for(it = servers.begin(); it != servers.end(); ++it)
+	{
+		QTreeWidgetItem *item = new QTreeWidgetItem();
+		item->setData(0, Qt::DisplayRole, QString::fromStdString(*it));
+		ui.serverTreeWidget->addTopLevelItem(item);
+	}
+}
+
+void ServerPage::updateRelayOptions()
+{
+	int nFriends = ui.noFriendSpinBox->value();
+	int friendBandwidth = ui.bandFriendSpinBox->value();
+
+	int nFOF = ui.noFOFSpinBox->value();
+	int fofBandwidth = ui.bandFOFSpinBox->value();
+
+	int nGeneral = ui.noGeneralSpinBox->value();
+	int genBandwidth = ui.bandGeneralSpinBox->value();
+
+	ui.totalFriendLineEdit->setText(QString::number(nFriends * friendBandwidth * 2));
+	ui.totalFOFLineEdit->setText(QString::number(nFOF * fofBandwidth * 2));
+	ui.totalGeneralLineEdit->setText(QString::number(nGeneral * genBandwidth * 2));
+	ui.totalBandwidthLineEdit->setText(QString::number((nFriends * friendBandwidth + nFOF * fofBandwidth + nGeneral * genBandwidth) * 2));
+	ui.noTotalLineEdit->setText(QString::number(nFriends + nFOF + nGeneral));
+}
+
+void ServerPage::updateEnabled()
+{
+	std::cerr << "RelayPage::updateEnabled()" << std::endl;
+
+	if (ui.enableCheckBox->isChecked())
+	{
+		ui.relayOptionGBox->setEnabled(true);
+		if (ui.serverCheckBox->isChecked())
+		{
+			std::cerr << "RelayPage::updateEnabled() Both Enabled" << std::endl;
+			ui.serverGroupBox->setEnabled(true);
+		}
+		else
+		{
+			std::cerr << "RelayPage::updateEnabled() Options Only Enabled" << std::endl;
+			ui.serverGroupBox->setEnabled(false);
+		}
+	}
+	else
+	{
+		std::cerr << "RelayPage::updateEnabled() Both Disabled" << std::endl;
+		ui.relayOptionGBox->setEnabled(false);
+		ui.serverGroupBox->setEnabled(false);
+	}
+
+}
+
+void ServerPage::checkKey()
+{
+
+	std::string server = ui.DhtLineEdit->text().toStdString();
+	std::cerr << "RelayPage::checkKey() length: " << server.length();
+	std::cerr << std::endl;
+	if (server.length() == 40)
+	{
+		ui.keyOkBox->setChecked(true);
+	}
+	else
+	{
+		ui.keyOkBox->setChecked(false);
+	}
+}
+
+void ServerPage::addServer()
+{
+	std::cerr << "RelayPage::addServer()";
+	std::cerr << std::endl;
+
+	if (!ui.keyOkBox->isChecked())
+	{
+		return;
+	}
+
+	std::string server = ui.DhtLineEdit->text().toStdString();
+
+	bool ok = rsDht->addRelayServer(server);
+	if (ok)
+	{
+		ui.DhtLineEdit->setText(QString(""));
+	}
+	loadServers();
+}
+
+void ServerPage::removeServer()
+{
+	QTreeWidgetItem *item = ui.serverTreeWidget->currentItem();
+	if (item)
+	{
+		std::string server = item->data(0, Qt::DisplayRole).toString().toStdString();
+		rsDht->removeRelayServer(server);
+	}
+
+	loadServers();
 }

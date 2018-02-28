@@ -45,6 +45,7 @@ StreamBase& operator << (StreamBase& left, ChatHandler::Msg& m)
 {
     left << makeKeyValueReference("incoming", m.incoming)
          << makeKeyValueReference("was_send", m.was_send)
+	     << makeKeyValueReference("read", m.read)
          << makeKeyValueReference("author_id", m.author_id)
          << makeKeyValueReference("author_name", m.author_name)
          << makeKeyValueReference("msg", m.msg)
@@ -112,6 +113,8 @@ StreamBase& operator << (StreamBase& left, ChatHandler::ChatInfo& info)
 {
     left << makeKeyValueReference("remote_author_id", info.remote_author_id)
          << makeKeyValueReference("remote_author_name", info.remote_author_name)
+	     << makeKeyValueReference("own_author_id", info.own_author_id)
+	     << makeKeyValueReference("own_author_name", info.own_author_name)
          << makeKeyValueReference("is_broadcast", info.is_broadcast)
          << makeKeyValueReference("is_distant_chat_id", info.is_distant_chat_id)
          << makeKeyValueReference("is_lobby", info.is_lobby)
@@ -161,6 +164,7 @@ ChatHandler::ChatHandler(StateTokenServer *sts, RsNotify *notify, RsMsgs *msgs, 
     mMsgStateToken = mStateTokenServer->getNewToken();
     mLobbiesStateToken = mStateTokenServer->getNewToken();
     mUnreadMsgsStateToken = mStateTokenServer->getNewToken();
+	mInvitationsStateToken = mStateTokenServer->getNewToken();
 
     addResourceHandler("*", this, &ChatHandler::handleWildcard);
     addResourceHandler("lobbies", this, &ChatHandler::handleLobbies);
@@ -169,9 +173,17 @@ ChatHandler::ChatHandler(StateTokenServer *sts, RsNotify *notify, RsMsgs *msgs, 
     addResourceHandler("unsubscribe_lobby", this, &ChatHandler::handleUnsubscribeLobby);
 	addResourceHandler("autosubscribe_lobby", this, &ChatHandler::handleAutoSubsribeLobby);
     addResourceHandler("clear_lobby", this, &ChatHandler::handleClearLobby);
+	addResourceHandler("invite_to_lobby", this, &ChatHandler::handleInviteToLobby);
+	addResourceHandler("get_invitations_to_lobby", this, &ChatHandler::handleGetInvitationsToLobby);
+	addResourceHandler("answer_to_invitation", this, &ChatHandler::handleAnswerToInvitation);
     addResourceHandler("lobby_participants", this, &ChatHandler::handleLobbyParticipants);
+	addResourceHandler("get_default_identity_for_chat_lobby", this, &ChatHandler::handleGetDefaultIdentityForChatLobby);
+	addResourceHandler("set_default_identity_for_chat_lobby", this, &ChatHandler::handleSetDefaultIdentityForChatLobby);
+	addResourceHandler("get_identity_for_chat_lobby", this, &ChatHandler::handleGetIdentityForChatLobby);
+	addResourceHandler("set_identity_for_chat_lobby", this, &ChatHandler::handleSetIdentityForChatLobby);
     addResourceHandler("messages", this, &ChatHandler::handleMessages);
-    addResourceHandler("send_message", this, &ChatHandler::handleSendMessage);
+	addResourceHandler("send_message", this, &ChatHandler::handleSendMessage);
+	addResourceHandler("mark_message_as_read", this, &ChatHandler::handleMarkMessageAsRead);
     addResourceHandler("mark_chat_as_read", this, &ChatHandler::handleMarkChatAsRead);
     addResourceHandler("info", this, &ChatHandler::handleInfo);
     addResourceHandler("receive_status", this, &ChatHandler::handleReceiveStatus);
@@ -190,13 +202,13 @@ ChatHandler::~ChatHandler()
 
 void ChatHandler::notifyChatMessage(const ChatMessage &msg)
 {
-    RS_STACK_MUTEX(mMtx); /********** LOCKED **********/
+	RS_STACK_MUTEX(mMtx); // ********** LOCKED **********
     mRawMsgs.push_back(msg);
 }
 
 void ChatHandler::notifyChatCleared(const ChatId &chat_id)
 {
-    RS_STACK_MUTEX(mMtx); /********** LOCKED **********/
+	RS_STACK_MUTEX(mMtx); // ********** LOCKED **********
     //Remove processed messages
     std::list<Msg>& msgs = mMsgs[chat_id];
     msgs.clear();
@@ -215,23 +227,32 @@ void ChatHandler::notifyChatCleared(const ChatId &chat_id)
 
 void ChatHandler::notifyChatStatus(const ChatId &chat_id, const std::string &status)
 {
-    RS_STACK_MUTEX(mMtx); /********** LOCKED **********/
+	RS_STACK_MUTEX(mMtx); // ********** LOCKED **********
     locked_storeTypingInfo(chat_id, status);
 }
 
 void ChatHandler::notifyChatLobbyEvent(uint64_t lobby_id, uint32_t event_type,
                                        const RsGxsId &nickname, const std::string& any_string)
 {
-    RS_STACK_MUTEX(mMtx); /********** LOCKED **********/
+	RS_STACK_MUTEX(mMtx); // ********** LOCKED **********
     if(event_type == RS_CHAT_LOBBY_EVENT_PEER_STATUS)
     {
         locked_storeTypingInfo(ChatId(lobby_id), any_string, nickname);
     }
 }
 
+void ChatHandler::notifyListChange(int list, int /*type*/)
+{
+	if(list == NOTIFY_LIST_CHAT_LOBBY_INVITATION)
+	{
+		RS_STACK_MUTEX(mMtx); // ********** LOCKED **********
+		mStateTokenServer->replaceToken(mInvitationsStateToken);
+	}
+}
+
 void ChatHandler::tick()
 {
-    RS_STACK_MUTEX(mMtx); /********** LOCKED **********/
+	RS_STACK_MUTEX(mMtx); // ********** LOCKED **********
 
     // first fetch lobbies
     std::vector<Lobby> lobbies;
@@ -266,7 +287,8 @@ void ChatHandler::tick()
             else
             {
                 LobbyParticipantsInfo& pi = mit->second;
-                if(!std::equal(pi.participants.begin(), pi.participants.end(), info.gxs_ids.begin()))
+				if(!std::equal(pi.participants.begin(), pi.participants.end(), info.gxs_ids.begin())
+				        || pi.participants.size() != info.gxs_ids.size())
                 {
                     pi.participants = info.gxs_ids;
                     mStateTokenServer->replaceToken(pi.state_token);
@@ -414,16 +436,23 @@ void ChatHandler::tick()
                 }
             }
             else if(msg.chat_id.isDistantChatId())
-            {
-                RsIdentityDetails details;
-                DistantChatPeerInfo dcpinfo ;
-                
-                if(!gxs_id_failed && rsMsgs->getDistantChatStatus(msg.chat_id.toDistantChatId(),dcpinfo)
-                                  && mRsIdentity->getIdDetails(msg.incoming? dcpinfo.to_id: dcpinfo.own_id, details))
-                {
-                    info.remote_author_id = details.mId.toStdString();
-                    info.remote_author_name = details.mNickname;
-                }
+			{
+				RsIdentityDetails detailsRemoteIdentity;
+				RsIdentityDetails detailsOwnIdentity;
+				DistantChatPeerInfo dcpinfo;
+
+				if( !gxs_id_failed &&
+				        rsMsgs->getDistantChatStatus(
+				            msg.chat_id.toDistantChatId(), dcpinfo )
+				        && mRsIdentity->getIdDetails(dcpinfo.to_id, detailsRemoteIdentity)
+				        && mRsIdentity->getIdDetails(dcpinfo.own_id, detailsOwnIdentity))
+				{
+					info.remote_author_id = detailsRemoteIdentity.mId.toStdString();
+					info.remote_author_name = detailsRemoteIdentity.mNickname;
+
+					info.own_author_id = detailsOwnIdentity.mId.toStdString();
+					info.own_author_name = detailsOwnIdentity.mNickname;
+				}
                 else
                 {
                     gxs_id_failed = true;
@@ -846,7 +875,7 @@ void ChatHandler::locked_storeTypingInfo(const ChatId &chat_id, std::string stat
 
 void ChatHandler::handleWildcard(Request &/*req*/, Response &resp)
 {
-    RS_STACK_MUTEX(mMtx); /********** LOCKED **********/
+	RS_STACK_MUTEX(mMtx); // ********** LOCKED **********
     resp.mDataStream.getStreamToMember();
     for(std::map<ChatId, std::list<Msg> >::iterator mit = mMsgs.begin(); mit != mMsgs.end(); ++mit)
     {
@@ -860,7 +889,7 @@ void ChatHandler::handleLobbies(Request &/*req*/, Response &resp)
     tick();
 
 	{
-    RS_STACK_MUTEX(mMtx); /********** LOCKED **********/
+		RS_STACK_MUTEX(mMtx); // ********** LOCKED **********
     resp.mDataStream.getStreamToMember();
     for(std::vector<Lobby>::iterator vit = mLobbies.begin(); vit != mLobbies.end(); ++vit)
     {
@@ -933,9 +962,73 @@ void ChatHandler::handleClearLobby(Request &req, Response &resp)
     resp.setOk();
 }
 
+void ChatHandler::handleInviteToLobby(Request& req, Response& resp)
+{
+	std::string chat_id;
+	std::string pgp_id;
+	req.mStream << makeKeyValueReference("chat_id", chat_id);
+	req.mStream << makeKeyValueReference("pgp_id", pgp_id);
+
+	ChatId chatId(chat_id);
+	RsPgpId pgpId(pgp_id);
+
+	std::list<RsPeerId> peerIds;
+	mRsPeers->getAssociatedSSLIds(pgpId, peerIds);
+
+	for(std::list<RsPeerId>::iterator it = peerIds.begin(); it != peerIds.end(); it++)
+		mRsMsgs->invitePeerToLobby(chatId.toLobbyId(), (*it));
+
+	resp.setOk();
+}
+
+void ChatHandler::handleGetInvitationsToLobby(Request& /*req*/, Response& resp)
+{
+	std::list<ChatLobbyInvite> invites;
+	mRsMsgs->getPendingChatLobbyInvites(invites);
+
+	resp.mDataStream.getStreamToMember();
+	for(std::list<ChatLobbyInvite>::const_iterator it = invites.begin(); it != invites.end(); ++it)
+	{
+		resp.mDataStream.getStreamToMember()
+		        << makeKeyValue("peer_id", (*it).peer_id.toStdString())
+		        << makeKeyValue("lobby_id", (*it).lobby_id)
+		        << makeKeyValue("lobby_name", (*it).lobby_name)
+		        << makeKeyValue("lobby_topic", (*it).lobby_topic);
+	}
+
+	resp.mStateToken = mInvitationsStateToken;
+	resp.setOk();
+}
+
+void ChatHandler::handleAnswerToInvitation(Request& req, Response& resp)
+{
+	ChatLobbyId lobbyId = 0;
+	req.mStream << makeKeyValueReference("lobby_id", lobbyId);
+
+	bool join;
+	req.mStream << makeKeyValueReference("join", join);
+
+	std::string gxs_id;
+	req.mStream << makeKeyValueReference("gxs_id", gxs_id);
+	RsGxsId gxsId(gxs_id);
+
+	if(join)
+	{
+		if(rsMsgs->acceptLobbyInvite(lobbyId, gxsId))
+			resp.setOk();
+		else
+			resp.setFail();
+	}
+	else
+	{
+		rsMsgs->denyLobbyInvite(lobbyId);
+		resp.setOk();
+	}
+}
+
 ResponseTask* ChatHandler::handleLobbyParticipants(Request &req, Response &resp)
 {
-    RS_STACK_MUTEX(mMtx); /********** LOCKED **********/
+	RS_STACK_MUTEX(mMtx); // ********** LOCKED **********
 
     ChatId id(req.mPath.top());
     if(!id.isLobbyId())
@@ -952,6 +1045,83 @@ ResponseTask* ChatHandler::handleLobbyParticipants(Request &req, Response &resp)
     return new SendLobbyParticipantsTask(mRsIdentity, mit->second);
 }
 
+void ChatHandler::handleGetDefaultIdentityForChatLobby(Request& /*req*/,
+                                                       Response& resp)
+{
+	RsGxsId gxsId;
+	mRsMsgs->getDefaultIdentityForChatLobby(gxsId);
+	resp.mDataStream << makeKeyValue("gxs_id", gxsId.toStdString());
+	resp.setOk();
+}
+
+void ChatHandler::handleSetDefaultIdentityForChatLobby(Request& req, Response& resp)
+{
+	std::string gxs_id;
+	req.mStream << makeKeyValueReference("gxs_id", gxs_id);
+	RsGxsId gxsId(gxs_id);
+
+	if(gxsId.isNull())
+	{
+		resp.setFail("Error: gxs_id must not be null");
+		return;
+	}
+
+	if(mRsMsgs->setDefaultIdentityForChatLobby(gxsId))
+		resp.setOk();
+	else
+		resp.setFail("Failure to change default identity for chat lobby");
+}
+
+void ChatHandler::handleGetIdentityForChatLobby(Request& req, Response& resp)
+{
+	RsGxsId gxsId;
+	std::string chat_id;
+	req.mStream << makeKeyValueReference("chat_id", chat_id);
+	ChatId chatId(chat_id);
+
+	if(chatId.isNotSet())
+	{
+		resp.setFail("Error: chat_id must not be null");
+		return;
+	}
+
+	if(mRsMsgs->getIdentityForChatLobby(chatId.toLobbyId(), gxsId))
+	{
+		resp.mDataStream << makeKeyValue("gxs_id", gxsId.toStdString());
+		resp.setOk();
+	}
+	else
+		resp.setFail();
+}
+
+void ChatHandler::handleSetIdentityForChatLobby(Request& req, Response& resp)
+{
+	std::string chat_id;
+	req.mStream << makeKeyValueReference("chat_id", chat_id);
+	ChatId chatId(chat_id);
+
+	if(chatId.isNotSet())
+	{
+		resp.setFail("Error: chat_id must not be null");
+		return;
+	}
+
+	std::string gxs_id;
+	req.mStream << makeKeyValueReference("gxs_id", gxs_id);
+	RsGxsId gxsId(gxs_id);
+
+	if(gxsId.isNull())
+	{
+		resp.setFail("Error: gxs_id must not be null");
+		return;
+	}
+
+	if(mRsMsgs->setIdentityForChatLobby(chatId.toLobbyId(), gxsId))
+		resp.setOk();
+	else
+		resp.setFail();
+}
+
 void ChatHandler::handleMessages(Request &req, Response &resp)
 {
 	/* G10h4ck: Whithout this the request processing won't happen, copied from
@@ -960,7 +1130,7 @@ void ChatHandler::handleMessages(Request &req, Response &resp)
 	tick();
 
 	{
-    RS_STACK_MUTEX(mMtx); /********** LOCKED **********/
+		RS_STACK_MUTEX(mMtx); // ********** LOCKED **********
 	ChatId id(req.mPath.top());
 
     // make response a list
@@ -1002,9 +1172,47 @@ void ChatHandler::handleSendMessage(Request &req, Response &resp)
         resp.setFail("failed to send message");
 }
 
+void ChatHandler::handleMarkMessageAsRead(Request &req, Response &resp)
+{
+	std::string chat_id_string;
+	std::string msg_id;
+	req.mStream << makeKeyValueReference("chat_id", chat_id_string)
+	            << makeKeyValueReference("msg_id", msg_id);
+
+	ChatId chatId(chat_id_string);
+	if(chatId.isNotSet())
+	{
+		resp.setFail(chat_id_string + " is not a valid chat id");
+		return;
+	}
+
+	std::map<ChatId, std::list<Msg> >::iterator mit = mMsgs.find(chatId);
+	if(mit == mMsgs.end())
+	{
+		resp.setFail("chat not found. Maybe this chat does not have messages yet?");
+		return;
+	}
+
+	std::list<Msg>& msgs = mit->second;
+	for(std::list<Msg>::iterator lit = msgs.begin(); lit != msgs.end(); ++lit)
+	{
+		if(id((*lit)) == msg_id)
+			(*lit).read = true;
+	}
+
+	// lobby list contains unread msgs, so update it
+	if(chatId.isLobbyId())
+		mStateTokenServer->replaceToken(mLobbiesStateToken);
+	if(chatId.isPeerId() && mUnreadMsgNotify)
+		mUnreadMsgNotify->notifyUnreadMsgCountChanged(chatId.toPeerId(), 0);
+
+	mStateTokenServer->replaceToken(mMsgStateToken);
+	mStateTokenServer->replaceToken(mUnreadMsgsStateToken);
+}
+
 void ChatHandler::handleMarkChatAsRead(Request &req, Response &resp)
 {
-    RS_STACK_MUTEX(mMtx); /********** LOCKED **********/
+	RS_STACK_MUTEX(mMtx); // ********** LOCKED **********
 	ChatId id(req.mPath.top());
 
     if(id.isNotSet())
@@ -1029,12 +1237,13 @@ void ChatHandler::handleMarkChatAsRead(Request &req, Response &resp)
     if(id.isPeerId() && mUnreadMsgNotify)
         mUnreadMsgNotify->notifyUnreadMsgCountChanged(id.toPeerId(), 0);
 
+	mStateTokenServer->replaceToken(mMsgStateToken);
     mStateTokenServer->replaceToken(mUnreadMsgsStateToken);
 }
 
 void ChatHandler::handleInfo(Request &req, Response &resp)
 {
-    RS_STACK_MUTEX(mMtx); /********** LOCKED **********/
+	RS_STACK_MUTEX(mMtx); // ********** LOCKED **********
     ChatId id(req.mPath.top());
     if(id.isNotSet())
     {
@@ -1070,7 +1279,8 @@ protected:
             // lobby and distant require to fetch a gxs_id
             if(mId.isLobbyId())
             {
-                requestGxsId(mInfo.author_id);
+				if(!mInfo.author_id.isNull())
+					requestGxsId(mInfo.author_id);
             }
             else if(mId.isDistantChatId())
             {
@@ -1083,6 +1293,7 @@ protected:
         else
         {
             std::string name = "BUG: case not handled in SendTypingLabelInfo";
+			RsGxsId author_id = mInfo.author_id;
             if(mId.isPeerId())
             {
                 name = mPeers->getPeerName(mId.toPeerId());
@@ -1092,6 +1303,7 @@ protected:
                 DistantChatPeerInfo dcpinfo ;
                 rsMsgs->getDistantChatStatus(mId.toDistantChatId(), dcpinfo);
                 name = getName(dcpinfo.to_id);
+				author_id = dcpinfo.to_id;
             }
             else if(mId.isLobbyId())
             {
@@ -1103,6 +1315,7 @@ protected:
             }
             uint32_t ts = mInfo.timestamp;
             resp.mDataStream << makeKeyValueReference("author_name", name)
+			                 << makeKeyValue("author_id", author_id.toStdString())
                              << makeKeyValueReference("timestamp", ts)
                              << makeKeyValueReference("status_string", mInfo.status);
             resp.mStateToken = mInfo.state_token;
@@ -1114,7 +1327,7 @@ protected:
 
 ResponseTask* ChatHandler::handleReceiveStatus(Request &req, Response &resp)
 {
-    RS_STACK_MUTEX(mMtx); /********** LOCKED **********/
+	RS_STACK_MUTEX(mMtx); // ********** LOCKED **********
     ChatId id(req.mPath.top());
     if(id.isNotSet())
     {
@@ -1127,6 +1340,7 @@ ResponseTask* ChatHandler::handleReceiveStatus(Request &req, Response &resp)
         locked_storeTypingInfo(id, "");
         mit = mTypingLabelInfo.find(id);
     }
+
     return new SendTypingLabelInfo(mRsIdentity, mRsPeers, id, mit->second);
 }
 
@@ -1148,7 +1362,7 @@ void ChatHandler::handleSendStatus(Request &req, Response &resp)
 
 void ChatHandler::handleUnreadMsgs(Request &/*req*/, Response &resp)
 {
-    RS_STACK_MUTEX(mMtx); /********** LOCKED **********/
+	RS_STACK_MUTEX(mMtx); // ********** LOCKED **********
 
     resp.mDataStream.getStreamToMember();
 	for( std::map<ChatId, std::list<Msg> >::const_iterator mit = mMsgs.begin();
@@ -1163,7 +1377,7 @@ void ChatHandler::handleUnreadMsgs(Request &/*req*/, Response &resp)
         if(count && (mit2 != mChatInfo.end()))
         {
             resp.mDataStream.getStreamToMember()
-#warning @deprecated using "id" as key can cause problems in some JS based \
+#warning Gioacchino Mazzurco 2017-03-24: @deprecated using "id" as key can cause problems in some JS based \
 	        languages like Qml @see chat_id instead
 			        << makeKeyValue("id", mit->first.toStdString())
 			        << makeKeyValue("chat_id", mit->first.toStdString())
@@ -1199,9 +1413,9 @@ void ChatHandler::handleInitiateDistantChatConnexion(Request& req, Response& res
 	DistantChatPeerId distant_chat_id;
 	uint32_t error_code;
 
-	if(mRsMsgs->initiateDistantChatConnexion(receiver_id, sender_id,
-	                                         distant_chat_id, error_code))
-		resp.setOk();
+	if(mRsMsgs->initiateDistantChatConnexion( receiver_id, sender_id,
+	                                          distant_chat_id, error_code,
+	                                          false )) resp.setOk();
 	else resp.setFail("Failed to initiate distant chat");
 
 	ChatId chat_id(distant_chat_id);
@@ -1229,10 +1443,12 @@ void ChatHandler::handleCloseDistantChatConnexion(Request& req, Response& resp)
 {
 	std::string distant_chat_hex;
 	req.mStream << makeKeyValueReference("distant_chat_hex", distant_chat_hex);
+	ChatId chatId(distant_chat_hex);
 
-	DistantChatPeerId chat_id(distant_chat_hex);
-	if (mRsMsgs->closeDistantChatConnexion(chat_id)) resp.setOk();
-	else resp.setFail("Failed to close distant chat");
+	if (mRsMsgs->closeDistantChatConnexion(chatId.toDistantChatId()))
+		resp.setOk();
+	else
+		resp.setFail("Failed to close distant chat");
 }
 
 void ChatHandler::handleCreateLobby(Request& req, Response& resp)

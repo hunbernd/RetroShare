@@ -6,11 +6,12 @@
     <application android:name="org.qtproject.qt5.android.bindings.QtApplication"
                  android:hardwareAccelerated="true"
                  android:label="RetroShare"
-                 android:icon="@drawable/retroshare06_128x128">
+                 android:icon="@drawable/retroshare_128x128">
         <activity android:name=".RetroShareQmlActivity"
                   android:label="RetroShare"
                   android:configChanges="orientation|uiMode|screenLayout|screenSize|smallestScreenSize|layoutDirection|locale|fontScale|keyboard|keyboardHidden|navigation"
                   android:screenOrientation="unspecified"
+                  android:windowSoftInputMode="adjustResize"
                   android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
@@ -206,4 +207,8 @@
 
     <!-- Added by G10h4ck: Needed permission for autostart at boot -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <!-- Added by Angesoc: used to pick images from gallery or take it from camera -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+
 </manifest>

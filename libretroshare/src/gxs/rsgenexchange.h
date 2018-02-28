@@ -117,9 +117,7 @@ public:
      * @param gixs This is used for verification of msgs and groups received by Gen Exchange using identities.
      * @param authenPolicy This determines the authentication used for verfying authorship of msgs and groups
      */
-    RsGenExchange(RsGeneralDataService* gds, RsNetworkExchangeService* ns,
-                  RsSerialType* serviceSerialiser, uint16_t mServType, RsGixs* gixs, uint32_t authenPolicy,
-                  uint32_t messageStorePeriod = RS_GXS_DEFAULT_MSG_STORE_PERIOD);
+    RsGenExchange(RsGeneralDataService* gds, RsNetworkExchangeService* ns, RsSerialType* serviceSerialiser, uint16_t mServType, RsGixs* gixs, uint32_t authenPolicy);
 
     virtual ~RsGenExchange();
 
@@ -225,7 +223,7 @@ public:
      * @param groupInfo
      * @return false if could not redeem token
      */
-    bool getGroupMeta(const uint32_t &token, std::list<RsGroupMetaData> &groupInfo);
+    bool getGroupMeta(const uint32_t &token, std::list<RsGroupMetaData>& groupInfo);
 
     /*!
      * retrieves message meta data associated to a request token
@@ -259,6 +257,17 @@ public:
      * \return
      */
     virtual bool acceptNewGroup(const RsGxsGrpMetaData *grpMeta) ;
+
+	/*!
+     * \brief acceptNewMessage
+     * 		Early checks if the message can be accepted. This is mainly used to check wether the group is for instance overloaded and the service wants
+     * 		to put limitations to it.
+     * 		Returns true unless derived in GXS services.
+     *
+     * \param grpMeta Group metadata to check
+     * \return
+     */
+	virtual bool acceptNewMessage(const RsGxsMsgMetaData *msgMeta, uint32_t size) ;
 
     bool subscribeToGroup(uint32_t& token, const RsGxsGroupId& grpId, bool subscribe);
 
@@ -654,7 +663,7 @@ public:
      * \brief getDefaultStoragePeriod. All times in seconds.
      * \return
      */
-    virtual uint32_t getDefaultStoragePeriod() { return MESSAGE_STORE_PERIOD; }
+	virtual uint32_t getDefaultStoragePeriod() { return mNetService->getDefaultKeepAge() ; }
 
     virtual uint32_t getStoragePeriod(const RsGxsGroupId& grpId) ;
     virtual void     setStoragePeriod(const RsGxsGroupId& grpId,uint32_t age_in_secs) ;
@@ -756,7 +765,7 @@ private:
      * 		   SIGN_FAIL_TRY_LATER for Id sign key not avail (but requested), try later
      */
     int createMsgSignatures(RsTlvKeySignatureSet& signSet, RsTlvBinaryData& msgData,
-                             const RsGxsMsgMetaData& msgMeta, RsGxsGrpMetaData& grpMeta);
+                             const RsGxsMsgMetaData& msgMeta, const RsGxsGrpMetaData& grpMeta);
 
     /*!
      * convenience function to create sign for groups
@@ -826,7 +835,7 @@ private:
      * @param newGrp the new group that updates the old group (must have meta data member initialised)
      * @return
      */
-    bool updateValid(RsGxsGrpMetaData& oldGrp, RsNxsGrp& newGrp) const;
+    bool updateValid(const RsGxsGrpMetaData& oldGrp, RsNxsGrp& newGrp) const;
 
     /*!
      * convenience function for checking private publish and admin keys are present
@@ -841,7 +850,7 @@ private:
      * @param msgs messages to be filtered
      * @param msgIdsNotify message notification map to be filtered
      */
-    void removeDeleteExistingMessages(RsGeneralDataService::MsgStoreMap& msgs, GxsMsgReq& msgIdsNotify);
+    void removeDeleteExistingMessages(std::list<RsNxsMsg*>& msgs, GxsMsgReq& msgIdsNotify);
 
     RsMutex mGenMtx;
     RsGxsDataAccess* mDataAccess;
@@ -854,8 +863,8 @@ private:
 
     std::vector<RsNxsMsg*> mReceivedMsgs;
 
-    typedef std::vector<GxsPendingItem<RsNxsGrp*, RsGxsGroupId> > NxsGrpPendValidVect;
-    NxsGrpPendValidVect mReceivedGrps;
+    typedef std::map<RsGxsGroupId,GxsPendingItem<RsNxsGrp*, RsGxsGroupId> > NxsGrpPendValidVect;
+    NxsGrpPendValidVect mGrpPendingValidate;
 
     std::vector<GxsGrpPendingSign> mGrpsToPublish;
     typedef std::vector<GxsGrpPendingSign> NxsGrpSignPendVect;
@@ -876,13 +885,10 @@ private:
     /// authentication policy
     uint32_t mAuthenPolicy;
 
-    std::map<uint32_t, GxsPendingItem<RsGxsMsgItem*, uint32_t> >
-    	mMsgPendingSign;
+    std::map<uint32_t, GxsPendingItem<RsGxsMsgItem*, uint32_t> > mMsgPendingSign;
 
-    std::vector<GxsPendingItem<RsNxsMsg*, RsGxsGrpMsgIdPair> > mMsgPendingValidate;
-    typedef std::vector<GxsPendingItem<RsNxsMsg*, RsGxsGrpMsgIdPair> > NxsMsgPendingVect;
-
-    const uint32_t MESSAGE_STORE_PERIOD;
+    typedef std::map<RsGxsMessageId,GxsPendingItem<RsNxsMsg*, RsGxsGrpMsgIdPair> > NxsMsgPendingVect;
+    NxsMsgPendingVect mMsgPendingValidate;
 
     bool mCleaning;
     time_t mLastClean;
@@ -909,7 +915,6 @@ private:
     std::vector<MsgDeletePublish>   mMsgDeletePublish;
 
     std::map<RsGxsId,std::set<RsPeerId> > mRoutingClues ;
-    std::list<std::pair<RsGxsMessageId,RsPeerId> > mTrackingClues ;
 };
 
 #endif // RSGENEXCHANGE_H

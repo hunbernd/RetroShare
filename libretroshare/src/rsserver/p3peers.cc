@@ -49,7 +49,7 @@ const std::string CERT_LOCAL_IP = "--LOCAL--";
 const std::string CERT_EXT_IP = "--EXT--";
 const std::string CERT_DYNDNS = "--DYNDNS--";
 
-static const int MAX_TIME_KEEP_LOCATION_WITHOUT_CONTACT = 30*24*3600 ; // 30 days.
+//static const int MAX_TIME_KEEP_LOCATION_WITHOUT_CONTACT = 30*24*3600 ; // 30 days.
 
 
 #include "pqi/authssl.h"
@@ -881,6 +881,11 @@ bool 	p3Peers::setHiddenNode(const RsPeerId &id, const std::string &hidden_node_
 	return true;
 }
 
+
+bool p3Peers::isHiddenNode(const RsPeerId &id)
+{
+	return mPeerMgr->isHiddenNode(id) ;
+}
 
 bool 	p3Peers::setHiddenNode(const RsPeerId &id, const std::string &address, uint16_t port)
 {

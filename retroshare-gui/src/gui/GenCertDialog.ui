@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>520</width>
-    <height>541</height>
+    <width>569</width>
+    <height>426</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -50,12 +50,12 @@
      <property name="frameShadow">
       <enum>QFrame::Raised</enum>
      </property>
-     <layout class="QVBoxLayout" name="verticalLayout">
+     <layout class="QVBoxLayout" name="profileframeVLayout">
       <property name="leftMargin">
        <number>9</number>
       </property>
       <item>
-       <widget class="QLabel" name="label">
+       <widget class="QLabel" name="RSLabel">
         <property name="text">
          <string/>
         </property>
@@ -115,7 +115,7 @@
         <property name="styleSheet">
          <string notr="true"/>
         </property>
-        <layout class="QGridLayout" name="gridLayout">
+        <layout class="QGridLayout" name="profile_groupBoxGLayout">
          <property name="leftMargin">
           <number>24</number>
          </property>
@@ -128,7 +128,7 @@
          <property name="bottomMargin">
           <number>24</number>
          </property>
-         <item row="0" column="0">
+         <item row="1" column="0">
           <layout class="QGridLayout" name="profilGLayout">
            <item row="14" column="2">
             <widget class="QComboBox" name="keylength_comboBox">
@@ -176,7 +176,7 @@
             </widget>
            </item>
            <item row="8" column="2">
-            <widget class="QLineEdit" name="password_input_2">
+            <widget class="QLineEdit" name="password2_input">
              <property name="sizePolicy">
               <sizepolicy hsizetype="MinimumExpanding" vsizetype="Preferred">
                <horstretch>0</horstretch>
@@ -283,7 +283,7 @@
             </widget>
            </item>
            <item row="4" column="2">
-            <layout class="QHBoxLayout" name="horizontalLayout_2">
+            <layout class="QHBoxLayout" name="nameHLayout">
              <item>
               <widget class="QLineEdit" name="name_input">
                <property name="sizePolicy">
@@ -604,7 +604,7 @@
             </widget>
            </item>
            <item row="8" column="1">
-            <widget class="QLabel" name="password_label_2">
+            <widget class="QLabel" name="password2_label">
              <property name="maximumSize">
               <size>
                <width>24</width>
@@ -699,11 +699,21 @@
            </item>
           </layout>
          </item>
+         <item row="0" column="0">
+          <widget class="QLabel" name="info_label">
+           <property name="text">
+            <string>TextLabel</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
         </layout>
        </widget>
       </item>
       <item>
-       <spacer name="verticalSpacer_2">
+       <spacer name="mainVSpacer">
         <property name="orientation">
          <enum>Qt::Vertical</enum>
         </property>
@@ -732,7 +742,7 @@
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Use existing node</string>
+    <string>Use existing profile</string>
    </property>
   </action>
  </widget>
@@ -740,7 +750,7 @@
   <tabstop>name_input</tabstop>
   <tabstop>node_input</tabstop>
   <tabstop>password_input</tabstop>
-  <tabstop>password_input_2</tabstop>
+  <tabstop>password2_input</tabstop>
   <tabstop>keylength_comboBox</tabstop>
   <tabstop>exportIdentity_PB</tabstop>
   <tabstop>genPGPuser</tabstop>

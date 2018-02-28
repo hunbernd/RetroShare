@@ -31,7 +31,7 @@
 #include "crypto/chacha20.h"
 #include "retroshare/rstypes.h"
 #include "retroshare/rspeers.h"
-const int ftserverzone = 29539;
+//const int ftserverzone = 29539;
 
 #include "file_sharing/p3filelists.h"
 #include "ft/ftturtlefiletransferitem.h"
@@ -131,8 +131,8 @@ void ftServer::SetupFtServer()
 {
 
 	/* setup FiStore/Monitor */
-	std::string localcachedir = mConfigPath + "/cache/local";
-	std::string remotecachedir = mConfigPath + "/cache/remote";
+	//std::string localcachedir = mConfigPath + "/cache/local";
+	//std::string remotecachedir = mConfigPath + "/cache/remote";
 	RsPeerId ownId = mServiceCtrl->getOwnId();
 
 	/* search/extras List */
@@ -160,7 +160,8 @@ void ftServer::SetupFtServer()
 void ftServer::connectToFileDatabase(p3FileDatabase *fdb)
 {
 	mFileDatabase = fdb ;
-	mFtSearch->addSearchMode(fdb, RS_FILE_HINTS_LOCAL | RS_FILE_HINTS_REMOTE);
+	mFtSearch->addSearchMode(fdb, RS_FILE_HINTS_LOCAL);	// due to a bug in addSearchModule, modules can only be added one by one. Using | between flags wont work.
+	mFtSearch->addSearchMode(fdb, RS_FILE_HINTS_REMOTE);
 }
 void ftServer::connectToTurtleRouter(p3turtle *fts)
 {
@@ -291,18 +292,28 @@ bool ftServer::activateTunnels(const RsFileHash& hash,uint32_t encryption_policy
 	return true ;
 }
 
-bool ftServer::setDestinationName(const RsFileHash& hash,const std::string& name)
-{
-	return mFtController->setDestinationName(hash,name);
-}
 bool ftServer::setDestinationDirectory(const RsFileHash& hash,const std::string& directory)
 {
 	return mFtController->setDestinationDirectory(hash,directory);
 }
+bool ftServer::setDestinationName(const RsFileHash& hash,const std::string& name)
+{
+	return mFtController->setDestinationName(hash,name);
+}
+
 bool ftServer::setChunkStrategy(const RsFileHash& hash,FileChunksInfo::ChunkStrategy s)
 {
 	return mFtController->setChunkStrategy(hash,s);
 }
+void ftServer::setDefaultChunkStrategy(FileChunksInfo::ChunkStrategy s)
+{
+	mFtController->setDefaultChunkStrategy(s) ;
+}
+FileChunksInfo::ChunkStrategy ftServer::defaultChunkStrategy()
+{
+	return mFtController->defaultChunkStrategy() ;
+}
+
 uint32_t ftServer::freeDiskSpaceLimit()const
 {
 	return mFtController->freeDiskSpaceLimit() ;
@@ -311,9 +322,10 @@ void ftServer::setFreeDiskSpaceLimit(uint32_t s)
 {
 	mFtController->setFreeDiskSpaceLimit(s) ;
 }
-void ftServer::setDefaultChunkStrategy(FileChunksInfo::ChunkStrategy s)
+
+void ftServer::setDefaultEncryptionPolicy(uint32_t s)
 {
-	mFtController->setDefaultChunkStrategy(s) ;
+	mFtController->setDefaultEncryptionPolicy(s) ;
 }
 uint32_t ftServer::defaultEncryptionPolicy()
 {
@@ -329,14 +341,15 @@ uint32_t ftServer::getMaxUploadSlotsPerFriend()
     return mFtController->getMaxUploadsPerFriend() ;
 }
 
-void ftServer::setDefaultEncryptionPolicy(uint32_t s)
+void ftServer::setFilePermDirectDL(uint32_t perm)
 {
-	mFtController->setDefaultEncryptionPolicy(s) ;
+	mFtController->setFilePermDirectDL(perm);
 }
-FileChunksInfo::ChunkStrategy ftServer::defaultChunkStrategy()
+uint32_t ftServer::filePermDirectDL()
 {
-	return mFtController->defaultChunkStrategy() ;
+	return mFtController->filePermDirectDL() ;
 }
+
 bool ftServer::FileCancel(const RsFileHash& hash)
 {
 	// Remove from both queue and ftController, by default.
@@ -813,13 +826,30 @@ bool 	ftServer::removeSharedDirectory(std::string dir)
 
 	return true;
 }
+
+bool ftServer::getIgnoreLists(std::list<std::string>& ignored_prefixes, std::list<std::string>& ignored_suffixes,uint32_t& ignore_flags)
+{
+	return mFileDatabase->getIgnoreLists(ignored_prefixes,ignored_suffixes,ignore_flags) ;
+}
+void ftServer::setIgnoreLists(const std::list<std::string>& ignored_prefixes, const std::list<std::string>& ignored_suffixes, uint32_t ignore_flags)
+{
+	mFileDatabase->setIgnoreLists(ignored_prefixes,ignored_suffixes,ignore_flags) ;
+}
+
 bool ftServer::watchEnabled()                      { return mFileDatabase->watchEnabled() ; }
 int  ftServer::watchPeriod() const                 { return mFileDatabase->watchPeriod()/60 ; }
 bool ftServer::followSymLinks() const              { return mFileDatabase->followSymLinks() ; }
+bool ftServer::ignoreDuplicates()                  { return mFileDatabase->ignoreDuplicates() ; }
+int  ftServer::maxShareDepth() const               { return mFileDatabase->maxShareDepth() ; }
 
 void ftServer::setWatchEnabled(bool b)             { mFileDatabase->setWatchEnabled(b) ; }
 void ftServer::setWatchPeriod(int minutes)         { mFileDatabase->setWatchPeriod(minutes*60) ; }
 void ftServer::setFollowSymLinks(bool b)           { mFileDatabase->setFollowSymLinks(b) ; }
+void ftServer::setIgnoreDuplicates(bool ignore)    { mFileDatabase->setIgnoreDuplicates(ignore); }
+void ftServer::setMaxShareDepth(int depth)         { mFileDatabase->setMaxShareDepth(depth) ; }
+
+void ftServer::togglePauseHashingProcess()  { mFileDatabase->togglePauseHashingProcess() ; }
+bool ftServer::hashingProcessPaused() { return mFileDatabase->hashingProcessPaused() ; }
 
 bool ftServer::getShareDownloadDirectory()
 {
@@ -1202,7 +1232,7 @@ bool ftServer::encryptItem(RsTurtleGenericTunnelItem *clear_item,const RsFileHas
 	uint32_t total_data_size = ENCRYPTED_FT_HEADER_SIZE + ENCRYPTED_FT_INITIALIZATION_VECTOR_SIZE + ENCRYPTED_FT_EDATA_SIZE + item_serialized_size + ENCRYPTED_FT_AUTHENTICATION_TAG_SIZE  ;
 
 #ifdef SERVER_DEBUG
-	FTSERVER_DEBUG() << "  clear part size : " << clear_item->serial_size() << std::endl;
+	FTSERVER_DEBUG() << "  clear part size : " << size(clear_item) << std::endl;
 	FTSERVER_DEBUG() << "  total item size : " << total_data_size << std::endl;
 #endif
 

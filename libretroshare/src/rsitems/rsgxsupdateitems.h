@@ -68,7 +68,8 @@ public:
 		msg_req_delay  = RS_GXS_DEFAULT_MSG_REQ_PERIOD ;
 
 		max_visible_count = 0 ;
-		update_TS = 0 ;
+		statistics_update_TS = 0 ;
+		last_group_modification_TS = 0 ;
 	}
 
 	uint32_t     msg_keep_delay ;	// delay after which we discard the posts
@@ -77,13 +78,14 @@ public:
 
 	RsTlvPeerIdSet suppliers;		// list of friends who feed this group
 	uint32_t max_visible_count ;	// max visible count reported by contributing friends
-	time_t update_TS ;				// last time the max visible count was updated.
+	time_t statistics_update_TS ;	// last time the max visible count was updated.
+	time_t last_group_modification_TS ;	// last time the group was modified, either in meta data or in the list of messages posted in it.
 };
 
 class RsGxsGrpConfigItem : public RsGxsNetServiceItem, public RsGxsGrpConfig
 {
 public:
-    RsGxsGrpConfigItem(uint16_t servType) : RsGxsNetServiceItem(servType, RS_PKT_SUBTYPE_GXS_GRP_CONFIG) {}
+    explicit RsGxsGrpConfigItem(uint16_t servType) : RsGxsNetServiceItem(servType, RS_PKT_SUBTYPE_GXS_GRP_CONFIG) {}
     RsGxsGrpConfigItem(const RsGxsGrpConfig& m,uint16_t servType) : RsGxsNetServiceItem(servType, RS_PKT_SUBTYPE_GXS_GRP_CONFIG),RsGxsGrpConfig(m) {}
     virtual ~RsGxsGrpConfigItem() {}
 
@@ -104,7 +106,7 @@ public:
 class RsGxsGrpUpdateItem : public RsGxsNetServiceItem, public RsGxsGrpUpdate
 {
 public:
-    RsGxsGrpUpdateItem(uint16_t servType) : RsGxsNetServiceItem(servType, RS_PKT_SUBTYPE_GXS_GRP_UPDATE) {clear();}
+    explicit RsGxsGrpUpdateItem(uint16_t servType) : RsGxsNetServiceItem(servType, RS_PKT_SUBTYPE_GXS_GRP_UPDATE) {clear();}
     RsGxsGrpUpdateItem(const RsGxsGrpUpdate& u,uint16_t serv_type) : RsGxsNetServiceItem(serv_type, RS_PKT_SUBTYPE_GXS_GRP_UPDATE), RsGxsGrpUpdate(u) {}
 
     virtual ~RsGxsGrpUpdateItem() {}
@@ -126,7 +128,7 @@ public:
 class RsGxsServerGrpUpdateItem : public RsGxsNetServiceItem, public RsGxsServerGrpUpdate
 {
 public:
-    RsGxsServerGrpUpdateItem(uint16_t servType) : RsGxsNetServiceItem(servType, RS_PKT_SUBTYPE_GXS_SERVER_GRP_UPDATE) { clear();}
+    explicit RsGxsServerGrpUpdateItem(uint16_t servType) : RsGxsNetServiceItem(servType, RS_PKT_SUBTYPE_GXS_SERVER_GRP_UPDATE) { clear();}
     RsGxsServerGrpUpdateItem(const RsGxsServerGrpUpdate& u,uint16_t serv_type) : RsGxsNetServiceItem(serv_type, RS_PKT_SUBTYPE_GXS_SERVER_GRP_UPDATE), RsGxsServerGrpUpdate(u) {}
 
     virtual ~RsGxsServerGrpUpdateItem() {}
@@ -152,7 +154,7 @@ public:
 class RsGxsMsgUpdateItem : public RsGxsNetServiceItem, public RsGxsMsgUpdate
 {
 public:
-    RsGxsMsgUpdateItem(uint16_t servType) : RsGxsNetServiceItem(servType, RS_PKT_SUBTYPE_GXS_MSG_UPDATE) { clear();}
+    explicit RsGxsMsgUpdateItem(uint16_t servType) : RsGxsNetServiceItem(servType, RS_PKT_SUBTYPE_GXS_MSG_UPDATE) { clear();}
     RsGxsMsgUpdateItem(const RsGxsMsgUpdate& m,uint16_t servType) : RsGxsNetServiceItem(servType, RS_PKT_SUBTYPE_GXS_MSG_UPDATE), RsGxsMsgUpdate(m) {}
 
     virtual ~RsGxsMsgUpdateItem() {}
@@ -174,7 +176,7 @@ public:
 class RsGxsServerMsgUpdateItem : public RsGxsNetServiceItem, public RsGxsServerMsgUpdate
 {
 public:
-    RsGxsServerMsgUpdateItem(uint16_t servType) : RsGxsNetServiceItem(servType, RS_PKT_SUBTYPE_GXS_SERVER_MSG_UPDATE) { clear();}
+    explicit RsGxsServerMsgUpdateItem(uint16_t servType) : RsGxsNetServiceItem(servType, RS_PKT_SUBTYPE_GXS_SERVER_MSG_UPDATE) { clear();}
     RsGxsServerMsgUpdateItem(const RsGxsServerMsgUpdate& m,uint16_t servType) : RsGxsNetServiceItem(servType, RS_PKT_SUBTYPE_GXS_SERVER_MSG_UPDATE),RsGxsServerMsgUpdate(m) {}
     virtual ~RsGxsServerMsgUpdateItem() {}
 
@@ -189,7 +191,7 @@ class RsGxsUpdateSerialiser : public RsServiceSerializer
 {
 public:
 
-	RsGxsUpdateSerialiser(uint16_t servtype) : RsServiceSerializer(servtype), SERVICE_TYPE(servtype) {}
+	explicit RsGxsUpdateSerialiser(uint16_t servtype) : RsServiceSerializer(servtype), SERVICE_TYPE(servtype) {}
 
 	virtual ~RsGxsUpdateSerialiser() {}
 

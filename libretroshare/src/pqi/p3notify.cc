@@ -267,6 +267,12 @@ bool p3Notify::clearPgpPassphrase()
     return true ;
 }
 
+bool p3Notify::setDisableAskPassword(const bool bValue)
+{
+	_disableAskPassword = bValue;
+	return true;
+}
+
 bool p3Notify::askForPassword                   (const std::string& title    , const std::string& key_details    , bool               prev_is_bad , std::string& password,bool *cancelled)
 {
     if(!prev_is_bad && !cached_pgp_passphrase.empty())
@@ -278,15 +284,16 @@ bool p3Notify::askForPassword                   (const std::string& title    , c
     }
 
 	FOR_ALL_NOTIFY_CLIENTS
-        if( (*it)->askForPassword(title,key_details,prev_is_bad,password,*cancelled))
-			return true ;
+		if (!_disableAskPassword)
+			if( (*it)->askForPassword(title,key_details,prev_is_bad,password,*cancelled) )
+				return true;
 
 	return false ;
 }
-bool p3Notify::askForPluginConfirmation         (const std::string& plugin_filename, const std::string& plugin_file_hash) 
+bool p3Notify::askForPluginConfirmation         (const std::string& plugin_filename, const std::string& plugin_file_hash,bool first_time)
 {
 	FOR_ALL_NOTIFY_CLIENTS
-		if( (*it)->askForPluginConfirmation(plugin_filename,plugin_file_hash)) 
+		if( (*it)->askForPluginConfirmation(plugin_filename,plugin_file_hash,first_time))
 			return true ;
 
 	return false ;

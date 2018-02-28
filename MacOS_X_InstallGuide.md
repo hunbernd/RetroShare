@@ -10,7 +10,7 @@ Add to the PATH environment variable by editing your *~/.profile* file.
 
        export PATH="/users/$USER/Qt/5.5/clang_64/bin:$PATH"
 
-Depends on wich version of Qt you use.
+Depends on which version of Qt you use.
 
 ## ***Choose if you use MacPort or HomeBrew***
 
@@ -89,4 +89,4 @@ You can now compile RS into Qt Creator or with terminal
 
 You can change Target and SDK in *./retroshare.pri:82* changing value of QMAKE_MACOSX_DEPLOYMENT_TARGET and QMAKE_MAC_SDK
 
-You can find compiled application on *./retroshare/retroshare-gui/src/RetroShare06.app*
+You can find compiled application on *./retroshare/retroshare-gui/src/retroshare.app*

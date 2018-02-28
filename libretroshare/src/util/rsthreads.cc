@@ -30,6 +30,8 @@
 #include <iostream>
 #include <time.h>
 
+#include "util/rstime.h"
+
 #ifdef __APPLE__
 int __attribute__((weak)) pthread_setname_np(const char *__buf) ;
 int RS_pthread_setname_np(pthread_t /*__target_thread*/, const char *__buf) {
@@ -179,6 +181,7 @@ void RsThread::start(const std::string &threadName)
     THREAD_DEBUG << "pqithreadstreamer::start() initing should_stop=0" << std::endl;
 #endif
     mShouldStopSemaphore.set(0) ;
+	mHasStoppedSemaphore.set(0) ;
 
     int err ;
 
@@ -288,7 +291,7 @@ void RsQueueThread::data_tick()
         THREAD_DEBUG << "RsQueueThread::data_tick() no work: sleeping for: " << mLastSleep << " ms" << std::endl;
 #endif
     }
-    usleep(mLastSleep * 1000); // mLastSleep msec
+    rstime::rs_usleep(mLastSleep * 1000); // mLastSleep msec
 }
 
 void RsMutex::unlock()

@@ -210,6 +210,9 @@ GxsForumThreadWidget::GxsForumThreadWidget(const RsGxsGroupId &forumId, QWidget 
 	connect(ui->newmessageButton, SIGNAL(clicked()), this, SLOT(replytoforummessage()));
 	connect(ui->newthreadButton, SIGNAL(clicked()), this, SLOT(createthread()));
 
+	ui->newmessageButton->setText(tr("Reply"));
+	ui->newthreadButton->setText(tr("New thread"));
+	
 	connect(ui->threadTreeWidget, SIGNAL(itemSelectionChanged()), this, SLOT(changedThread()));
 	connect(ui->threadTreeWidget, SIGNAL(itemClicked(QTreeWidgetItem*,int)), this, SLOT(clickedThread(QTreeWidgetItem*,int)));
 	connect(ui->viewBox, SIGNAL(currentIndexChanged(int)), this, SLOT(changedViewBox()));
@@ -228,6 +231,7 @@ GxsForumThreadWidget::GxsForumThreadWidget(const RsGxsGroupId &forumId, QWidget 
 	/* Set own item delegate */
 	RSElidedItemDelegate *itemDelegate = new RSElidedItemDelegate(this);
 	itemDelegate->setSpacing(QSize(0, 2));
+	itemDelegate->setOnlyPlainText(true);
 	ui->threadTreeWidget->setItemDelegate(itemDelegate);
 
 	/* Set header resize modes and initial section sizes */
@@ -2018,12 +2022,13 @@ void GxsForumThreadWidget::copyMessageLink()
 		return;
 	}
 
-	RetroShareLink link;
-    QTreeWidgetItem *item = ui->threadTreeWidget->currentItem();
+	QTreeWidgetItem *item = ui->threadTreeWidget->currentItem();
 
-    QString thread_title = (item != NULL)?item->text(COLUMN_THREAD_TITLE):QString() ;
+	QString thread_title = (item != NULL)?item->text(COLUMN_THREAD_TITLE):QString() ;
 
-    if (link.createGxsMessageLink(RetroShareLink::TYPE_FORUM, groupId(), mThreadId, thread_title)) {
+	RetroShareLink link = RetroShareLink::createGxsMessageLink(RetroShareLink::TYPE_FORUM, groupId(), mThreadId, thread_title);
+
+	if (link.valid()) {
 		QList<RetroShareLink> urls;
 		urls.push_back(link);
 		RSLinkClipboard::copyLinks(urls);
@@ -2068,8 +2073,7 @@ void GxsForumThreadWidget::createthread()
 
 static QString buildReplyHeader(const RsMsgMetaData &meta)
 {
-	RetroShareLink link;
-	link.createMessage(meta.mAuthorId, "");
+	RetroShareLink link = RetroShareLink::createMessage(meta.mAuthorId, "");
 	QString from = link.toHtml();
 
 	QString header = QString("<span>-----%1-----").arg(QApplication::translate("GxsForumThreadWidget", "Original Message"));

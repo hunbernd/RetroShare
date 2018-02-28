@@ -39,9 +39,6 @@
  * #define DEBUG_ITEM 1
  ****/
 
-#define COLOR_NORMAL QColor(248, 248, 248)
-#define COLOR_NEW    QColor(220, 236, 253)
-
 GxsForumMsgItem::GxsForumMsgItem(FeedHolder *feedHolder, uint32_t feedId, const RsGxsGroupId &groupId, const RsGxsMessageId &messageId, bool isHome, bool autoUpdate) :
     GxsFeedItem(feedHolder, feedId, groupId, messageId, isHome, rsGxsForums, autoUpdate)
 {
@@ -271,8 +268,7 @@ void GxsForumMsgItem::fill()
 	}
 
 	QString title = tr("Forum Feed") + ": ";
-	RetroShareLink link;
-	link.createGxsGroupLink(RetroShareLink::TYPE_FORUM, mMessage.mMeta.mGroupId, groupName());
+	RetroShareLink link = RetroShareLink::createGxsGroupLink(RetroShareLink::TYPE_FORUM, mMessage.mMeta.mGroupId, groupName());
 	title += link.toHtml();
 	ui->titleLabel->setText(title);
 
@@ -310,8 +306,7 @@ void GxsForumMsgItem::fill()
 //		nameLabel->setText(tr("Anonymous"));
 //	}
 
-	RetroShareLink msgLink;
-	msgLink.createGxsMessageLink(RetroShareLink::TYPE_FORUM, mMessage.mMeta.mGroupId, mMessage.mMeta.mMsgId, messageName());
+	RetroShareLink msgLink = RetroShareLink::createGxsMessageLink(RetroShareLink::TYPE_FORUM, mMessage.mMeta.mGroupId, mMessage.mMeta.mMsgId, messageName());
 	ui->subLabel->setText(msgLink.toHtml());
 	if (wasExpanded() || ui->expandFrame->isVisible()) {
 		fillExpandFrame();
@@ -324,8 +319,7 @@ void GxsForumMsgItem::fill()
 	} else {
 //		ui->parentAvatar->setId(msgParent.srcId, true);
 
-		RetroShareLink linkParent;
-		linkParent.createGxsMessageLink(RetroShareLink::TYPE_FORUM, mParentMessage.mMeta.mGroupId, mParentMessage.mMeta.mMsgId, QString::fromUtf8(mParentMessage.mMeta.mMsgName.c_str()));
+		RetroShareLink linkParent = RetroShareLink::createGxsMessageLink(RetroShareLink::TYPE_FORUM, mParentMessage.mMeta.mGroupId, mParentMessage.mMeta.mMsgId, QString::fromUtf8(mParentMessage.mMeta.mMsgName.c_str()));
 		ui->parentSubLabel->setText(linkParent.toHtml());
 		ui->parentMsgLabel->setText(RsHtml().formatText(NULL, QString::fromUtf8(mParentMessage.mMsg.c_str()), RSHTML_FORMATTEXT_EMBED_SMILEYS | RSHTML_FORMATTEXT_EMBED_LINKS));
 
@@ -418,16 +412,9 @@ void GxsForumMsgItem::toggle()
 
 void GxsForumMsgItem::setReadStatus(bool isNew, bool /*isUnread*/)
 {
-	/* unpolish widget to clear the stylesheet's palette cache */
-	ui->frame->style()->unpolish(ui->frame);
-
-	QPalette palette = ui->frame->palette();
-	palette.setColor(ui->frame->backgroundRole(), isNew ? COLOR_NEW : COLOR_NORMAL); // QScrollArea
-	palette.setColor(QPalette::Base, isNew ? COLOR_NEW : COLOR_NORMAL); // QTreeWidget
-	ui->frame->setPalette(palette);
-
 	ui->frame->setProperty("new", isNew);
-	Rshare::refreshStyleSheet(ui->frame, false);
+	ui->frame->style()->unpolish(ui->frame);
+	ui->frame->style()->polish(  ui->frame);
 }
 
 void GxsForumMsgItem::requestParentMessage(const RsGxsMessageId &msgId)

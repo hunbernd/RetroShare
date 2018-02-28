@@ -75,7 +75,7 @@ static struct RsLog::logInfo p3connectzoneInfo = {RsLog::Default, "p3connect"};
 //#define P3CONNMGR_NO_TCP_CONNECTIONS 1
 
 const uint32_t P3CONNMGR_TCP_DEFAULT_DELAY = 3; /* 2 Seconds? is it be enough! */
-const uint32_t P3CONNMGR_UDP_DEFAULT_DELAY = 3; /* 2 Seconds? is it be enough! */
+//const uint32_t P3CONNMGR_UDP_DEFAULT_DELAY = 3; /* 2 Seconds? is it be enough! */
 
 const uint32_t P3CONNMGR_TCP_DEFAULT_PERIOD = 10;
 const uint32_t P3CONNMGR_UDP_DEFAULT_PERIOD = 30;  // this represents how long it stays at the default TTL (4), before rising.
@@ -326,7 +326,6 @@ void    p3LinkMgrIMPL::statusTick()
 	std::cerr << "p3LinkMgrIMPL::statusTick()" << std::endl;
 #endif
 	std::list<RsPeerId> retryIds;
-	std::list<RsPeerId>::iterator it2;
         //std::list<std::string> dummyToRemove;
 
       {
@@ -362,8 +361,8 @@ void    p3LinkMgrIMPL::statusTick()
       }
 
 #ifndef P3CONNMGR_NO_AUTO_CONNECTION 
-
-        for(it2 = retryIds.begin(); it2 != retryIds.end(); ++it2)
+	std::list<RsPeerId>::iterator it2;
+	for(it2 = retryIds.begin(); it2 != retryIds.end(); ++it2)
 	{
 #ifdef LINKMGR_DEBUG_TICK
 		std::cerr << "p3LinkMgrIMPL::statusTick() RETRY TIMEOUT for: ";

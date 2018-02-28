@@ -65,7 +65,7 @@ PGPKeyDialog::PGPKeyDialog(const RsPeerId& id, const RsPgpId &pgp_id, QWidget *p
 {
     /* Invoke Qt Designer generated QObject setup routine */
     ui.setupUi(this);
-
+	Settings->loadWidgetInformation(this);
 //	 if(id.isNull())
 //		 ui._useOldFormat_CB->setChecked(true) ;
 //	 else
@@ -100,6 +100,7 @@ PGPKeyDialog::PGPKeyDialog(const RsPeerId& id, const RsPgpId &pgp_id, QWidget *p
 
 PGPKeyDialog::~PGPKeyDialog()
 {
+	Settings->saveWidgetInformation(this);
         QMap<RsPgpId, PGPKeyDialog*>::iterator it = instances_pgp.find(pgpId);
         if (it != instances_pgp.end())
             instances_pgp.erase(it);
@@ -152,6 +153,20 @@ void PGPKeyDialog::load()
     ui.pgpfingerprint_label->show();
 
     ui._direct_transfer_CB->setChecked(  detail.service_perm_flags & RS_NODE_PERM_DIRECT_DL ) ;
+	//Add warning to direct source checkbox depends general setting.
+	switch (rsFiles->filePermDirectDL())
+	{
+		case RS_FILE_PERM_DIRECT_DL_YES:
+			ui._direct_transfer_CB->setIcon(QIcon(":/icons/warning_yellow_128.png"));
+			ui._direct_transfer_CB->setToolTip(ui._direct_transfer_CB->toolTip().append(tr("\nWarning: In your File-Transfer option, you select allow direct download to Yes.")));
+			break ;
+		case RS_FILE_PERM_DIRECT_DL_NO:
+			ui._direct_transfer_CB->setIcon(QIcon(":/icons/warning_yellow_128.png"));
+			ui._direct_transfer_CB->setToolTip(ui._direct_transfer_CB->toolTip().append(tr("\nWarning: In your File-Transfer option, you select allow direct download to No.")));
+			break ;
+
+		default: break ;
+	}
     ui._allow_push_CB->setChecked(  detail.service_perm_flags & RS_NODE_PERM_ALLOW_PUSH) ;
     ui._require_WL_CB->setChecked(  detail.service_perm_flags & RS_NODE_PERM_REQUIRE_WL) ;
 
@@ -253,7 +268,7 @@ void PGPKeyDialog::load()
     RetroShareLink link ;
 
     for(std::list<RsPgpId>::const_iterator it(detail.gpgSigners.begin());it!=detail.gpgSigners.end();++it) {
-        link.createPerson(*it);
+        link = RetroShareLink::createPerson(*it);
         if (link.valid()) {
             text += link.toHtml() + "<BR>";
         }

@@ -19,6 +19,7 @@
 import QtQuick 2.7
 import QtQuick.Controls 2.0
 import "." //Needed for ClipboardWrapper singleton
+import "./components"
 import "URI.js" as UriJs
 
 Item
@@ -26,22 +27,76 @@ Item
 	id: cntDt
 	property var md
 	property bool is_contact: cntDt.md.is_contact
+	property bool isOwn:  cntDt.md.own
+	property string objectName: "contactDetails"
 
-	ColorHash
+	ButtonText
 	{
-		id: colorHash
+		id: avatarPicker
+
+		text: (isOwn)? qsTr("Change your Avatar") : qsTr("Start Chat!")
 
 		anchors.top: parent.top
-		anchors.topMargin: 6
 		anchors.horizontalCenter: parent.horizontalCenter
 
-		height: 150
-		hash: cntDt.md.gxs_id
+		buttonTextPixelSize: 14
+		iconUrl: (isOwn)? "/icons/attach-image.svg": "/icons/chat-bubble.svg"
+		borderRadius: 0
+
+
+		onClicked:
+		{
+			if (isOwn) fileChooser.open()
+			else startDistantChat ()
+		}
+		function startDistantChat ()
+		{
+			ChatCache.chatHelper.startDistantChat(ChatCache.contactsCache.own.gxs_id,
+												  cntDt.md.gxs_id,
+												  cntDt.md.name,
+												  function (chatId)
+												  {
+													  stackView.push("qrc:/ChatView.qml", {'chatId': chatId})
+												  })
+		}
+		CustomFileChooser
+		{
+			id: fileChooser
+			onResultFileChanged:
+			{
+				console.log("Result file changed! " , resultFile)
+
+				var base64Image = androidImagePicker.imageToBase64(resultFile)
+
+				rsApi.request("/identity/set_avatar", JSON.stringify({"gxs_id": cntDt.md.gxs_id, "avatar": base64Image }),
+							    function (par)
+								{
+									var jP  = JSON.parse(par.response)
+									if (jP.returncode === "ok")
+									{
+										console.log("Avatar changed! ")
+										topFace.refresh()
+									}
+								})
+			}
+		}
+	}
+
+
+	AvatarOrColorHash
+	{
+		id: topFace
+
+		gxs_id: cntDt.md.gxs_id
+
+		anchors.top: avatarPicker.bottom
+		anchors.topMargin: 6
+		anchors.horizontalCenter: parent.horizontalCenter
 	}
 
 	Column
 	{
-		anchors.top: colorHash.bottom
+		anchors.top: topFace.bottom
 		anchors.topMargin: 6
 		anchors.horizontalCenter: parent.horizontalCenter
 
@@ -53,6 +108,13 @@ Item
 			anchors.horizontalCenter: parent.horizontalCenter
 			spacing: 6
 
+			ColorHash
+			{
+				hash: cntDt.md.gxs_id
+				height: parent.height - 10
+				anchors.verticalCenter: parent.verticalCenter
+			}
+
 			Text
 			{
 				text: cntDt.md.name
@@ -61,12 +123,12 @@ Item
 
 			Image
 			{
-
 				source: cntDt.is_contact ?
-							"qrc:/icons/rating.png" :
-							"qrc:/icons/rating-unrated.png"
-				height: parent.height - 4
+							"qrc:/icons/rating.svg" :
+							"qrc:/icons/rating-unrated.svg"
+				height: parent.height -4
 				fillMode: Image.PreserveAspectFit
+				sourceSize.height: height
 				anchors.verticalCenter: parent.verticalCenter
 
 				MouseArea
@@ -107,9 +169,11 @@ Item
 
 		spacing: 6
 
-		Button
+		ButtonText
 		{
 			text: qsTr("Contact full link")
+			borderRadius: 0
+			buttonTextPixelSize: 14
 			onClicked:
 			{
 				rsApi.request(
@@ -118,25 +182,29 @@ Item
 							function(par)
 							{
 								var jD = JSON.parse(par.response).data
-								ClipboardWrapper.postToClipBoard(
+								var contactUrl = (
 										"retroshare://" +
 										"identity?gxsid=" +
 										cntDt.md.gxs_id +
 										"&name=" +
 										UriJs.URI.encode(cntDt.md.name) +
 										"&groupdata=" +
-										UriJs.URI.encode(jD.radix))
+										UriJs.URI.encode(jD.radix) )
+								ClipboardWrapper.postToClipBoard(contactUrl)
 								linkCopiedPopup.itemName = cntDt.md.name
 								linkCopiedPopup.visible = true
+								platformGW.shareUrl(contactUrl);
 							}
 							)
 			}
 		}
 
-		Button
+		ButtonText
 		{
 			text: qsTr("Contact short link")
 			enabled: false
+			borderRadius: 0
+			buttonTextPixelSize: 14
 		}
 	}
 }

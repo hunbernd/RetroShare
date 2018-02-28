@@ -124,7 +124,7 @@ static const uint32_t GXS_TUNNEL_AES_KEY_SIZE = 16 ;
 class p3GxsTunnelService: public RsGxsTunnelService, public RsTurtleClientService, public p3Service
 {
 public:
-    p3GxsTunnelService(RsGixs *pids) ;
+    explicit p3GxsTunnelService(RsGixs *pids) ;
     virtual void connectToTurtleRouter(p3turtle *) ;
 
     // Creates the invite if the public key of the distant peer is available.
@@ -230,7 +230,8 @@ private:
     void handleRecvDHPublicKey(RsGxsTunnelDHPublicKeyItem *item) ;
     bool locked_sendDHPublicKey(const DH *dh, const RsGxsId& own_gxs_id, const RsPeerId& virtual_peer_id) ;
     bool locked_initDHSessionKey(DH *&dh);
-    
+	uint64_t locked_getPacketCounter();
+
     TurtleVirtualPeerId virtualPeerIdFromHash(const TurtleFileHash& hash) ;	// ... and to a hash for p3turtle
 
     // item handling
@@ -252,6 +253,8 @@ private:
     RsGixs 	*mGixs ;
     RsMutex  	 mGxsTunnelMtx ;
     
+	uint64_t mCurrentPacketCounter ;
+
     std::map<uint32_t,RsGxsTunnelClientService*> mRegisteredServices ;
     
     void debug_dump();
