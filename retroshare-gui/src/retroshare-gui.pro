@@ -1,9 +1,10 @@
 !include("../../retroshare.pri"): error("Could not include file ../../retroshare.pri")
 
 TEMPLATE = app
-QT     += network xml
+QT     += network xml 
 CONFIG += qt gui uic qrc resources idle bitdht
 CONFIG += link_prl
+CONFIG += console
 TARGET = retroshare
 DEFINES += TARGET=\\\"$${TARGET}\\\"
 
@@ -20,6 +21,13 @@ profiling {
 	QMAKE_LFLAGS *= -pg 
 }
 
+retrotor {
+	DEFINES *= RETROTOR
+
+	FORMS   += TorControl/TorControlWindow.ui
+	SOURCES += TorControl/TorControlWindow.cpp
+	HEADERS += TorControl/TorControlWindow.h
+}
 
 #QMAKE_CFLAGS += -fmudflap 
 #LIBS *= /usr/lib/gcc/x86_64-linux-gnu/4.4/libmudflap.a /usr/lib/gcc/x86_64-linux-gnu/4.4/libmudflapth.a
@@ -161,6 +169,8 @@ win32 {
 	CONFIG(debug, debug|release) {
 		# show console output
 		CONFIG += console
+	} else {
+		CONFIG -= console
 	}
 
 	# Switch on extra warnings
@@ -330,6 +340,47 @@ DEPENDPATH += $$PWD/../../libresapi/src
 win32-g++:CONFIG(release, debug|release): PRE_TARGETDEPS += $$OUT_PWD/../../libresapi/src/release/libresapi.a
 else:win32-g++:CONFIG(debug, debug|release): PRE_TARGETDEPS += $$OUT_PWD/../../libresapi/src/debug/libresapi.a
 else:unix: PRE_TARGETDEPS += $$OUT_PWD/../../libresapi/src/libresapi.a
+
+retrotor {
+HEADERS += 	TorControl/AddOnionCommand.h \
+				TorControl/AuthenticateCommand.h \
+				TorControl/GetConfCommand.h \
+				TorControl/HiddenService.h \
+				TorControl/ProtocolInfoCommand.h \
+				TorControl/SetConfCommand.h \
+				TorControl/TorControlCommand.h \
+				TorControl/TorControl.h \
+				TorControl/TorControlSocket.h \
+				TorControl/TorManager.h \
+				TorControl/TorProcess.h \
+				TorControl/TorProcess_p.h \
+				TorControl/TorSocket.h \
+				TorControl/Useful.h            \
+				TorControl/CryptoKey.h         \
+				TorControl/PendingOperation.h  \
+				TorControl/SecureRNG.h         \
+				TorControl/Settings.h          \
+				TorControl/StrUtil.h        \
+				TorControl/TorProcess_p.h        
+
+SOURCES += 	TorControl/AddOnionCommand.cpp \
+				TorControl/AuthenticateCommand.cpp \
+				TorControl/GetConfCommand.cpp \
+				TorControl/HiddenService.cpp \
+				TorControl/ProtocolInfoCommand.cpp \
+				TorControl/SetConfCommand.cpp \
+				TorControl/TorControlCommand.cpp \
+				TorControl/TorControl.cpp \
+				TorControl/TorControlSocket.cpp \
+				TorControl/TorManager.cpp \
+				TorControl/TorProcess.cpp \
+				TorControl/TorSocket.cpp \
+				TorControl/CryptoKey.cpp         \
+				TorControl/PendingOperation.cpp  \
+				TorControl/SecureRNG.cpp         \
+				TorControl/Settings.cpp          \
+				TorControl/StrUtil.cpp        
+}
 
 # Input
 HEADERS +=  rshare.h \
@@ -538,6 +589,7 @@ HEADERS +=  rshare.h \
             gui/statusbar/peerstatus.h \
             gui/statusbar/natstatus.h \
             gui/statusbar/dhtstatus.h \
+            gui/statusbar/torstatus.h \
             gui/statusbar/ratesstatus.h \
             gui/statusbar/hashingstatus.h \
             gui/statusbar/discstatus.h \
@@ -571,8 +623,9 @@ HEADERS +=  rshare.h \
         gui/statistics/BWGraph.h \
     util/RsSyntaxHighlighter.h \
     util/imageutil.h \
+    gui/NetworkDialog/pgpid_item_model.h \
+    gui/NetworkDialog/pgpid_item_proxy.h \
     gui/common/RsCollection.h
-
 #            gui/ForumsDialog.h \
 #            gui/forums/ForumDetails.h \
 #            gui/forums/EditForumDetails.h \
@@ -879,6 +932,7 @@ SOURCES +=  main.cpp \
             gui/statusbar/peerstatus.cpp \
             gui/statusbar/natstatus.cpp \
             gui/statusbar/dhtstatus.cpp \
+            gui/statusbar/torstatus.cpp \
             gui/statusbar/ratesstatus.cpp \
             gui/statusbar/hashingstatus.cpp \
             gui/statusbar/discstatus.cpp \
@@ -931,8 +985,9 @@ SOURCES +=  main.cpp \
             gui/statistics/BWGraph.cpp \
     util/RsSyntaxHighlighter.cpp \
     util/imageutil.cpp \
+    gui/NetworkDialog/pgpid_item_model.cpp \
+    gui/NetworkDialog/pgpid_item_proxy.cpp \
     gui/common/RsCollection.cpp
-
 #            gui/ForumsDialog.cpp \
 #            gui/forums/ForumDetails.cpp \
 #            gui/forums/EditForumDetails.cpp \
