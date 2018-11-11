@@ -63,7 +63,7 @@ echo.
 
 title Build - %SourceName%-%RsBuildConfig% [make]
 
-%EnvMSYS2Cmd% "make -j 4"
+%EnvMSYS2Cmd% "make -j %Number_Of_Processors%"
 
 :error
 popd
