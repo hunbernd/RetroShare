@@ -244,7 +244,7 @@ win32-x-g++ {
 }
 ################################# Windows ##########################################
 
-win32-g++ {
+win32-*g++ {
 	QMAKE_CC = $${QMAKE_CXX}
 	OBJECTS_DIR = temp/obj
 	MOC_DIR = temp/moc
@@ -864,7 +864,7 @@ rs_jsonapi {
     no_rs_cross_compiling {
         DUMMYRESTBEDINPUT = FORCE
         CMAKE_GENERATOR_OVERRIDE=""
-        win32-g++:CMAKE_GENERATOR_OVERRIDE="-G \"MSYS Makefiles\""
+        win32-*g++:CMAKE_GENERATOR_OVERRIDE="-G \"MSYS Makefiles\""
         genrestbedlib.name = Generating libresbed.
         genrestbedlib.input = DUMMYRESTBEDINPUT
         genrestbedlib.output = $$clean_path($${RESTBED_BUILD_PATH}/librestbed.a)

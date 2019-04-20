@@ -38,7 +38,7 @@ linux-* {
 	OBJECTS_DIR = temp/linux/obj
 }
 
-win32-g++ {
+win32-*g++ {
 
     HEADERS += openpgpsdk/opsstring.h
     SOURCES += openpgpsdk/opsstring.c

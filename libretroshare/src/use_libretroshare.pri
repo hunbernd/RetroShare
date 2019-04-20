@@ -61,7 +61,7 @@ rs_jsonapi {
         LIBS *= -L$$clean_path($${RESTBED_BUILD_PATH}/) -lrestbed
     } else:sLibs *= restbed
 
-    win32-g++:dLibs *= wsock32
+    win32-*g++:dLibs *= wsock32
 }
 
 linux-* {
@@ -70,7 +70,7 @@ linux-* {
 
 rs_deep_search {
     mLibs += xapian
-    win32-g++:mLibs += rpcrt4
+    win32-*g++:mLibs += rpcrt4
 }
 
 static {

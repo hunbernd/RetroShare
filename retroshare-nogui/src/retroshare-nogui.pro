@@ -76,7 +76,7 @@ win32-x-g++ {
 
 #################################### Windows #####################################
 
-win32-g++ {
+win32-*g++ {
 	CONFIG += console
 	OBJECTS_DIR = temp/obj
 	RCC_DIR = temp/qrc

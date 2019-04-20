@@ -563,7 +563,7 @@ android-* {
     RS_THREAD_LIB =
 }
 
-win32-g++ {
+win32-*g++ {
     !isEmpty(EXTERNAL_LIB_DIR) {
         message(Use pre-compiled libraries in $${EXTERNAL_LIB_DIR}.)
         PREFIX = $$system_path($$EXTERNAL_LIB_DIR)
