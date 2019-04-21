@@ -17,6 +17,9 @@ call "%~dp0env-base.bat" %*
 if errorlevel 2 exit /B 2
 if errorlevel 1 goto error_env
 
+:: Skip package update
+if "%ParamNoupdate%" == "1" goto :skipupdate
+
 :: Install needed things
 %EnvMSYS2Cmd% "pacman --noconfirm --needed -S make git mingw-w64-%RsMSYS2Architecture%-toolchain mingw-w64-%RsMSYS2Architecture%-qt5 mingw-w64-%RsMSYS2Architecture%-miniupnpc mingw-w64-%RsMSYS2Architecture%-sqlcipher mingw-w64-%RsMSYS2Architecture%-libmicrohttpd mingw-w64-%RsMSYS2Architecture%-xapian-core"
 
@@ -25,6 +28,8 @@ if "%ParamClang%"=="1" %EnvMSYS2Cmd% "pacman --noconfirm --needed -S mingw-w64-%
 
 :: Plugins
 if "%ParamPlugins%"=="1" %EnvMSYS2Cmd% "pacman --noconfirm --needed -S mingw-w64-%RsMSYS2Architecture%-speex mingw-w64-%RsMSYS2Architecture%-speexdsp mingw-w64-%RsMSYS2Architecture%-curl mingw-w64-%RsMSYS2Architecture%-libxslt mingw-w64-%RsMSYS2Architecture%-opencv mingw-w64-%RsMSYS2Architecture%-ffmpeg"
+
+:skipupdate
 
 :: Initialize environment
 call "%~dp0env.bat" %*

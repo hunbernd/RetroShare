@@ -7,6 +7,7 @@ set ParamAutologin=0
 set ParamPlugins=0
 set ParamTor=0
 set ParamClang=0
+set ParamNoupdate=0
 set RS_QMAKE_CONFIG=
 
 :parameter_loop
@@ -28,6 +29,8 @@ if "%~1" NEQ "" (
 			set ParamTor=1
 		) else if "%%~a"=="clang" (
 			set ParamClang=1
+		) else if "%%~a"=="noupdate" (
+			set ParamNoupdate=1
 		) else if "%%~a"=="CONFIG+" (
 			set RS_QMAKE_CONFIG=%RS_QMAKE_CONFIG% %1
 		) else (
@@ -87,7 +90,7 @@ exit /B 0
 
 :usage
 echo.
-echo Usage: 32^|64 release^|debug [autologin plugins clang]
+echo Usage: 32^|64 release^|debug [autologin plugins clang noupdate]
 echo.
 echo Mandatory parameter
 echo 32^|64              32-bit or 64-bit Version
@@ -97,6 +100,7 @@ echo Optional parameter (need clean when changed)
 echo autologin          Build with autologin
 echo plugins            Build plugins
 echo clang              Use clang compiler instead of GCC
+echo noupdate           Do not update packages before build
 echo.
 echo Parameter for pack
 echo tor                Pack tor version
