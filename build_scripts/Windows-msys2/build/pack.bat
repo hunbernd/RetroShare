@@ -17,6 +17,9 @@ call "%~dp0env.bat" %*
 if errorlevel 2 exit /B 2
 if errorlevel 1 goto error_env
 
+:: Install ntldd
+%EnvMSYS2Cmd% "pacman --noconfirm --needed -S make git mingw-w64-%RsMSYS2Architecture%-ntldd-git"
+
 :: Remove deploy path
 if exist "%RsDeployPath%" rmdir /S /Q "%RsDeployPath%"
 
@@ -108,6 +111,7 @@ for /D %%D in ("%RsBuildPath%\plugins\*") do (
 
 echo copy dependencies
 call :copy_dependencies "%RsDeployPath%\retroshare.exe" "%RsDeployPath%"
+call :copy_dependencies "%RsDeployPath%\retroshare-nogui.exe" "%RsDeployPath%"
 
 echo copy Qt DLL's
 copy "%RsMinGWPath%\bin\Qt%QtMainVersion1%Svg%QtMainVersion2%.dll" "%RsDeployPath%" %Quite%
@@ -200,8 +204,7 @@ if exist "%~1\%RsBuildConfig%\%~n1.dll" (
 goto :EOF
 
 :copy_dependencies
-set CopyDependenciesCopiedSomething=0
-for /F "usebackq" %%A in (`%ToolsPath%\depends.bat list %1`) do (
+for /F "usebackq" %%A in (`%ToolsPath%\depends.bat %1`) do (
 	if not exist "%~2\%%A" (
 		if exist "%RsMinGWPath%\bin\%%A" (
 			set CopyDependenciesCopiedSomething=1
@@ -209,5 +212,4 @@ for /F "usebackq" %%A in (`%ToolsPath%\depends.bat list %1`) do (
 		)
 	)
 )
-if "%CopyDependenciesCopiedSomething%"=="1" goto copy_dependencies
 goto :EOF
