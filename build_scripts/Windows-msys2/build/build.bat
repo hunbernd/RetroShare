@@ -29,6 +29,9 @@ if "%ParamClang%"=="1" %EnvMSYS2Cmd% "pacman --noconfirm --needed -S mingw-w64-%
 :: Plugins
 if "%ParamPlugins%"=="1" %EnvMSYS2Cmd% "pacman --noconfirm --needed -S mingw-w64-%RsMSYS2Architecture%-speex mingw-w64-%RsMSYS2Architecture%-speexdsp mingw-w64-%RsMSYS2Architecture%-curl mingw-w64-%RsMSYS2Architecture%-libxslt mingw-w64-%RsMSYS2Architecture%-opencv mingw-w64-%RsMSYS2Architecture%-ffmpeg"
 
+:: Json API
+if "%ParamJsonApi%"=="1" %EnvMSYS2Cmd% "pacman --noconfirm --needed -S mingw-w64-%RsMSYS2Architecture%-doxygen mingw-w64-%RsMSYS2Architecture%-cmake"
+
 :skipupdate
 
 :: Initialize environment

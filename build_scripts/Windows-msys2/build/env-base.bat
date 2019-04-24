@@ -8,6 +8,7 @@ set ParamPlugins=0
 set ParamTor=0
 set ParamClang=0
 set ParamNoupdate=0
+set ParamJsonApi=0
 set RS_QMAKE_CONFIG=
 
 :parameter_loop
@@ -33,6 +34,7 @@ if "%~1" NEQ "" (
 			set ParamNoupdate=1
 		) else if "%%~a"=="CONFIG+" (
 			set RS_QMAKE_CONFIG=%RS_QMAKE_CONFIG% %1
+			if "%%~b"=="rs_jsonapi" set ParamJsonApi=1
 		) else (
 			echo.
 			echo Unknown parameter %1
