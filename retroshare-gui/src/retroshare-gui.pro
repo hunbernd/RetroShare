@@ -59,7 +59,7 @@ rs_gui_cmark {
 
 		DUMMYCMARKINPUT = FORCE
 		CMAKE_GENERATOR_OVERRIDE=""
-		win32-g++:CMAKE_GENERATOR_OVERRIDE="-G \"MSYS Makefiles\""
+                win32-*g++:CMAKE_GENERATOR_OVERRIDE="-G \"MSYS Makefiles\""
 		gencmarklib.name = Generating libcmark.
 		gencmarklib.input = DUMMYCMARKINPUT
 		gencmarklib.output = $$clean_path($${CMARK_BUILD_PATH}/src/libcmark.a)

@@ -81,7 +81,7 @@ rs_broadcast_discovery {
         LIBS *= -L$$clean_path($${UDP_DISCOVERY_BUILD_PATH}) -ludp-discovery
     } else:sLibs *= udp-discovery
 
-    win32-g++:dLibs *= wsock32
+    win32-*g++:dLibs *= wsock32
 }
 
 static {
