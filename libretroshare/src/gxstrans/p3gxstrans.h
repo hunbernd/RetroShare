@@ -3,7 +3,7 @@
  *                                                                             *
  * libretroshare: retroshare core library                                      *
  *                                                                             *
- * Copyright (C) 2016-2017  Gioacchino Mazzurco <gio@eigenlab.org>             *
+ * Copyright (C) 2016-2019  Gioacchino Mazzurco <gio@eigenlab.org>             *
  *                                                                             *
  * This program is free software: you can redistribute it and/or modify        *
  * it under the terms of the GNU Lesser General Public License as              *
@@ -21,7 +21,7 @@
  *******************************************************************************/
 #pragma once
 
-#include <stdint.h>
+#include <cstdint>
 #include <unordered_map>
 #include <map>
 
@@ -70,7 +70,7 @@ struct MsgSizeCount
 };
 
 /**
- * @brief p3GxsTrans is a mail delivery service based on GXS.
+ * @brief p3GxsTrans asyncronous redundant small mail trasport on top of GXS.
  * p3GxsTrans is capable of asynchronous mail delivery and acknowledgement.
  * p3GxsTrans is meant to be capable of multiple encryption options,
  * @see RsGxsTransEncryptionMode at moment messages are encrypted using RSA
@@ -288,15 +288,15 @@ private:
 
 	void notifyClientService(const OutgoingRecord& pr);
 
-	/*!
-	 * Checks the integrity message and groups
-	 */
-	class GxsTransIntegrityCleanupThread : public RsSingleJobThread
+	/// Checks the integrity message and groups
+	class GxsTransIntegrityCleanupThread : public RsThread
 	{
 		enum CheckState { CheckStart, CheckChecking };
 
 	public:
-        explicit GxsTransIntegrityCleanupThread(RsGeneralDataService *const dataService): mDs(dataService),mMtx("GxsTransIntegrityCheck") { mDone=false;}
+		explicit GxsTransIntegrityCleanupThread(
+		        RsGeneralDataService* const dataService ):
+		    mDs(dataService), mMtx("GxsTransIntegrityCheck"), mDone(false) {}
 
 		bool isDone();
 		void run();
@@ -312,7 +312,7 @@ private:
 
 		GxsMsgReq mMsgToDel ;
 		std::map<RsGxsId,MsgSizeCount> total_message_size_and_count;
-        bool mDone ;
+		bool mDone;
 	};
 
 	// Overloaded from RsGenExchange.

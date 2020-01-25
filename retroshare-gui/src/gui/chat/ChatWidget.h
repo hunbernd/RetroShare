@@ -159,6 +159,8 @@ private slots:
 
 	void smileyWidget();
 	void addSmiley();
+	void stickerWidget();
+	void sendSticker();
 
 	void addExtraFile();
 	void addExtraPicture();
@@ -192,6 +194,7 @@ private slots:
 	void quote();
 	void dropPlacemark();
 	void saveImage();
+	void saveSticker();
 
 private:
 	bool findText(const QString& qsStringToFind);

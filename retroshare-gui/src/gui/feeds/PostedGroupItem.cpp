@@ -23,6 +23,7 @@
 
 #include "FeedHolder.h"
 #include "gui/RetroShareLink.h"
+#include "gui/gxs/GxsIdDetails.h"
 
 /****
  * #define DEBUG_ITEM 1
@@ -137,7 +138,7 @@ void PostedGroupItem::fill()
 	
 	if (mGroup.mGroupImage.mData != NULL) {
 		QPixmap postedImage;
-		postedImage.loadFromData(mGroup.mGroupImage.mData, mGroup.mGroupImage.mSize, "PNG");
+		GxsIdDetails::loadPixmapFromData(mGroup.mGroupImage.mData, mGroup.mGroupImage.mSize, postedImage,GxsIdDetails::ORIGINAL);
 		ui->logoLabel->setPixmap(QPixmap(postedImage));
 	} else {
 		ui->logoLabel->setPixmap(QPixmap(":/images/posted_64.png"));
@@ -188,13 +189,13 @@ void PostedGroupItem::doExpand(bool open)
 	if (open)
 	{
 		ui->expandFrame->show();
-		ui->expandButton->setIcon(QIcon(QString(":/images/edit_remove24.png")));
+		ui->expandButton->setIcon(QIcon(QString(":/icons/png/up-arrow.png")));
 		ui->expandButton->setToolTip(tr("Hide"));
 	}
 	else
 	{
 		ui->expandFrame->hide();
-		ui->expandButton->setIcon(QIcon(QString(":/images/edit_add24.png")));
+		ui->expandButton->setIcon(QIcon(QString(":/icons/png/down-arrow.png")));
 		ui->expandButton->setToolTip(tr("Expand"));
 	}
 

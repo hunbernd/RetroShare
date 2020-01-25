@@ -56,7 +56,10 @@ void RsGxsForumModel::preMods()
 }
 void RsGxsForumModel::postMods()
 {
-	emit dataChanged(createIndex(0,0,(void*)NULL), createIndex(0,COLUMN_THREAD_NB_COLUMNS-1,(void*)NULL));
+    if(mTreeMode == TREE_MODE_FLAT)
+		emit dataChanged(createIndex(0,0,(void*)NULL), createIndex(mPosts.size(),COLUMN_THREAD_NB_COLUMNS-1,(void*)NULL));
+    else
+		emit dataChanged(createIndex(0,0,(void*)NULL), createIndex(mPosts[0].mChildren.size(),COLUMN_THREAD_NB_COLUMNS-1,(void*)NULL));
 }
 
 void RsGxsForumModel::setTreeMode(TreeMode mode)
@@ -65,7 +68,21 @@ void RsGxsForumModel::setTreeMode(TreeMode mode)
         return;
 
     preMods();
+
+    if(mode == TREE_MODE_TREE)	// means we were in FLAT mode, so the last rows are removed.
+    {
+		beginRemoveRows(QModelIndex(),mPosts[0].mChildren.size(),mPosts.size()-1);
+		endRemoveRows();
+    }
+
 	mTreeMode = mode;
+
+    if(mode == TREE_MODE_FLAT)	// means we were in tree mode, so the last rows are added.
+	{
+		beginInsertRows(QModelIndex(),mPosts[0].mChildren.size(),mPosts.size()-1);
+		endInsertRows();
+	}
+
     postMods();
 }
 
@@ -103,7 +120,7 @@ int RsGxsForumModel::rowCount(const QModelIndex& parent) const
        return getChildrenCount(parent.internalPointer());
 }
 
-int RsGxsForumModel::columnCount(const QModelIndex &parent) const
+int RsGxsForumModel::columnCount(const QModelIndex &/*parent*/) const
 {
 	return COLUMN_THREAD_NB_COLUMNS ;
 }
@@ -229,6 +246,9 @@ Qt::ItemFlags RsGxsForumModel::flags(const QModelIndex& index) const
 
 void *RsGxsForumModel::getChildRef(void *ref,int row) const
 {
+	if (row < 0)
+		return nullptr;
+
     ForumModelIndex entry ;
 
     if(!convertRefPointerToTabEntry(ref,entry) || entry >= mPosts.size())
@@ -236,16 +256,20 @@ void *RsGxsForumModel::getChildRef(void *ref,int row) const
 
     void *new_ref;
 
-    if(mTreeMode == TREE_MODE_FLAT)
-        if(entry == 0)
-        {
+	if(mTreeMode == TREE_MODE_FLAT)
+	{
+		if(entry == 0)
+		{
 			convertTabEntryToRefPointer(row+1,new_ref);
-    		return new_ref;
-        }
+			return new_ref;
+		}
 		else
-            return NULL ;
+		{
+			return NULL ;
+		}
+	}
 
-    if(row >= mPosts[entry].mChildren.size())
+    if(static_cast<size_t>(row) >= mPosts[entry].mChildren.size())
         return NULL;
 
     convertTabEntryToRefPointer(mPosts[entry].mChildren[row],new_ref);
@@ -257,11 +281,21 @@ void *RsGxsForumModel::getParentRef(void *ref,int& row) const
 {
     ForumModelIndex ref_entry;
 
-    if(mTreeMode == TREE_MODE_FLAT)
-        return NULL;
-
     if(!convertRefPointerToTabEntry(ref,ref_entry) || ref_entry >= mPosts.size())
         return NULL ;
+
+    if(mTreeMode == TREE_MODE_FLAT)
+    {
+        if(ref_entry == 0)
+        {
+            RsErr() << "getParentRef() shouldn't be asked for the parent of NULL" << std::endl;
+            row = 0;
+        }
+        else
+			row = ref_entry-1;
+
+        return NULL;
+    }
 
     ForumModelIndex parent_entry = mPosts[ref_entry].mParent;
 
@@ -289,14 +323,24 @@ int RsGxsForumModel::getChildrenCount(void *ref) const
 
     if(mTreeMode == TREE_MODE_FLAT)
         if(entry == 0)
+        {
+#ifdef DEBUG_FORUMMODEL
+            std::cerr << "Children count (flat mode): " << mPosts.size()-1 << std::endl;
+#endif
 			return ((int)mPosts.size())-1;
+        }
 		else
             return 0;
     else
+    {
+#ifdef DEBUG_FORUMMODEL
+		std::cerr << "Children count (tree mode): " << mPosts[entry].mChildren.size() << std::endl;
+#endif
 		return mPosts[entry].mChildren.size();
+    }
 }
 
-QVariant RsGxsForumModel::headerData(int section, Qt::Orientation orientation, int role) const
+QVariant RsGxsForumModel::headerData(int section, Qt::Orientation /*orientation*/, int role) const
 {
 	if(role == Qt::DisplayRole)
 		switch(section)
@@ -395,7 +439,7 @@ QVariant RsGxsForumModel::data(const QModelIndex &index, int role) const
 	}
 }
 
-QVariant RsGxsForumModel::textColorRole(const ForumModelPostEntry& fmpe,int column) const
+QVariant RsGxsForumModel::textColorRole(const ForumModelPostEntry& fmpe,int /*column*/) const
 {
     if( (fmpe.mPostFlags & ForumModelPostEntry::FLAG_POST_IS_MISSING))
         return QVariant(mTextColorMissing);
@@ -416,7 +460,7 @@ QVariant RsGxsForumModel::statusRole(const ForumModelPostEntry& fmpe,int column)
     return QVariant(fmpe.mMsgStatus);
 }
 
-QVariant RsGxsForumModel::filterRole(const ForumModelPostEntry& fmpe,int column) const
+QVariant RsGxsForumModel::filterRole(const ForumModelPostEntry& fmpe,int /*column*/) const
 {
     if(!mFilteringEnabled || (fmpe.mPostFlags & ForumModelPostEntry::FLAG_POST_CHILDREN_PASSES_FILTER))
         return QVariant(FilterString);
@@ -495,7 +539,7 @@ void RsGxsForumModel::setFilter(int column,const QStringList& strings,uint32_t& 
 	postMods();
 }
 
-QVariant RsGxsForumModel::missingRole(const ForumModelPostEntry& fmpe,int column) const
+QVariant RsGxsForumModel::missingRole(const ForumModelPostEntry& fmpe,int /*column*/) const
 {
     if(fmpe.mPostFlags & ForumModelPostEntry::FLAG_POST_IS_MISSING)
         return QVariant(true);
@@ -537,7 +581,7 @@ QVariant RsGxsForumModel::toolTipRole(const ForumModelPostEntry& fmpe,int column
     return QVariant();
 }
 
-QVariant RsGxsForumModel::pinnedRole(const ForumModelPostEntry& fmpe,int column) const
+QVariant RsGxsForumModel::pinnedRole(const ForumModelPostEntry& fmpe,int /*column*/) const
 {
     if(fmpe.mPostFlags & ForumModelPostEntry::FLAG_POST_IS_PINNED)
         return QVariant(true);
@@ -545,7 +589,7 @@ QVariant RsGxsForumModel::pinnedRole(const ForumModelPostEntry& fmpe,int column)
         return QVariant(false);
 }
 
-QVariant RsGxsForumModel::backgroundRole(const ForumModelPostEntry& fmpe,int column) const
+QVariant RsGxsForumModel::backgroundRole(const ForumModelPostEntry& fmpe,int /*column*/) const
 {
     if(fmpe.mPostFlags & ForumModelPostEntry::FLAG_POST_IS_PINNED)
         return QVariant(QBrush(QColor(255,200,180)));
@@ -692,7 +736,11 @@ void RsGxsForumModel::setPosts(const RsGxsForumGroup& group, const std::vector<F
 {
     preMods();
 
-    beginRemoveRows(QModelIndex(),0,mPosts[0].mChildren.size()-1);
+    if(mTreeMode == TREE_MODE_FLAT)
+		beginRemoveRows(QModelIndex(),0,mPosts.size()-1);
+	else
+		beginRemoveRows(QModelIndex(),0,mPosts[0].mChildren.size()-1);
+
     endRemoveRows();
 
     mForumGroup = group;
@@ -716,7 +764,10 @@ void RsGxsForumModel::setPosts(const RsGxsForumGroup& group, const std::vector<F
     debug_dump();
 #endif
 
-    beginInsertRows(QModelIndex(),0,mPosts[0].mChildren.size()-1);
+    if(mTreeMode == TREE_MODE_FLAT)
+		beginInsertRows(QModelIndex(),0,mPosts.size()-1);
+    else
+		beginInsertRows(QModelIndex(),0,mPosts[0].mChildren.size()-1);
     endInsertRows();
 	postMods();
 	emit forumLoaded();
@@ -737,7 +788,7 @@ void RsGxsForumModel::update_posts(const RsGxsGroupId& group_id)
 
         forumIds.push_back(group_id);
 
-		if(!rsGxsForums->getForumsInfo(forumIds,groups))
+		if(!rsGxsForums->getForumsInfo(forumIds,groups) || groups.size() != 1)
 		{
 			std::cerr << __PRETTY_FUNCTION__ << " failed to retrieve forum group info for forum " << group_id << std::endl;
 			return;
@@ -803,7 +854,7 @@ void RsGxsForumModel::generateMissingItem(const RsGxsMessageId &msgId,ForumModel
     entry.mReputationWarningLevel = 3;
 }
 
-void RsGxsForumModel::convertMsgToPostEntry(const RsGxsForumGroup& mForumGroup,const RsMsgMetaData& msg, bool useChildTS, ForumModelPostEntry& fentry)
+void RsGxsForumModel::convertMsgToPostEntry(const RsGxsForumGroup& mForumGroup,const RsMsgMetaData& msg, bool /*useChildTS*/, ForumModelPostEntry& fentry)
 {
     fentry.mTitle     = msg.mMsgName;
     fentry.mAuthorId  = msg.mAuthorId;
@@ -877,10 +928,12 @@ void RsGxsForumModel::computeMessagesHierarchy(const RsGxsForumGroup& forum_grou
 		msgs[msgs_metas_array[i].mMsgId] = msgs_metas_array[i] ;
 	}
 
-	int count = msgs.size();
-	int pos = 0;
+#ifdef DEBUG_FORUMS
+	size_t count = msgs.size();
+#endif
+//	int pos = 0;
 //	int steps = count / PROGRESSBAR_MAX;
-	int step = 0;
+//	int step = 0;
 
     initEmptyHierarchy(posts);
 
@@ -947,8 +1000,8 @@ void RsGxsForumModel::computeMessagesHierarchy(const RsGxsForumGroup& forum_grou
     {
 		auto& v(it->second) ;
 
-        for(int32_t i=0;i<v.size();++i)
-        {
+		for(size_t i=0;i<v.size();++i)
+		{
             if(v[i].second != it->first)
 			{
 				RsGxsMessageId sub_msg_id = v[i].second ;
@@ -957,14 +1010,14 @@ void RsGxsForumModel::computeMessagesHierarchy(const RsGxsForumGroup& forum_grou
 
 				if(it2 != mPostVersions.end())
 				{
-					for(int32_t j=0;j<it2->second.size();++j)
+					for(size_t j=0;j<it2->second.size();++j)
 						if(it2->second[j].second != sub_msg_id)	// dont copy it, since it is already present at slot i
 							v.push_back(it2->second[j]) ;
 
 					mPostVersions.erase(it2) ;	// it2 is never equal to it
 				}
 			}
-        }
+		}
     }
 
 
@@ -989,23 +1042,23 @@ void RsGxsForumModel::computeMessagesHierarchy(const RsGxsForumGroup& forum_grou
 #ifdef DEBUG_FORUMS
 		std::cerr << "   most recent version " << (*it)[0].first << "  " << (*it)[0].second << std::endl;
 #endif
-        for(int32_t i=1;i<it->second.size();++i)
-        {
+		for(size_t i=1;i<it->second.size();++i)
+		{
 			msgs.erase(it->second[i].second) ;
 
 #ifdef DEBUG_FORUMS
-            std::cerr << "   older version " << (*it)[i].first << "  " << (*it)[i].second << std::endl;
+			std::cerr << "   older version " << (*it)[i].first << "  " << (*it)[i].second << std::endl;
 #endif
-        }
+		}
 
         mTmp[it->second[0].second] = it->second ;	// index the versions map by the ID of the most recent post.
 
 		// Now make sure that message parents are consistent. Indeed, an old post may have the old version of a post as parent. So we need to change that parent
 		// to the newest version. So we create a map of which is the most recent version of each message, so that parent messages can be searched in it.
 
-        for(int i=1;i<it->second.size();++i)
-            most_recent_versions[it->second[i].second] = it->second[0].second ;
-    }
+	for(size_t i=1;i<it->second.size();++i)
+		most_recent_versions[it->second[i].second] = it->second[0].second ;
+	}
     mPostVersions = mTmp ;
 
     // The next step is to find the top level thread messages. These are defined as the messages without
@@ -1238,23 +1291,30 @@ QModelIndex RsGxsForumModel::getIndexOfMessage(const RsGxsMessageId& mid) const
 
     // First look into msg versions, in case the msg is a version of an existing message
 
-    for(auto it(mPostVersions.begin());it!=mPostVersions.end();++it)
+    for(auto it(mPostVersions.begin());it!=mPostVersions.end() && postId==mid;++it)
     	for(uint32_t i=0;i<it->second.size();++i)
             if(it->second[i].second == mid)
+            {
                 postId = it->first;
+                break;
+            }
 
-    for(uint32_t i=0;i<mPosts.size();++i)
+    for(uint32_t i=1;i<mPosts.size();++i)
         if(mPosts[i].mMsgId == postId)
         {
             void *ref ;
-            convertTabEntryToRefPointer(i,ref);
+            convertTabEntryToRefPointer(i,ref);	// we dont use i+1 here because i is not a row, but an index in the mPosts tab
 
-            return createIndex(mPosts[i].prow,0,ref);
+            if(mTreeMode == TREE_MODE_FLAT)
+				return createIndex(i-1,0,ref);
+            else
+				return createIndex(mPosts[i].prow,0,ref);
         }
 
     return QModelIndex();
 }
 
+#ifdef DEBUG_FORUMMODEL
 static void recursPrintModel(const std::vector<ForumModelPostEntry>& entries,ForumModelIndex index,int depth)
 {
     const ForumModelPostEntry& e(entries[index]);
@@ -1271,7 +1331,6 @@ static void recursPrintModel(const std::vector<ForumModelPostEntry>& entries,For
         recursPrintModel(entries,e.mChildren[i],depth+1);
 }
 
-#ifdef DEBUG_FORUMMODEL
 void RsGxsForumModel::debug_dump()
 {
     std::cerr << "Model data dump:" << std::endl;

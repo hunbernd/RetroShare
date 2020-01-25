@@ -422,6 +422,7 @@ void NotifyQt::notifyPeerStatusChangedSummary()
 	emit peerStatusChangedSummary();
 }
 
+#ifdef TO_REMOVE
 void NotifyQt::notifyGxsChange(const RsGxsChanges& changes)
 {
     {
@@ -436,6 +437,7 @@ void NotifyQt::notifyGxsChange(const RsGxsChanges& changes)
 
     emit gxsChange(changes);
 }
+#endif
 
 void NotifyQt::notifyOwnStatusMessageChanged()
 {
@@ -490,20 +492,6 @@ void NotifyQt::notifyChatLobbyTimeShift(int shift)
 	std::cerr << "notifyQt: Received chat lobby time shift message: shift = " << shift << std::endl;
 #endif
 	emit chatLobbyTimeShift(shift) ;
-}
-
-void NotifyQt::notifyConnectionWithoutCert()
-{
-	{
-		QMutexLocker m(&_mutex) ;
-		if(!_enabled)
-			return ;
-	}
-
-#ifdef NOTIFY_DEBUG
-	std::cerr << "notifyQt: Received notifyConnectionWithoutCert" << std::endl;
-#endif
-	emit connectionWithoutCert();
 }
 
 void NotifyQt::handleChatLobbyTimeShift(int /*shift*/)
@@ -749,7 +737,6 @@ void NotifyQt::notifyListChange(int list, int type)
 	}
 	return;
 }
-
 
 void NotifyQt::notifyListPreChange(int list, int /*type*/)
 {

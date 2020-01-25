@@ -37,15 +37,6 @@
 
 #define USE_NEW_CHUNK_CHECKING_CODE
 
-// This adds a level of indirection to types, so we can easily change them if needed
-//
-//typedef std::string   RsCertId;	// unused
-//typedef std::string   RsChanId;
-//typedef std::string   RsMsgId;
-//typedef std::string   RsAuthId;
-
-typedef SSLIdType     RsPeerId ;
-typedef PGPIdType     RsPgpId ;
 typedef Sha1CheckSum  RsFileHash ;
 typedef Sha1CheckSum  RsMessageId ;
 
@@ -257,8 +248,6 @@ struct FileInfo : RsSerializable
 	}
 };
 
-std::ostream &operator<<(std::ostream &out, const FileInfo& info);
-
 /**
  * Pointers in this class have no real meaning as pointers, they are used as
  * indexes, internally by retroshare.
@@ -379,8 +368,6 @@ struct DirDetails : RsSerializable
 	}
 };
 
-std::ostream &operator<<(std::ostream &out, const DirDetails& details);
-
 class FileDetail
 {
 	public:
@@ -412,11 +399,20 @@ struct FileChunksInfo : RsSerializable
 		CHUNK_STRATEGY_PROGRESSIVE
 	};
 
-	struct SliceInfo
+	struct SliceInfo : RsSerializable
 	{
 		uint32_t start;
 		uint32_t size;
 		RsPeerId peer_id;
+
+		/// @see RsSerializable
+		void serial_process(RsGenericSerializer::SerializeJob j,
+		                    RsGenericSerializer::SerializeContext& ctx) override
+		{
+			RS_SERIAL_PROCESS(start);
+			RS_SERIAL_PROCESS(size);
+			RS_SERIAL_PROCESS(peer_id);
+		}
 	};
 
 	uint64_t file_size; /// real size of the file
@@ -445,7 +441,7 @@ struct FileChunksInfo : RsSerializable
 		RS_SERIAL_PROCESS(chunks);
 		RS_SERIAL_PROCESS(compressed_peer_availability_maps);
 		RS_SERIAL_PROCESS(active_chunks);
-		//RS_SERIAL_PROCESS(pending_slices);
+		RS_SERIAL_PROCESS(pending_slices);
 	}
 };
 

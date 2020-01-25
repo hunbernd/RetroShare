@@ -67,13 +67,10 @@ uint32_t msecs_of_day()
 
 static const uint32_t DISTANT_CHAT_GXS_TUNNEL_SERVICE_ID = 0xa0001 ;
 
-typedef RsGxsTunnelService::RsGxsTunnelId RsGxsTunnelId;
-
-DistantChatService::DistantChatService()  : mDistantChatMtx("distant chat")
-{
-	mGxsTunnels = NULL ;
-	mDistantChatPermissions = RS_DISTANT_CHAT_CONTACT_PERMISSION_FLAG_FILTER_NONE ;	// default: accept everyone
-}
+DistantChatService::DistantChatService() :
+    // default: accept everyone
+    mDistantChatPermissions(RS_DISTANT_CHAT_CONTACT_PERMISSION_FLAG_FILTER_NONE),
+    mGxsTunnels(nullptr), mDistantChatMtx("distant chat") {}
 
 void DistantChatService::connectToGxsTunnelService(RsGxsTunnelService *tr)
 {
@@ -181,7 +178,7 @@ bool DistantChatService::acceptDataFromPeer(const RsGxsId& gxs_id,const RsGxsTun
     return res ;
 }
 
-void DistantChatService::notifyTunnelStatus(const RsGxsTunnelService::RsGxsTunnelId &tunnel_id, uint32_t tunnel_status)
+void DistantChatService::notifyTunnelStatus( const RsGxsTunnelId& tunnel_id, uint32_t tunnel_status )
 {
 #ifdef DEBUG_DISTANT_CHAT    
     DISTANT_CHAT_DEBUG() << "DistantChatService::notifyTunnelStatus(): got notification " << std::hex << tunnel_status << std::dec << " for tunnel " << tunnel_id << std::endl;
@@ -197,17 +194,17 @@ void DistantChatService::notifyTunnelStatus(const RsGxsTunnelService::RsGxsTunne
         								RsServer::notify()->notifyPeerStatusChanged(tunnel_id.toStdString(),RS_STATUS_ONLINE) ;
                             						break ;
                             
-    case RsGxsTunnelService::RS_GXS_TUNNEL_STATUS_TUNNEL_DN:    	RsServer::notify()->notifyChatStatus(ChatId(DistantChatPeerId(tunnel_id)),"tunnel is down...") ;
+    case RsGxsTunnelService::RS_GXS_TUNNEL_STATUS_TUNNEL_DN:    	RsServer::notify()->notifyChatStatus(ChatId(DistantChatPeerId(tunnel_id)),"Tunnel is down...") ;
 			        					RsServer::notify()->notifyPeerStatusChanged(tunnel_id.toStdString(),RS_STATUS_OFFLINE) ;
         								break ;
         
-    case RsGxsTunnelService::RS_GXS_TUNNEL_STATUS_REMOTELY_CLOSED:	RsServer::notify()->notifyChatStatus(ChatId(DistantChatPeerId(tunnel_id)),"tunnel is down...") ;
+    case RsGxsTunnelService::RS_GXS_TUNNEL_STATUS_REMOTELY_CLOSED:	RsServer::notify()->notifyChatStatus(ChatId(DistantChatPeerId(tunnel_id)),"Tunnel is down...") ;
         								RsServer::notify()->notifyPeerStatusChanged(tunnel_id.toStdString(),RS_STATUS_OFFLINE) ;
                             						break ;
     }
 }
 
-void DistantChatService::receiveData(const RsGxsTunnelService::RsGxsTunnelId &tunnel_id, unsigned char *data, uint32_t data_size)
+void DistantChatService::receiveData( const RsGxsTunnelId& tunnel_id, unsigned char* data, uint32_t data_size)
 {
 #ifdef DEBUG_DISTANT_CHAT    
     DISTANT_CHAT_DEBUG() << "DistantChatService::receiveData(): got data of size " << std::dec << data_size << " for tunnel " << tunnel_id << std::endl;
@@ -249,7 +246,8 @@ void DistantChatService::receiveData(const RsGxsTunnelService::RsGxsTunnelId &tu
 
 void DistantChatService::markDistantChatAsClosed(const DistantChatPeerId& dcpid)
 {
-    mGxsTunnels->closeExistingTunnel(RsGxsTunnelService::RsGxsTunnelId(dcpid),DISTANT_CHAT_GXS_TUNNEL_SERVICE_ID) ;
+	mGxsTunnels->closeExistingTunnel(
+	            RsGxsTunnelId(dcpid), DISTANT_CHAT_GXS_TUNNEL_SERVICE_ID );
     
     RS_STACK_MUTEX(mDistantChatMtx) ;
     
@@ -303,16 +301,14 @@ bool DistantChatService::getDistantChatStatus(const DistantChatPeerId& tunnel_id
 
 	cinfo.to_id  = tinfo.destination_gxs_id;
 	cinfo.own_id = tinfo.source_gxs_id;
+    cinfo.pending_items = tinfo.pending_data_packets;
 	cinfo.peer_id = tunnel_id;
 
 	switch(tinfo.tunnel_status)
 	{
-	case RsGxsTunnelService::RS_GXS_TUNNEL_STATUS_CAN_TALK :
-		cinfo.status = RS_DISTANT_CHAT_STATUS_CAN_TALK; break;
-	case RsGxsTunnelService::RS_GXS_TUNNEL_STATUS_TUNNEL_DN:
-		cinfo.status = RS_DISTANT_CHAT_STATUS_TUNNEL_DN; break;
-	case RsGxsTunnelService::RS_GXS_TUNNEL_STATUS_REMOTELY_CLOSED:
-		cinfo.status = RS_DISTANT_CHAT_STATUS_REMOTELY_CLOSED; break;
+	case RsGxsTunnelService::RS_GXS_TUNNEL_STATUS_CAN_TALK :       cinfo.status = RS_DISTANT_CHAT_STATUS_CAN_TALK; break;
+	case RsGxsTunnelService::RS_GXS_TUNNEL_STATUS_TUNNEL_DN:       cinfo.status = RS_DISTANT_CHAT_STATUS_TUNNEL_DN; break;
+	case RsGxsTunnelService::RS_GXS_TUNNEL_STATUS_REMOTELY_CLOSED: cinfo.status = RS_DISTANT_CHAT_STATUS_REMOTELY_CLOSED; break;
 	case RsGxsTunnelService::RS_GXS_TUNNEL_STATUS_UNKNOWN:
 	default:
 		cinfo.status = RS_DISTANT_CHAT_STATUS_UNKNOWN; break;

@@ -69,12 +69,12 @@ bool HashStorage::hashingProcessPaused()
 
 static std::string friendlyUnit(uint64_t val)
 {
-    const std::string units[5] = {"B","KB","MB","GB","TB"};
+    const std::string units[6] = {"B","KB","MB","GB","TB","PB"};
     char buf[50] ;
 
     double fact = 1.0 ;
 
-    for(unsigned int i=0; i<5; ++i)
+    for(unsigned int i=0; i<6; ++i)
         if(double(val)/fact < 1024.0)
         {
             sprintf(buf,"%2.2f",double(val)/fact) ;
@@ -87,7 +87,7 @@ static std::string friendlyUnit(uint64_t val)
     return  std::string(buf) + " TB";
 }
 
-void HashStorage::data_tick()
+void HashStorage::threadTick()
 {
     FileHashJob job;
     RsFileHash hash;
@@ -318,14 +318,15 @@ void HashStorage::startHashThread()
 
 void HashStorage::stopHashThread()
 {
-    if (mRunning)
-    {
-        std::cerr << "Stopping hashing thread." << std::endl;
-        shutdown();
+	if(mRunning)
+	{
+		RsInfo() << __PRETTY_FUNCTION__ << "Stopping hashing thread."
+		         << std::endl;
+
+		RsThread::askForStop();
         mRunning = false ;
         mTotalSizeToHash = 0;
         mTotalFilesToHash = 0;
-        std::cerr << "done." << std::endl;
     }
 }
 

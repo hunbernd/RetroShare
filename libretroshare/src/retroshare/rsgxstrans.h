@@ -1,11 +1,34 @@
+/*******************************************************************************
+ * libretroshare/src/retroshare: rsgxstrans.h                                  *
+ *                                                                             *
+ * libretroshare: retroshare core library                                      *
+ *                                                                             *
+ * Copyright (C) 2016-2019  Gioacchino Mazzurco <gio@eigenlab.org>             *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Lesser General Public License version 3 as    *
+ * published by the Free Software Foundation.                                  *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Lesser General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Lesser General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 #pragma once
 
 #include "retroshare/rstokenservice.h"
 #include "retroshare/rsgxsifacehelper.h"
 #include "retroshare/rsgxscommon.h"
+#include "rsitems/rsserviceids.h"
 
-/// Subservices identifiers (like port for TCP)
-enum class GxsTransSubServices : uint16_t
+/** Subservices identifiers (like port for TCP)
+ * @deprecated pay special attention fixing this as it may break
+ * retro-compatibility */
+enum  class RS_DEPRECATED_FOR(RsServiceType) GxsTransSubServices : uint16_t
 {
 	UNKNOWN         = 0x00,
 	TEST_SERVICE    = 0x01,
@@ -41,7 +64,8 @@ enum class GxsTransSendStatus : uint8_t
 	/// Records with status >= RECEIPT_RECEIVED get deleted
 	RECEIPT_RECEIVED              = 0x0a,
 	FAILED_RECEIPT_SIGNATURE      = 0xf0,
-	FAILED_ENCRYPTION             = 0xf1
+	FAILED_ENCRYPTION             = 0xf1,
+	FAILED_TIMED_OUT              = 0xf2
 };
 
 typedef uint64_t RsGxsTransId;
@@ -79,6 +103,7 @@ struct RsGxsTransOutgoingRecord
 	RsGxsGroupId group_id ;
 };
 
+/// RetroShare GxsTrans asyncronous redundant small mail trasport on top of GXS
 class RsGxsTrans: public RsGxsIfaceHelper
 {
 public:

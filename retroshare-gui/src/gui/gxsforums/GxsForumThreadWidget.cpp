@@ -84,20 +84,6 @@
 
 // We need consts for that!! Defined in multiple places.
 
-#ifdef TO_REMOVE
-#define ROLE_THREAD_MSGID           Qt::UserRole
-#define ROLE_THREAD_STATUS          Qt::UserRole + 1
-#define ROLE_THREAD_MISSING         Qt::UserRole + 2
-#define ROLE_THREAD_AUTHOR          Qt::UserRole + 3
-// no need to copy, don't count in ROLE_THREAD_COUNT
-#define ROLE_THREAD_READCHILDREN    Qt::UserRole + 4
-#define ROLE_THREAD_UNREADCHILDREN  Qt::UserRole + 5
-#define ROLE_THREAD_SORT            Qt::UserRole + 6
-#define ROLE_THREAD_PINNED          Qt::UserRole + 7
-
-#define ROLE_THREAD_COUNT           4
-#endif
-
 #ifdef DEBUG_FORUMS
 static std::ostream& operator<<(std::ostream& o,const QModelIndex& q)
 {
@@ -446,6 +432,32 @@ GxsForumThreadWidget::GxsForumThreadWidget(const RsGxsGroupId &forumId, QWidget 
 #ifdef SUSPENDED_CODE
 	ui->threadTreeWidget->enableColumnCustomize(true);
 #endif
+
+    mEventHandlerId = 0;
+    // Needs to be asynced because this function is likely to be called by another thread!
+
+	rsEvents->registerEventsHandler(RsEventType::GXS_FORUMS, [this](std::shared_ptr<const RsEvent> event) {   RsQThreadUtils::postToObject( [=]() { handleEvent_main_thread(event); }, this ); }, mEventHandlerId );
+}
+
+void GxsForumThreadWidget::handleEvent_main_thread(std::shared_ptr<const RsEvent> event)
+{
+	if(event->mType == RsEventType::GXS_FORUMS)
+	{
+		const RsGxsForumEvent *e = dynamic_cast<const RsGxsForumEvent*>(event.get());
+		if(!e) return;
+
+		switch(e->mForumEventCode)
+		{
+		case RsForumEventCode::UPDATED_FORUM:   // [[fallthrough]];
+		case RsForumEventCode::NEW_FORUM:       // [[fallthrough]];
+		case RsForumEventCode::UPDATED_MESSAGE: // [[fallthrough]];
+		case RsForumEventCode::NEW_MESSAGE:
+			if(e->mForumGroupId == mForumGroup.mMeta.mGroupId)
+				updateDisplay(true);
+			break;
+		default: break;
+		}
+	}
 }
 
 void GxsForumThreadWidget::blank()
@@ -1033,17 +1045,6 @@ void GxsForumThreadWidget::clickedThread(QModelIndex index)
     else
         std::cerr << "  doing nothing" << std::endl;
 #endif
-}
-
-static void cleanupItems (QList<QTreeWidgetItem *> &items)
-{
-	QList<QTreeWidgetItem *>::iterator item;
-	for (item = items.begin (); item != items.end (); ++item) {
-		if (*item) {
-			delete (*item);
-		}
-	}
-	items.clear();
 }
 
 static QString getDurationString(uint32_t days)

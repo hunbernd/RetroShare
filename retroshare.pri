@@ -1,20 +1,24 @@
-################################################################################
-# retroshare.pri                                                               #
-# Copyright (C) 2018, Retroshare team <retroshare.team@gmailcom>               #
-#                                                                              #
-# This program is free software: you can redistribute it and/or modify         #
-# it under the terms of the GNU Affero General Public License as               #
-# published by the Free Software Foundation, either version 3 of the           #
-# License, or (at your option) any later version.                              #
-#                                                                              #
-# This program is distributed in the hope that it will be useful,              #
-# but WITHOUT ANY WARRANTY; without even the implied warranty of               #
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                #
-# GNU Lesser General Public License for more details.                          #
-#                                                                              #
-# You should have received a copy of the GNU Lesser General Public License     #
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.       #
-################################################################################
+# RetroShare common qmake build script
+#
+# Copyright (C) 2004-2019, Retroshare Team <contact@retroshare.cc>
+# Copyright (C) 2016-2019, Gioacchino Mazzurco <gio@eigenlab.org>
+#
+# This program is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the
+# Free Software Foundation, either version 3 of the License, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.
+# See the GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License along
+# with this program. If not, see <https://www.gnu.org/licenses/>.
+#
+# SPDX-FileCopyrightText: Retroshare Team <contact@retroshare.cc>
+# SPDX-License-Identifier: LGPL-3.0-or-later
+
 
 ################################################################################
 ## Documented build options (CONFIG) goes here as all the rest depend on them ##
@@ -28,67 +32,23 @@
 CONFIG *= retroshare_gui
 no_retroshare_gui:CONFIG -= retroshare_gui
 
+# Enable GXS distant syncronization
 CONFIG *= gxsdistsync
 
-# disabled by the time we fix compilation
-CONFIG *= no_cmark
-
-# To disable RetroShare-nogui append the following
-# assignation to qmake command line "CONFIG+=no_retroshare_nogui"
-CONFIG *= retroshare_nogui
-no_retroshare_nogui:CONFIG -= retroshare_nogui
-
-# To disable cmark append the following 
-# assignation to qmake command line "CONFIG+=no_cmark"
-CONFIG *= cmark
-no_cmark:CONFIG -= cmark
+# To enable cmark append the following
+# assignation to qmake command line "CONFIG+=rs_gui_cmark"
+CONFIG *= no_rs_gui_cmark
+rs_gui_cmark:CONFIG -= no_rs_gui_cmark
 
 # To enable RetroShare plugins append the following
 # assignation to qmake command line "CONFIG+=retroshare_plugins"
 CONFIG *= no_retroshare_plugins
 retroshare_plugins:CONFIG -= no_retroshare_plugins
 
-# To enable RetroShare-android-service append the following assignation to
-# qmake command line "CONFIG+=retroshare_android_service"
-CONFIG *= no_retroshare_android_service
-retroshare_android_service:CONFIG -= no_retroshare_android_service
-
-# To enable RetroShare-android-notify-service append the following
-# assignation to qmake command line
-# "CONFIG+=retroshare_android_notify_service"
-CONFIG *= no_retroshare_android_notify_service
-retroshare_android_notify_service:CONFIG -= no_retroshare_android_notify_service
-
-# To enable RetroShare-QML-app append the following assignation to
-# qmake command line "CONFIG+=retroshare_qml_app"
-CONFIG *= no_retroshare_qml_app
-retroshare_qml_app:CONFIG -= no_retroshare_qml_app
-
-# To enable RetroShare service append the following assignation to
-# qmake command line "CONFIG+=retroshare_service"
-CONFIG *= no_retroshare_service
-retroshare_service:CONFIG -= no_retroshare_service
-
-# To disable libresapi append the following assignation to qmake command line
-#"CONFIG+=no_libresapi"
-CONFIG *= libresapi
-no_libresapi:CONFIG -= libresapi
-
-# To enable libresapi via local socket (unix domain socket or windows named
-# pipes) append the following assignation to qmake command line
-#"CONFIG+=libresapilocalserver"
-CONFIG *= no_libresapilocalserver
-libresapilocalserver:CONFIG -= no_libresapilocalserver
-
-# To enable libresapi settings handler in libresapi append the following
-# assignation to qmake command line "CONFIG+=libresapi_settings"
-CONFIG *= no_libresapi_settings
-libresapi_settings:CONFIG -= no_libresapi_settings
-
-# To disable libresapi via HTTP (based on libmicrohttpd) append the following
-# assignation to qmake command line "CONFIG+=no_libresapihttpserver"
-CONFIG *= libresapihttpserver
-no_libresapihttpserver:CONFIG -= libresapihttpserver
+# To disable RetroShare service append the following assignation to
+# qmake command line "CONFIG+=no_retroshare_service"
+CONFIG *= retroshare_service
+no_retroshare_service:CONFIG -= retroshare_service
 
 # To disable SQLCipher support append the following assignation to qmake
 # command line "CONFIG+=no_sqlcipher"
@@ -142,6 +102,10 @@ rs_async_chat:CONFIG -= no_rs_async_chat
 CONFIG *= direct_chat
 no_direct_chat:CONFIG -= direct_chat
 
+# To enable messemger window which has been deprecated since RetroShare 0.6.6
+# append the following assignation to qmake command line "CONFIG+=messenger"
+# CONFIG *= messenger
+
 # To disable bitdht append the following assignation to qmake command line
 # "CONFIG+=no_bitdht"
 CONFIG *= bitdht
@@ -156,20 +120,63 @@ rs_macos10.10:CONFIG -= rs_macos10.11
 rs_macos10.12:CONFIG -= rs_macos10.11
 rs_macos10.13:CONFIG -= rs_macos10.11
 rs_macos10.14:CONFIG -= rs_macos10.11
+rs_macos10.15:CONFIG -= rs_macos10.11
 
 # To enable JSON API append the following assignation to qmake command line
 # "CONFIG+=rs_jsonapi"
 CONFIG *= no_rs_jsonapi
 rs_jsonapi:CONFIG -= no_rs_jsonapi
 
-# To disable deep search append the following assignation to qmake command line
-CONFIG *= no_rs_deep_search
-rs_deep_search:CONFIG -= no_rs_deep_search
+# To enable channel indexing append the following assignation to qmake command
+# line "CONFIG+=rs_deep_channel_index"
+CONFIG *= no_rs_deep_channel_index
+rs_deep_channel_index:CONFIG -= no_rs_deep_channel_index
+
+# To enable deep files indexing append the following assignation to qmake
+# command line "CONFIG+=rs_files_index"
+CONFIG *= no_rs_deep_files_index
+rs_deep_files_index:CONFIG -= no_rs_deep_files_index
+
+# To enable Ogg files deep indexing append the following assignation to qmake
+# command line "CONFIG+=rs_deep_files_index_ogg"
+CONFIG *= no_rs_deep_files_index_ogg
+rs_deep_files_index_ogg:CONFIG -= no_rs_deep_files_index_ogg
+
+# To enable FLAC files deep indexing append the following assignation to qmake
+# command line "CONFIG+=rs_deep_files_index_flac"
+CONFIG *= no_rs_deep_files_index_flac
+rs_deep_files_index_flac:CONFIG -= no_rs_deep_files_index_flac
+
+# To enable taglib files deep indexing append the following assignation to qmake
+# command line "CONFIG+=rs_deep_files_index_taglib"
+CONFIG *= no_rs_deep_files_index_taglib
+rs_deep_files_index_taglib:CONFIG -= no_rs_deep_files_index_taglib
 
 # To enable native dialogs append the following assignation to qmake command
-#line "CONFIG+=rs_use_native_dialogs"
+# line "CONFIG+=rs_use_native_dialogs"
 CONFIG *= no_rs_use_native_dialogs
 rs_use_native_dialogs:CONFIG -= no_rs_use_native_dialogs
+
+# To disable broadcast discovery append the following assignation to qmake
+# command line "CONFIG+=no_rs_broadcast_discovery"
+CONFIG *= rs_broadcast_discovery
+no_rs_broadcast_discovery:CONFIG -= rs_broadcast_discovery
+
+# To enable webui append the following assignation to qmake
+# command line "CONFIG+=rs_webui"
+CONFIG *= no_rs_webui
+rs_webui:CONFIG -= no_rs_webui
+
+# To disable retroshare-service option to set webui password from the terminal
+# append the following assignation to qmake command line
+# "CONFIG+=no_rs_service_webui_terminal_password"
+CONFIG *= rs_service_webui_terminal_password
+no_rs_service_webui_terminal_password:CONFIG -= rs_service_webui_terminal_password
+
+# To disable retroshare-service terminal login append the following assignation
+# to qmake command line "CONFIG+=no_rs_service_terminal_login"
+CONFIG *= rs_service_terminal_login
+no_rs_service_terminal_login:CONFIG -= rs_service_terminal_login
 
 # Specify host precompiled jsonapi-generator path, appending the following
 # assignation to qmake command line
@@ -198,10 +205,17 @@ rs_use_native_dialogs:CONFIG -= no_rs_use_native_dialogs
 # use (pthread, "") usually depends on platform.
 isEmpty(RS_THREAD_LIB):RS_THREAD_LIB = pthread
 
-# Specify UPnP library to use appending the following assignation to qmake
-# command line 'RS_UPNP_LIB=miniupnpc' the name of the UPNP library to use
-# (miniupnpc, "upnp ixml threadutil") usually depends on platform.
-isEmpty(RS_UPNP_LIB):RS_UPNP_LIB = upnp ixml threadutil
+# Specify UPnP library to use, appending the following assignation to qmake
+# command line
+# 'RS_UPNP_LIB=none' do not compile UPnP support
+# 'RS_UPNP_LIB=miniupnpc' to use miniupnpc
+# 'RS_UPNP_LIB="upnp ixml threadutil"' to use libupnp-1.6.x
+# 'RS_UPNP_LIB="upnp ixml"' to use libupnp-1.8.x
+# Which library is better suited usually depends on the platform.
+# See http://miniupnp.free.fr/ and http://pupnp.sourceforge.net/ for more
+# information about the libraries. Autodetection is attempted by default.
+#RS_UPNP_LIB=
+
 
 ###########################################################################################################################################################
 #
@@ -243,6 +257,11 @@ isEmpty(RS_UPNP_LIB):RS_UPNP_LIB = upnp ixml threadutil
 #    BackwardCompat: old RS before Mai 2019 will not be able to distant chat.
 #
 ###########################################################################################################################################################
+
+
+DEFINES += V07_NON_BACKWARD_COMPATIBLE_CHANGE_001
+DEFINES += V07_NON_BACKWARD_COMPATIBLE_CHANGE_002
+DEFINES += V07_NON_BACKWARD_COMPATIBLE_CHANGE_003
 
 #CONFIG += rs_v07_changes
 rs_v07_changes {
@@ -297,7 +316,7 @@ defineReplace(linkStaticLibs) {
     return($$retSlib)
 }
 
-## This function return pretarget deps for the static the libraries contained in
+## This function return pretarget deps for the static libraries contained in
 ## the variable given as paramether.
 defineReplace(pretargetStaticLibs) {
     libsVarName = $$1
@@ -325,6 +344,20 @@ defineReplace(linkDynamicLibs) {
     }
 
     return($$retDlib)
+}
+
+## On some environements qmake chose a C++ compiler as C compiler, this breaks
+## some sub targets, such as those based on cmake which test for chosen C
+## compiler to be a proper C compiler. This function try to deduce the correct C
+## compiler also in those cases, and return it. So you can use
+## $$fixQmakeCC($$QMAKE_CC) in those cases instead of plain $$QMAKE_CC
+defineReplace(fixQmakeCC) {
+    retVal = $$1
+    contains(1, .*\+\+$):retVal=$$str_member($$1, 0 ,-3)
+    contains(1, .*g\+\+$):retVal=$$str_member($$1, 0 ,-3)cc
+    contains(1, .*g\+\+-[0-9]$):retVal=$$str_member($$1, 0 ,-5)cc$$str_member($$1, -2 ,-1)
+    contains(1, .*clang\+\+$):retVal=$$str_member($$1, 0 ,-3)
+    return($$retVal)
 }
 
 ################################################################################
@@ -405,9 +438,8 @@ gxsdistsync:DEFINES *= RS_USE_GXS_DISTANT_SYNC
 wikipoos:DEFINES *= RS_USE_WIKI
 rs_gxs:DEFINES *= RS_ENABLE_GXS
 rs_gxs_send_all:DEFINES *= RS_GXS_SEND_ALL
-libresapilocalserver:DEFINES *= LIBRESAPI_LOCAL_SERVER
-libresapi_settings:DEFINES *= LIBRESAPI_SETTINGS
-libresapihttpserver:DEFINES *= ENABLE_WEBUI
+rs_service_webui_terminal_password:DEFINES *= RS_SERVICE_TERMINAL_WEBUI_PASSWORD
+rs_service_terminal_login:DEFINES *= RS_SERVICE_TERMINAL_LOGIN
 
 sqlcipher {
     DEFINES -= NO_SQLCIPHER
@@ -420,7 +452,7 @@ no_sqlcipher {
 
 rs_autologin {
     DEFINES *= RS_AUTOLOGIN
-    RS_AUTOLOGIN_WARNING_MSG = \
+    RS_AUTOLOGIN_WARNING_MSG = QMAKE: \
         You have enabled RetroShare auto-login, this is discouraged. The usage \
         of auto-login on some linux distributions may allow someone having \
         access to your session to steal the SSL keys of your node location and \
@@ -435,11 +467,15 @@ rs_onlyhiddennode {
     message("QMAKE: You have enabled only hidden node.")
 }
 
+rs_sanitize {
+	QMAKE_CXXFLAGS *= -fsanitize=address -fsanitize=bounds -fsanitize=undefined
+}
+
 no_rs_deprecatedwarning {
     QMAKE_CXXFLAGS += -Wno-deprecated
     QMAKE_CXXFLAGS += -Wno-deprecated-declarations
     DEFINES *= RS_NO_WARN_DEPRECATED
-    message("QMAKE: You have disabled deprecated warnings.")
+    warning("QMAKE: You have disabled deprecated warnings.")
 }
 
 no_rs_cppwarning {
@@ -447,16 +483,11 @@ no_rs_cppwarning {
     QMAKE_CXXFLAGS += -Wno-inconsistent-missing-override
 
     DEFINES *= RS_NO_WARN_CPP
-    message("QMAKE: You have disabled C preprocessor warnings.")
+    warning("QMAKE: You have disabled C preprocessor warnings.")
 }
 
 rs_gxs_trans {
     DEFINES *= RS_GXS_TRANS
-    greaterThan(QT_MAJOR_VERSION, 4) {
-        CONFIG += c++11
-    } else {
-        QMAKE_CXXFLAGS += -std=c++0x
-    }
 }
 
 bitdht {
@@ -464,7 +495,7 @@ bitdht {
 }
 
 direct_chat {
-    warning("You have enabled RetroShare direct chat which is deprecated!")
+    warning("QMAKE: You have enabled RetroShare direct chat which is deprecated!")
     DEFINES *= RS_DIRECT_CHAT
 }
 
@@ -484,17 +515,21 @@ to contain the path to an host executable jsonapi-generator")
     DEFINES *= RS_JSONAPI
 }
 
-rs_deep_search {
-    DEFINES *= RS_DEEP_SEARCH
-
-	linux {
-	 exists("/usr/include/xapian-1.3") {
-	 	INCLUDEPATH += /usr/include/xapian-1.3
-	 }
-	}
+rs_webui {
+    !rs_jsonapi: error("Cannot enable rs_webui without rs_jsonapi")
+    DEFINES *= RS_WEBUI
 }
 
+rs_deep_channels_index:DEFINES *= RS_DEEP_CHANNEL_INDEX
+
+rs_deep_files_index:DEFINES *= RS_DEEP_FILES_INDEX
+rs_deep_files_index_ogg:DEFINES *= RS_DEEP_FILES_INDEX_OGG
+rs_deep_files_index_flac:DEFINES *= RS_DEEP_FILES_INDEX_FLAC
+rs_deep_files_index_taglib:DEFINES *= RS_DEEP_FILES_INDEX_TAGLIB
+
 rs_use_native_dialogs:DEFINES *= RS_NATIVEDIALOGS
+
+rs_broadcast_discovery:DEFINES *= RS_BROADCAST_DISCOVERY
 
 debug {
     QMAKE_CXXFLAGS -= -O2 -fomit-frame-pointer
@@ -553,6 +588,7 @@ android-* {
     }
     CONFIG *= no_libresapihttpserver
     CONFIG -= libresapihttpserver
+
     QT *= androidextras
     INCLUDEPATH *= $$NATIVE_LIBS_TOOLCHAIN_PATH/sysroot/usr/include
     QMAKE_LIBDIR *= "$$NATIVE_LIBS_TOOLCHAIN_PATH/sysroot/usr/lib/"
@@ -661,29 +697,50 @@ macx-* {
 		QMAKE_CXXFLAGS += -Wno-nullability-completeness
 		QMAKE_CFLAGS += -Wno-nullability-completeness
 	}
+	rs_macos10.15 {
+		message(***retroshare.pri: Set Target and SDK to MacOS 10.15 )
+		QMAKE_MACOSX_DEPLOYMENT_TARGET=10.15
+		QMAKE_MAC_SDK = macosx10.15
+		QMAKE_CXXFLAGS += -Wno-nullability-completeness
+		QMAKE_CFLAGS += -Wno-nullability-completeness
+	}
 
 
 
 	message(***retroshare.pri:MacOSX)
-	# BIN_DIR += "/usr/bin"
-	# INC_DIR += "/usr/include"
-	# INC_DIR += "/usr/local/include"
-	# INC_DIR += "/opt/local/include"
-	# LIB_DIR += "/usr/local/lib"
-	# LIB_DIR += "/opt/local/lib"
 	BIN_DIR += "/Applications/Xcode.app/Contents/Developer/usr/bin"
-	INC_DIR += "/usr/local/Cellar/miniupnpc/2.1/include"
-	INC_DIR += "/usr/local/Cellar/libmicrohttpd/0.9.62_1/include"
-	INC_DIR += "/usr/local/Cellar/sqlcipher/4.1.0/include"
-	LIB_DIR += "/usr/local/opt/openssl/lib/"
-	LIB_DIR += "/usr/local/Cellar/libmicrohttpd/0.9.62_1/lib"
-	LIB_DIR += "/usr/local/Cellar/sqlcipher/4.1.0/lib"
-	LIB_DIR += "/usr/local/Cellar/miniupnpc/2.1/lib"
-	CONFIG += c++11
 	INCLUDEPATH += "/usr/local/include"
 	RS_UPNP_LIB = miniupnpc
 	QT += macextras
 }
+
+# If not yet defined attempt UPnP library autodetection should works at least
+# for miniupnc libupnp-1.6.x and libupnp-1.8.x
+isEmpty(RS_UPNP_LIB) {
+    __TEMP_UPNP_LIBS = upnp ixml threadutil
+    for(mLib, __TEMP_UPNP_LIBS) {
+        attemptPath=$$findFileInPath(lib$${mLib}.a, QMAKE_LIBDIR)
+        isEmpty(attemptPath):attemptPath=$$findFileInPath(lib$${mLib}.so, QMAKE_LIBDIR)
+        !isEmpty(attemptPath):RS_UPNP_LIB += $${mLib}
+    }
+
+    isEmpty(RS_UPNP_LIB) {
+        __TEMP_UPNP_LIBS=$$findFileInPath(libminiupnpc.a, QMAKE_LIBDIR)
+        !isEmpty(__TEMP_UPNP_LIBS):RS_UPNP_LIB=miniupnpc
+        __TEMP_UPNP_LIBS=$$findFileInPath(libminiupnpc.so, QMAKE_LIBDIR)
+        !isEmpty(__TEMP_UPNP_LIBS):RS_UPNP_LIB=miniupnpc
+    }
+
+    isEmpty(RS_UPNP_LIB) {
+        warning("RS_UPNP_LIB detection failed, UPnP support disabled!")
+    } else {
+        message("Autodetected RS_UPNP_LIB=$$RS_UPNP_LIB")
+    }
+}
+
+equals(RS_UPNP_LIB, none):RS_UPNP_LIB=
+equals(RS_UPNP_LIB, miniupnpc):DEFINES*=RS_USE_LIBMINIUPNPC
+contains(RS_UPNP_LIB, upnp):DEFINES*=RS_USE_LIBUPNP
 
 
 ## Retrocompatibility assignations, get rid of this ASAP

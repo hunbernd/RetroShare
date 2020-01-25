@@ -32,6 +32,7 @@
 #include <QTextStream>
 #include <QTimer>
 #include <QToolTip>
+#include <QInputDialog>
 
 #include "ChatWidget.h"
 #include "ui_ChatWidget.h"
@@ -92,25 +93,28 @@ ChatWidget::ChatWidget(QWidget *parent)
 	lastMsgDate = QDate::currentDate();
 
 	//Resize Tool buttons
-	ui->emoteiconButton->setFixedSize(buttonSize);
+	//ui->emoteiconButton->setFixedSize(buttonSize);
 	ui->emoteiconButton->setIconSize(iconSize);
-	ui->attachPictureButton->setFixedSize(buttonSize);
+	//ui->stickerButton->setFixedSize(buttonSize);
+	ui->stickerButton->setIconSize(iconSize);
+	//ui->attachPictureButton->setFixedSize(buttonSize);
 	ui->attachPictureButton->setIconSize(iconSize);
-	ui->addFileButton->setFixedSize(buttonSize);
+	//ui->addFileButton->setFixedSize(buttonSize);
 	ui->addFileButton->setIconSize(iconSize);
-	ui->pushtoolsButton->setFixedSize(buttonSize);
+	//ui->pushtoolsButton->setFixedSize(buttonSize);
 	ui->pushtoolsButton->setIconSize(iconSize);
-	ui->notifyButton->setFixedSize(buttonSize);
+	//ui->notifyButton->setFixedSize(buttonSize);
 	ui->notifyButton->setIconSize(iconSize);
-	ui->markButton->setFixedSize(buttonSize);
+	//ui->markButton->setFixedSize(buttonSize);
 	ui->markButton->setIconSize(iconSize);
 	ui->leSearch->setFixedHeight(iconHeight);
 	ui->searchBefore->setFixedHeight(iconHeight);
 	ui->searchAfter->setFixedHeight(iconHeight);
-	ui->searchButton->setFixedSize(buttonSize);
+	//ui->searchButton->setFixedSize(buttonSize);
 	ui->searchButton->setIconSize(iconSize);
-	ui->sendButton->setFixedHeight(iconHeight);
+	//ui->sendButton->setFixedHeight(iconHeight);
 	ui->sendButton->setIconSize(iconSize);
+	ui->typingLabel->setMaximumHeight(QFontMetricsF(font()).height()*1.2);
 
 	//Initialize search
 	iCharToStartSearch=Settings->getChatSearchCharToStartSearch();
@@ -145,6 +149,7 @@ ChatWidget::ChatWidget(QWidget *parent)
 	ui->markButton->setToolTip(tr("<b>Mark this selected text</b><br><i>Ctrl+M</i>"));
 
 	connect(ui->emoteiconButton, SIGNAL(clicked()), this, SLOT(smileyWidget()));
+	connect(ui->stickerButton, SIGNAL(clicked()), this, SLOT(stickerWidget()));
 	connect(ui->attachPictureButton, SIGNAL(clicked()), this, SLOT(addExtraPicture()));
 	connect(ui->addFileButton, SIGNAL(clicked()), this , SLOT(addExtraFile()));
 	connect(ui->sendButton, SIGNAL(clicked()), this, SLOT(sendChat()));
@@ -159,6 +164,7 @@ ChatWidget::ChatWidget(QWidget *parent)
 	connect(ui->actionQuote, SIGNAL(triggered()), this, SLOT(quote()));
 	connect(ui->actionDropPlacemark, SIGNAL(triggered()), this, SLOT(dropPlacemark()));
 	connect(ui->actionSave_image, SIGNAL(triggered()), this, SLOT(saveImage()));
+	connect(ui->actionImport_sticker, SIGNAL(triggered()), this, SLOT(saveSticker()));
 	connect(ui->actionShow_Hidden_Images, SIGNAL(triggered()), ui->textBrowser, SLOT(showImages()));
 	ui->actionShow_Hidden_Images->setIcon(ui->textBrowser->getBlockedImage());
 
@@ -360,8 +366,8 @@ void ChatWidget::init(const ChatId &chat_id, const QString &title)
         QString customStateString = QString::fromUtf8(rsMsgs->getCustomStateString(chatId.toPeerId()).c_str());
         updatePeersCustomStateString(QString::fromStdString(chatId.toPeerId().toStdString()), customStateString);
     } else if (chatType() == CHATTYPE_DISTANT){
-        hist_chat_type = RS_HISTORY_TYPE_PRIVATE ;
-        messageCount = Settings->getPrivateChatHistoryCount();
+        hist_chat_type = RS_HISTORY_TYPE_DISTANT ;
+        messageCount = Settings->getDistantChatHistoryCount();
     } else if(chatId.isBroadcast()){
         hist_chat_type = RS_HISTORY_TYPE_PUBLIC;
         messageCount = Settings->getPublicChatHistoryCount();
@@ -376,31 +382,42 @@ void ChatWidget::init(const ChatId &chat_id, const QString &title)
 
 		if (messageCount > 0)
 		{
-            rsHistory->getMessages(chatId, historyMsgs, messageCount);
+			rsHistory->getMessages(chatId, historyMsgs, messageCount);
 
 			std::list<HistoryMsg>::iterator historyIt;
 			for (historyIt = historyMsgs.begin(); historyIt != historyMsgs.end(); ++historyIt)
-            {
-                // it can happen that a message is first added to the message history
-                // and later the gui receives the message through notify
-                // avoid this by not adding history entries if their age is < 2secs
-                if ((time(NULL)-2) <= historyIt->recvTime)
-                    continue;
+			{
+				// it can happen that a message is first added to the message history
+				// and later the gui receives the message through notify
+				// avoid this by not adding history entries if their age is < 2secs
+				if (time(nullptr) <= historyIt->recvTime+2)
+					continue;
 
-                QString name;
-                if (chatId.isLobbyId() || chatId.isDistantChatId())
-                {
-                    RsIdentityDetails details;
-                    if (rsIdentity->getIdDetails(RsGxsId(historyIt->peerName), details))
-                        name = QString::fromUtf8(details.mNickname.c_str());
-                    else
-                        name = QString::fromUtf8(historyIt->peerName.c_str());
-                } else {
-                    name = QString::fromUtf8(historyIt->peerName.c_str());
-                }
+				QString name;
+				if (chatId.isLobbyId() || chatId.isDistantChatId())
+				{
+					RsIdentityDetails details;
+					time_t start = time(nullptr);
+					while (!rsIdentity->getIdDetails(RsGxsId(historyIt->peerName), details))
+					{
+						std::this_thread::sleep_for(std::chrono::milliseconds(10));
+						if (time(nullptr)>start+2)
+						{
+							std::cerr << "ChatWidget History haven't found Id Details and have wait 1 sec for it." << std::endl;
+							break;
+						}
+					}
 
-                addChatMsg(historyIt->incoming, name, RsGxsId(historyIt->peerName.c_str()), QDateTime::fromTime_t(historyIt->sendTime), QDateTime::fromTime_t(historyIt->recvTime), QString::fromUtf8(historyIt->message.c_str()), MSGTYPE_HISTORY);
-            }
+					if (rsIdentity->getIdDetails(RsGxsId(historyIt->peerName), details))
+						name = QString::fromUtf8(details.mNickname.c_str());
+					else
+						name = QString::fromUtf8(historyIt->peerName.c_str());
+				} else {
+					name = QString::fromUtf8(historyIt->peerName.c_str());
+				}
+
+				addChatMsg(historyIt->incoming, name, RsGxsId(historyIt->peerName.c_str()), QDateTime::fromTime_t(historyIt->sendTime), QDateTime::fromTime_t(historyIt->recvTime), QString::fromUtf8(historyIt->message.c_str()), MSGTYPE_HISTORY);
+			}
 		}
 	}
 
@@ -432,8 +449,9 @@ ChatWidget::ChatType ChatWidget::chatType()
 void ChatWidget::blockSending(QString msg)
 {
 #ifndef RS_ASYNC_CHAT
-	sendingBlocked = true;
-	ui->sendButton->setEnabled(false);
+//	sendingBlocked = true;
+//	ui->sendButton->setEnabled(false);
+//	ui->stickerButton->setEnabled(false);
 #endif
 	ui->sendButton->setToolTip(msg);
 }
@@ -441,6 +459,7 @@ void ChatWidget::blockSending(QString msg)
 void ChatWidget::unblockSending()
 {
     sendingBlocked = false;
+	ui->stickerButton->setEnabled(true);
     updateLenOfChatTextEdit();
 }
 
@@ -1124,7 +1143,9 @@ void ChatWidget::contextMenuTextBrowser(QPoint point)
 			contextMnu->addAction(ui->actionShow_Hidden_Images);
 
 		ui->actionSave_image->setData(point);
+		ui->actionImport_sticker->setData(point);
 		contextMnu->addAction(ui->actionSave_image);
+		contextMnu->addAction(ui->actionImport_sticker);
 	}
 
 	QString anchor = ui->textBrowser->anchorForPosition(point);
@@ -1545,6 +1566,23 @@ void ChatWidget::addSmiley()
 	ui->chatTextEdit->textCursor().insertText(smiley);
 }
 
+void ChatWidget::stickerWidget()
+{
+	Emoticons::showStickerWidget(this, ui->stickerButton, SLOT(sendSticker()), true);
+}
+
+void ChatWidget::sendSticker()
+{
+	if(sendingBlocked) return;
+	QString sticker = qobject_cast<QPushButton*>(sender())->statusTip();
+	QString encodedImage;
+	if (RsHtml::makeEmbeddedImage(sticker, encodedImage, 640*480, maxMessageSize() - 200)) {		//-200 for the html stuff
+		RsHtml::optimizeHtml(encodedImage, 0);
+		std::string msg = encodedImage.toUtf8().constData();
+		rsMsgs->sendChat(chatId, msg);
+	}
+}
+
 void ChatWidget::clearChatHistory()
 {
 	ui->textBrowser->clear();
@@ -1889,4 +1927,14 @@ void ChatWidget::saveImage()
 	QPoint point = ui->actionSave_image->data().toPoint();
 	QTextCursor cursor = ui->textBrowser->cursorForPosition(point);
 	ImageUtil::extractImage(window(), cursor);
+}
+
+void ChatWidget::saveSticker()
+{
+	QPoint point = ui->actionImport_sticker->data().toPoint();
+	QTextCursor cursor = ui->textBrowser->cursorForPosition(point);
+	QString filename = QInputDialog::getText(window(), "Import sticker", "Sticker name");
+	if(filename.isEmpty()) return;
+	filename = Emoticons::importedStickerPath() + "/" + filename + ".png";
+	ImageUtil::extractImage(window(), cursor, filename);
 }

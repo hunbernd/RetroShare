@@ -116,11 +116,11 @@ void AuthGPG::init(
 
 void AuthGPG::exit()
 {
-	if(_instance != NULL)
+	if(_instance)
 	{
-		_instance->join();
-		delete _instance ;
-		_instance = NULL;
+		_instance->fullstop();
+		delete _instance;
+		_instance = nullptr;
 	}
 }
 
@@ -188,7 +188,7 @@ int AuthGPG::GPGInit(const RsPgpId &ownId)
 {
 }
 
-void AuthGPG::data_tick()
+void AuthGPG::threadTick()
 {
     rstime::rs_usleep(100 * 1000); //100 msec
 
@@ -534,6 +534,19 @@ bool	AuthGPG::getGPGSignedList(std::list<RsPgpId> &ids)
 
  	return PGPHandler::SaveCertificateToString(id,include_signatures) ;
  }
+/* import to GnuPG and other Certificates */
+bool AuthGPG::LoadPGPKeyFromBinaryData(const unsigned char *data,uint32_t data_len, RsPgpId& gpg_id,std::string& error_string)
+{
+	RsStackMutex stack(gpgMtxEngine); /******* LOCKED ******/
+
+	if(PGPHandler::LoadCertificateFromBinaryData(data,data_len,gpg_id,error_string))
+	{
+		updateOwnSignatureFlag(gpg_id,mOwnGpgId) ;
+		return true ;
+	}
+
+	return false ;
+}
 
 /* import to GnuPG and other Certificates */
 bool AuthGPG::LoadCertificateFromString(const std::string &str, RsPgpId& gpg_id,std::string& error_string)

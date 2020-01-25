@@ -47,6 +47,8 @@ extern RsGxsChannels* rsGxsChannels;
 
 struct RsGxsChannelGroup : RsSerializable
 {
+	RsGxsChannelGroup() : mAutoDownload(false) {}
+
 	RsGroupMetaData mMeta;
 	std::string mDescription;
 	RsGxsImage mImage;
@@ -54,14 +56,17 @@ struct RsGxsChannelGroup : RsSerializable
 	bool mAutoDownload;
 
 	/// @see RsSerializable
-	virtual void serial_process( RsGenericSerializer::SerializeJob j,
-	                             RsGenericSerializer::SerializeContext& ctx )
+	virtual void serial_process(
+	        RsGenericSerializer::SerializeJob j,
+	        RsGenericSerializer::SerializeContext& ctx ) override
 	{
 		RS_SERIAL_PROCESS(mMeta);
 		RS_SERIAL_PROCESS(mDescription);
 		RS_SERIAL_PROCESS(mImage);
 		RS_SERIAL_PROCESS(mAutoDownload);
 	}
+
+	~RsGxsChannelGroup() override;
 };
 
 struct RsGxsChannelPost : RsSerializable
@@ -80,8 +85,9 @@ struct RsGxsChannelPost : RsSerializable
 	RsGxsImage mThumbnail;
 
 	/// @see RsSerializable
-	virtual void serial_process( RsGenericSerializer::SerializeJob j,
-	                             RsGenericSerializer::SerializeContext& ctx )
+	virtual void serial_process(
+	        RsGenericSerializer::SerializeJob j,
+	        RsGenericSerializer::SerializeContext& ctx ) override
 	{
 		RS_SERIAL_PROCESS(mMeta);
 		RS_SERIAL_PROCESS(mOlderVersions);
@@ -92,14 +98,57 @@ struct RsGxsChannelPost : RsSerializable
 		RS_SERIAL_PROCESS(mSize);
 		RS_SERIAL_PROCESS(mThumbnail);
 	}
+
+	~RsGxsChannelPost() override;
 };
 
+
+enum class RsChannelEventCode: uint8_t
+{
+	UNKNOWN                  = 0x00,
+	NEW_CHANNEL              = 0x01, /// emitted when new channel is received
+
+	/// emitted when existing channel is updated
+	UPDATED_CHANNEL          = 0x02,
+
+	/// new message reeived in a particular channel (group and msg id)
+	NEW_MESSAGE              = 0x03,
+
+	/// existing message has been updated in a particular channel
+	UPDATED_MESSAGE          = 0x04,
+
+	/// publish key for this channel has been received
+	RECEIVED_PUBLISH_KEY     = 0x05,
+
+	/// subscription for channel mChannelGroupId changed.
+	SUBSCRIBE_STATUS_CHANGED = 0x06,
+};
+
+struct RsGxsChannelEvent: RsEvent
+{
+	RsGxsChannelEvent():
+	    RsEvent(RsEventType::GXS_CHANNELS),
+	    mChannelEventCode(RsChannelEventCode::UNKNOWN) {}
+
+	RsChannelEventCode mChannelEventCode;
+	RsGxsGroupId mChannelGroupId;
+	RsGxsMessageId mChannelMsgId;
+
+	///* @see RsEvent @see RsSerializable
+	void serial_process( RsGenericSerializer::SerializeJob j,RsGenericSerializer::SerializeContext& ctx) override
+	{
+		RsEvent::serial_process(j, ctx);
+
+		RS_SERIAL_PROCESS(mChannelEventCode);
+		RS_SERIAL_PROCESS(mChannelGroupId);
+		RS_SERIAL_PROCESS(mChannelMsgId);
+    }
+};
 
 class RsGxsChannels: public RsGxsIfaceHelper, public RsGxsCommentService
 {
 public:
 	explicit RsGxsChannels(RsGxsIface& gxs) : RsGxsIfaceHelper(gxs) {}
-	virtual ~RsGxsChannels() {}
 
 	/**
 	 * @brief Create channel. Blocking API.
@@ -140,10 +189,13 @@ public:
 	 *                       posted
 	 * @param[in]  threadId  Id of the post (that is a thread) in the channel
 	 *                       where the comment is placed
+	 * @param[in]  comment   UTF-8 string containing the comment itself
+	 * @param[in]  authorId  Id of the author of the comment
 	 * @param[in]  parentId  Id of the parent of the comment that is either a
 	 *                       channel post Id or the Id of another comment.
-	 * @param[in]  authorId  Id of the author of the comment
-	 * @param[in]  comment   UTF-8 string containing the comment itself
+	 * @param[in]  origCommentId  If this is supposed to replace an already
+	 *                            existent comment, the id of the old post.
+	 *                            If left blank a new post will be created.
 	 * @param[out] commentMessageId Optional storage for the id of the comment
 	 *                              that was created, meaningful only on success.
 	 * @param[out] errorMessage Optional storage for error message, meaningful
@@ -153,9 +205,10 @@ public:
 	virtual bool createCommentV2(
 	        const RsGxsGroupId&   channelId,
 	        const RsGxsMessageId& threadId,
-	        const RsGxsMessageId& parentId,
-	        const RsGxsId&        authorId,
 	        const std::string&    comment,
+	        const RsGxsId&        authorId,
+	        const RsGxsMessageId& parentId = RsGxsMessageId(),
+	        const RsGxsMessageId& origCommentId = RsGxsMessageId(),
 	        RsGxsMessageId&       commentMessageId = RS_DEFAULT_STORAGE_PARAM(RsGxsMessageId),
 	        std::string&          errorMessage     = RS_DEFAULT_STORAGE_PARAM(std::string)
 	        ) = 0;
@@ -393,6 +446,61 @@ public:
 	        const std::function<void (const RsGxsGroupSummary& result)>& multiCallback,
 	        rstime_t maxWait = 30 ) = 0;
 
+	/// default base URL used for channels links @see exportChannelLink
+	static const std::string DEFAULT_CHANNEL_BASE_URL;
+
+	/// Link query field used to store channel name @see exportChannelLink
+	static const std::string CHANNEL_URL_NAME_FIELD;
+
+	/// Link query field used to store channel id @see exportChannelLink
+	static const std::string CHANNEL_URL_ID_FIELD;
+
+	/// Link query field used to store channel data @see exportChannelLink
+	static const std::string CHANNEL_URL_DATA_FIELD;
+
+	/** Link query field used to store channel message title
+	 * @see exportChannelLink */
+	static const std::string CHANNEL_URL_MSG_TITLE_FIELD;
+
+	/// Link query field used to store channel message id @see exportChannelLink
+	static const std::string CHANNEL_URL_MSG_ID_FIELD;
+
+	/**
+	 * @brief Get link to a channel
+	 * @jsonapi{development}
+	 * @param[out] link storage for the generated link
+	 * @param[in] chanId Id of the channel of which we want to generate a link
+	 * @param[in] includeGxsData if true include the channel GXS group data so
+	 *	the receiver can subscribe to the channel even if she hasn't received it
+	 *	through GXS yet
+	 * @param[in] baseUrl URL into which to sneak in the RetroShare link
+	 *	radix, this is primarly useful to induce applications into making the
+	 *	link clickable, or to disguise the RetroShare link into a
+	 *	"normal" looking web link. If empty the GXS data link will be outputted
+	 *	in plain base64 format.
+	 * @param[out] errMsg optional storage for error message, meaningful only in
+	 *	case of failure
+	 * @return false if something failed, true otherwhise
+	 */
+	virtual bool exportChannelLink(
+	        std::string& link, const RsGxsGroupId& chanId,
+	        bool includeGxsData = true,
+	        const std::string& baseUrl = RsGxsChannels::DEFAULT_CHANNEL_BASE_URL,
+	        std::string& errMsg = RS_DEFAULT_STORAGE_PARAM(std::string) ) = 0;
+
+	/**
+	 * @brief Import channel from full link
+	 * @param[in] link channel link either in radix or link format
+	 * @param[out] chanId optional storage for parsed channel id
+	 * @param[out] errMsg optional storage for error message, meaningful only in
+	 *	case of failure
+	 * @return false if some error occurred, true otherwise
+	 */
+	virtual bool importChannelLink(
+	        const std::string& link,
+	        RsGxsGroupId& chanId = RS_DEFAULT_STORAGE_PARAM(RsGxsGroupId),
+	        std::string& errMsg = RS_DEFAULT_STORAGE_PARAM(std::string) ) = 0;
+
 
 	/* Following functions are deprecated as they expose internal functioning
 	 * semantic, instead of a safe to use API */
@@ -538,4 +646,6 @@ public:
 	RS_DEPRECATED_FOR(turtleChannelRequest)
 	virtual bool retrieveDistantGroup(const RsGxsGroupId& group_id,RsGxsChannelGroup& distant_group)=0;
 	//////////////////////////////////////////////////////////////////////////////
+
+	~RsGxsChannels() override;
 };

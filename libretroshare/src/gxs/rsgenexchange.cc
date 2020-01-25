@@ -3,7 +3,8 @@
  *                                                                             *
  * libretroshare: retroshare core library                                      *
  *                                                                             *
- * Copyright 2012-2012 by Robert Fernie, Evi-Parker Christopher                *
+ * Copyright (C) 2012  Christopher Evi-Parker                                  *
+ * Copyright (C) 2019  Gioacchino Mazzurco <gio@eigenlab.org>                  *
  *                                                                             *
  * This program is free software: you can redistribute it and/or modify        *
  * it under the terms of the GNU Lesser General Public License as              *
@@ -20,6 +21,7 @@
  *                                                                             *
  *******************************************************************************/
 #include <unistd.h>
+#include <algorithm>
 
 #include "pqi/pqihash.h"
 #include "rsgenexchange.h"
@@ -36,8 +38,8 @@
 #include "rsgixs.h"
 #include "rsgxsutil.h"
 #include "rsserver/p3face.h"
-
-#include <algorithm>
+#include "retroshare/rsevents.h"
+#include "util/radix64.h"
 
 #define PUB_GRP_MASK     0x000f
 #define RESTR_GRP_MASK   0x00f0
@@ -64,10 +66,11 @@ static const uint32_t INDEX_AUTHEN_ADMIN        = 0x00000040; // admin key
 static const uint32_t MSG_CLEANUP_PERIOD     = 60*59; // 59 minutes
 static const uint32_t INTEGRITY_CHECK_PERIOD = 60*31; // 31 minutes
 
-RsGenExchange::RsGenExchange(RsGeneralDataService *gds, RsNetworkExchangeService *ns,
-                             RsSerialType *serviceSerialiser, uint16_t servType, RsGixs* gixs,
-                             uint32_t authenPolicy)
-  : mGenMtx("GenExchange"),
+RsGenExchange::RsGenExchange(
+        RsGeneralDataService* gds, RsNetworkExchangeService* ns,
+        RsSerialType* serviceSerialiser, uint16_t servType, RsGixs* gixs,
+        uint32_t authenPolicy ) :
+    mGenMtx("GenExchange"),
     mDataStore(gds),
     mNetService(ns),
     mSerialiser(serviceSerialiser),
@@ -129,7 +132,7 @@ bool RsGenExchange::getGroupServerUpdateTS(const RsGxsGroupId& gid, rstime_t& gr
     return mNetService->getGroupServerUpdateTS(gid,grp_server_update_TS,msg_server_update_TS) ;
 }
 
-void RsGenExchange::data_tick()
+void RsGenExchange::threadTick()
 {
 	static const double timeDelta = 0.1; // slow tick in sec
 
@@ -160,10 +163,25 @@ void RsGenExchange::tick()
 
 	processRoutingClues() ;
 
-	if(!mNotifications.empty())
 	{
-		notifyChanges(mNotifications);
-		mNotifications.clear();
+		std::vector<RsGxsNotify*> mNotifications_copy;
+
+        // make a non-deep copy of mNotifications so that it can be passed off-mutex to notifyChanged()
+        // that will delete it. The potential high cost of notifyChanges() makes it preferable to call off-mutex.
+		{
+			RS_STACK_MUTEX(mGenMtx);
+			if(!mNotifications.empty())
+			{
+				mNotifications_copy = mNotifications;
+				mNotifications.clear();
+			}
+		}
+
+        // Calling notifyChanges() calls back RsGxsIfaceHelper::receiveChanges() that deletes the pointers in the array
+        // and the array itself.  This is pretty bad and we should normally delete the changes here.
+
+		if(!mNotifications_copy.empty())
+			notifyChanges(mNotifications_copy);
 	}
 
 	// implemented service tick function
@@ -1097,7 +1115,10 @@ void RsGenExchange::receiveChanges(std::vector<RsGxsNotify*>& changes)
 #ifdef GEN_EXCH_DEBUG
     std::cerr << "RsGenExchange::receiveChanges()" << std::endl;
 #endif
-    RsGxsChanges out;
+	std::unique_ptr<RsGxsChanges> evt(new RsGxsChanges);
+	evt->mServiceType = static_cast<RsServiceType>(mServType);
+
+	RsGxsChanges& out = *evt;
     out.mService = getTokenService();
 
     // collect all changes in one GxsChanges object
@@ -1109,40 +1130,29 @@ void RsGenExchange::receiveChanges(std::vector<RsGxsNotify*>& changes)
         RsGxsMsgChange* mc;
         RsGxsDistantSearchResultChange *gt;
 
-        if((mc = dynamic_cast<RsGxsMsgChange*>(n)) != NULL)
+		if((mc = dynamic_cast<RsGxsMsgChange*>(n)) != nullptr)
         {
             if (mc->metaChange())
-            {
                 addMessageChanged(out.mMsgsMeta, mc->msgChangeMap);
-            }
             else
-            {
                 addMessageChanged(out.mMsgs, mc->msgChangeMap);
-            }
         }
-        else if((gc = dynamic_cast<RsGxsGroupChange*>(n)) != NULL)
+		else if((gc = dynamic_cast<RsGxsGroupChange*>(n)) != nullptr)
         {
             if(gc->metaChange())
-            {
                 out.mGrpsMeta.splice(out.mGrpsMeta.end(), gc->mGrpIdList);
-            }
             else
-            {
                 out.mGrps.splice(out.mGrps.end(), gc->mGrpIdList);
-            }
         }
-        else if((gt = dynamic_cast<RsGxsDistantSearchResultChange*>(n)) != NULL)
-        {
+		else if(( gt = dynamic_cast<RsGxsDistantSearchResultChange*>(n) ) != nullptr)
             out.mDistantSearchReqs.push_back(gt->mRequestId);
-        }
         else
-            std::cerr << "(EE) Unknown changes type!!" << std::endl;
-        
+			RsErr() << __PRETTY_FUNCTION__ << " Unknown changes type!" << std::endl;
         delete n;
     }
     changes.clear() ;
-    
-    RsServer::notify()->notifyGxsChange(out);
+
+	if(rsEvents) rsEvents->postEvent(std::move(evt));
 }
 
 bool RsGenExchange::subscribeToGroup(uint32_t& token, const RsGxsGroupId& grpId, bool subscribe)
@@ -1154,8 +1164,7 @@ bool RsGenExchange::subscribeToGroup(uint32_t& token, const RsGxsGroupId& grpId,
         setGroupSubscribeFlags(token, grpId, GXS_SERV::GROUP_SUBSCRIBE_NOT_SUBSCRIBED,
                                (GXS_SERV::GROUP_SUBSCRIBE_SUBSCRIBED | GXS_SERV::GROUP_SUBSCRIBE_NOT_SUBSCRIBED));
 
-    if(mNetService != NULL)
-        mNetService->subscribeStatusChanged(grpId,subscribe) ;
+	if(mNetService) mNetService->subscribeStatusChanged(grpId,subscribe);
 #ifdef GEN_EXCH_DEBUG
     else
         std::cerr << "(EE) No mNetService in RsGenExchange for service 0x" << std::hex << mServType << std::dec << std::endl;
@@ -3437,3 +3446,72 @@ bool RsGenExchange::localSearch( const std::string& matchString,
 {
 	return mNetService->search(matchString, results);
 }
+
+bool RsGenExchange::exportGroupBase64(
+        std::string& radix, const RsGxsGroupId& groupId, std::string& errMsg )
+{
+	constexpr auto fname = __PRETTY_FUNCTION__;
+	const auto failure = [&](const std::string& err)
+	{
+		errMsg = err;
+		RsErr() << fname << " " << err << std::endl;
+		return false;
+	};
+
+	if(groupId.isNull()) return failure("groupId cannot be null");
+
+	const std::list<RsGxsGroupId> groupIds({groupId});
+	RsTokReqOptions opts;
+	opts.mReqType = GXS_REQUEST_TYPE_GROUP_DATA;
+	uint32_t token;
+	mDataAccess->requestGroupInfo(
+	            token, RS_TOKREQ_ANSTYPE_DATA, opts, groupIds);
+	RsTokenService::GxsRequestStatus wtStatus = mDataAccess->waitToken(token);
+	if(wtStatus != RsTokenService::COMPLETE)
+		return failure( "waitToken(...) failed with: " +
+		                std::to_string(wtStatus) );
+
+	uint8_t* buf = nullptr;
+	uint32_t size;
+	RsGxsGroupId grpId;
+	if(!getSerializedGroupData(token, grpId, buf, size))
+		return failure("failed retrieving GXS data");
+
+	Radix64::encode(buf, static_cast<int>(size), radix);
+	free(buf);
+
+	return true;
+}
+
+bool RsGenExchange::importGroupBase64(
+        const std::string& radix, RsGxsGroupId& groupId,
+        std::string& errMsg )
+{
+	constexpr auto fname = __PRETTY_FUNCTION__;
+	const auto failure = [&](const std::string& err)
+	{
+		errMsg = err;
+		RsErr() << fname << " " << err << std::endl;
+		return false;
+	};
+
+	if(radix.empty()) return failure("radix is empty");
+
+	std::vector<uint8_t> mem = Radix64::decode(radix);
+	if(mem.empty()) return failure("radix seems corrupted");
+
+	// On success this also import the group as pending validation
+	if(!deserializeGroupData(
+	            mem.data(), static_cast<uint32_t>(mem.size()),
+	            reinterpret_cast<RsGxsGroupId*>(&groupId) ))
+		return failure("failed deserializing group");
+
+	return true;
+}
+
+RsGxsChanges::RsGxsChanges() :
+    RsEvent(RsEventType::GXS_CHANGES), mServiceType(RsServiceType::NONE),
+    mService(nullptr) {}
+
+RsGxsIface::~RsGxsIface() = default;
+RsGxsGroupSummary::~RsGxsGroupSummary() = default;

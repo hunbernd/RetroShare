@@ -29,8 +29,8 @@
 #include "pqi/pqihash.h"
 #include "gxs/rsgixs.h"
 
-#ifdef RS_DEEP_SEARCH
-#	include "deep_search/deep_search.h"
+#ifdef RS_DEEP_CHANNEL_INDEX
+#	include "deep_search/channelsindex.hpp"
 #	include "services/p3gxschannels.h"
 #	include "rsitems/rsgxschannelitems.h"
 #endif
@@ -146,9 +146,16 @@ bool RsGxsMessageCleanUp::clean()
 }
 
 RsGxsIntegrityCheck::RsGxsIntegrityCheck(
-        RsGeneralDataService* const dataService, RsGenExchange* genex,
-        RsSerialType& serializer, RsGixs* gixs ) :
-    mDs(dataService), mGenExchangeClient(genex), mSerializer(serializer),
+    RsGeneralDataService* const dataService, RsGenExchange* genex,
+    RsSerialType&
+#ifdef RS_DEEP_CHANNEL_INDEX
+                  serializer
+#endif
+                            , RsGixs* gixs )
+  : mDs(dataService), mGenExchangeClient(genex),
+#ifdef RS_DEEP_CHANNEL_INDEX
+    mSerializer(serializer),
+#endif
     mDone(false), mIntegrityMutex("integrity"), mGixs(gixs) {}
 
 void RsGxsIntegrityCheck::run()
@@ -161,7 +168,7 @@ void RsGxsIntegrityCheck::run()
 
 bool RsGxsIntegrityCheck::check()
 {
-#ifdef RS_DEEP_SEARCH
+#ifdef RS_DEEP_CHANNEL_INDEX
 	bool isGxsChannels = mGenExchangeClient->serviceType() == RS_SERVICE_GXS_TYPE_CHANNELS;
 	std::set<RsGxsGroupId> indexedGroups;
 #endif
@@ -214,7 +221,7 @@ bool RsGxsIntegrityCheck::check()
 			}
 			else msgIds.erase(msgIds.find(grp->grpId));
 
-#ifdef RS_DEEP_SEARCH
+#ifdef RS_DEEP_CHANNEL_INDEX
 			if( isGxsChannels
 			        && grp->metaData->mCircleType == GXS_CIRCLE_TYPE_PUBLIC
 			        && grp->metaData->mSubscribeFlags & GXS_SERV::GROUP_SUBSCRIBE_SUBSCRIBED )
@@ -234,7 +241,7 @@ bool RsGxsIntegrityCheck::check()
 					cg.mMeta = meta;
 
 					indexedGroups.insert(grp->grpId);
-					DeepSearch::indexChannelGroup(cg);
+					DeepChannelsIndex::indexChannelGroup(cg);
 				}
 				else
 				{
@@ -249,14 +256,15 @@ bool RsGxsIntegrityCheck::check()
 
 				delete rIt;
 			}
-#endif
+#endif // def RS_DEEP_CHANNEL_INDEX
 		}
 		else
 		{
 			grpsToDel.push_back(grp->grpId);
-#ifdef RS_DEEP_SEARCH
-			if(isGxsChannels) DeepSearch::removeChannelFromIndex(grp->grpId);
-#endif
+#ifdef RS_DEEP_CHANNEL_INDEX
+			if(isGxsChannels)
+				DeepChannelsIndex::removeChannelFromIndex(grp->grpId);
+#endif // def RS_DEEP_CHANNEL_INDEX
 		}
 
 		if( !(grp->metaData->mSubscribeFlags & GXS_SERV::GROUP_SUBSCRIBE_SUBSCRIBED) &&
@@ -313,10 +321,10 @@ bool RsGxsIntegrityCheck::check()
 		    if (nxsMsgIt == nxsMsgV.end())
 			{
 				msgsToDel[grpId].insert(msgId);
-#ifdef RS_DEEP_SEARCH
+#ifdef RS_DEEP_CHANNEL_INDEX
 				if(isGxsChannels)
-					DeepSearch::removeChannelPostFromIndex(grpId, msgId);
-#endif
+					DeepChannelsIndex::removeChannelPostFromIndex(grpId, msgId);
+#endif // def  RS_DEEP_CHANNEL_INDEX
 		    }
 	    }
     }
@@ -341,14 +349,15 @@ bool RsGxsIntegrityCheck::check()
 				          << " with wrong hash or null meta data. meta="
 				          << (void*)msg->metaData << std::endl;
 				msgsToDel[msg->grpId].insert(msg->msgId);
-#ifdef RS_DEEP_SEARCH
+#ifdef RS_DEEP_CHANNEL_INDEX
 				if(isGxsChannels)
-					DeepSearch::removeChannelPostFromIndex(msg->grpId, msg->msgId);
-#endif
+					DeepChannelsIndex::removeChannelPostFromIndex(
+					            msg->grpId, msg->msgId );
+#endif // def RS_DEEP_CHANNEL_INDEX
 			}
 			else if (subscribed_groups.count(msg->metaData->mGroupId))
 			{
-#ifdef RS_DEEP_SEARCH
+#ifdef RS_DEEP_CHANNEL_INDEX
 				if( isGxsChannels
 				        && indexedGroups.count(msg->metaData->mGroupId) )
 				{
@@ -366,7 +375,7 @@ bool RsGxsIntegrityCheck::check()
 						cgIt->toChannelPost(cg, false);
 						cg.mMeta = meta;
 
-						DeepSearch::indexChannelPost(cg);
+						DeepChannelsIndex::indexChannelPost(cg);
 					}
 					else if(dynamic_cast<RsGxsCommentItem*>(rIt)) {}
 					else if(dynamic_cast<RsGxsVoteItem*>(rIt)) {}
@@ -384,7 +393,7 @@ bool RsGxsIntegrityCheck::check()
 
 					delete rIt;
 				}
-#endif
+#endif // def RS_DEEP_CHANNEL_INDEX
 
 				if(!msg->metaData->mAuthorId.isNull())
 				{

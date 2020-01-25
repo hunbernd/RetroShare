@@ -187,9 +187,6 @@ MessagesDialog::MessagesDialog(QWidget *parent)
     //setting default filter by column as subject
     ui.filterLineEdit->setCurrentFilter(RsMessageModel::COLUMN_THREAD_SUBJECT);
 
-    // load settings
-    processSettings(true);
-
     ///////////////////////////////////////////////////////////////////////////////////////
     // Post "load settings" actions (which makes sure they are not affected by settings) //
     ///////////////////////////////////////////////////////////////////////////////////////
@@ -234,6 +231,11 @@ MessagesDialog::MessagesDialog(QWidget *parent)
     // fill quick view
     fillQuickView();
 
+	sortColumn(RsMessageModel::COLUMN_THREAD_DATE,Qt::DescendingOrder);
+
+    // load settings
+    processSettings(true);
+
     //ui.messageTreeWidget->installEventFilter(this);
 
     // remove close button of the the first tab
@@ -247,7 +249,7 @@ MessagesDialog::MessagesDialog(QWidget *parent)
     are always encrypted and signed, and are relayed by intermediate nodes until they reach their final destination. </p>\
     <p>Distant messages stay into your Outbox until an acknowledgement of receipt has been received.</p>\
  <p>Generally, you may use messages to recommend files to your friends by pasting file links, \
- or recommend friend nodes to other friend nodes, in order to strenghten your network, or send feedback \
+ or recommend friend nodes to other friend nodes, in order to strengthen your network, or send feedback \
  to a channel's owner.</p>                   \
  ").arg(QString::number(2*S)).arg(QString::number(S)) ;
 
@@ -345,9 +347,8 @@ void MessagesDialog::processSettings(bool load)
         ui.filterLineEdit->setCurrentFilter(Settings->value("filterColumn", RsMessageModel::COLUMN_THREAD_SUBJECT).toInt());
 
         // state of message tree
-        if (Settings->value("MessageTreeVersion").toInt() == messageTreeVersion) {
+        if (Settings->value("MessageTreeVersion").toInt() == messageTreeVersion)
             msgwheader->restoreState(Settings->value("MessageTree").toByteArray());
-        }
 
         // state of splitter
         ui.msgSplitter->restoreState(Settings->value("SplitterMsg").toByteArray());

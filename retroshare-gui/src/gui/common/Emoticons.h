@@ -21,6 +21,8 @@
 #ifndef _EMOTICONS_H
 #define _EMOTICONS_H
 
+#include <QVector>
+
 class QWidget;
 class QString;
 
@@ -28,10 +30,15 @@ class Emoticons
 {
 public:
     static void load();
-
     static void showSmileyWidget(QWidget *parent, QWidget *button, const char *slotAddMethod, bool above);
+    static void showStickerWidget(QWidget *parent, QWidget *button, const char *slotAddMethod, bool above);
+    static QString importedStickerPath();
 
-//    static void formatText(QString &text);
+private:
+    static void loadToolTips(QWidget *container);
+    static void loadSmiley();
+    static void refreshStickerTabs(QVector<QString>& stickerTabs, QString foldername);
+    static void refreshStickerTabs(QVector<QString>& stickerTabs);
 };
 
 #endif

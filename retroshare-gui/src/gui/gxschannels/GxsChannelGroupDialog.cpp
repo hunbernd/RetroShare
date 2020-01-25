@@ -20,6 +20,7 @@
 
 #include <QBuffer>
 
+#include "gui/gxs/GxsIdDetails.h"
 #include "GxsChannelGroupDialog.h"
 
 #include <retroshare/rsgxschannels.h>
@@ -98,11 +99,11 @@ QPixmap GxsChannelGroupDialog::serviceImage()
 	switch (mode())
 	{
 	case MODE_CREATE:
-		return QPixmap(":/icons/png/channels.png");
+		return QPixmap(":/icons/png/channel.png");
 	case MODE_SHOW:
-		return QPixmap(":/icons/png/channels.png");
+		return QPixmap(":/icons/png/channel.png");
 	case MODE_EDIT:
-		return QPixmap(":/icons/png/channels.png");
+		return QPixmap(":/icons/png/channel.png");
 	}
 
 	return QPixmap();
@@ -179,7 +180,8 @@ bool GxsChannelGroupDialog::service_loadGroup(uint32_t token, Mode /*mode*/, RsG
 
 	if (group.mImage.mData) {
 		QPixmap pixmap;
-		if (pixmap.loadFromData(group.mImage.mData, group.mImage.mSize, "PNG")) {
+
+		if (GxsIdDetails::loadPixmapFromData(group.mImage.mData, group.mImage.mSize,pixmap,GxsIdDetails::ORIGINAL)) {
 			setLogo(pixmap);
 		}
 	}

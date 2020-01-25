@@ -1,9 +1,8 @@
 /*******************************************************************************
  * libretroshare/src/services: p3idservice.h                                   *
  *                                                                             *
- * libretroshare: retroshare core library                                      *
- *                                                                             *
- * Copyright 2012-2012 Robert Fernie <retroshare@lunamutt.com>                 *
+ * Copyright (C) 2012-2014  Robert Fernie <retroshare@lunamutt.com>            *
+ * Copyright (C) 2017-2019  Gioacchino Mazzurco <gio@altermundi.net>           *
  *                                                                             *
  * This program is free software: you can redistribute it and/or modify        *
  * it under the terms of the GNU Lesser General Public License as              *
@@ -19,50 +18,27 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
  *                                                                             *
  *******************************************************************************/
-#ifndef P3_IDENTITY_SERVICE_HEADER
-#define P3_IDENTITY_SERVICE_HEADER
+#pragma once
 
+/// RetroShare GXS identities service
 
-#include "retroshare/rsidentity.h"	// External Interfaces.
-#include "gxs/rsgenexchange.h"		// GXS service.
-#include "gxs/rsgixs.h"			// Internal Interfaces.
-
-#include "gxs/gxstokenqueue.h"		
-#include "rsitems/rsgxsiditems.h"
 
 #include <map>
 #include <string>
 
+#include "retroshare/rsidentity.h"	// External Interfaces.
+#include "gxs/rsgenexchange.h"		// GXS service.
+#include "gxs/rsgixs.h"			// Internal Interfaces.
+#include "util/rsdebug.h"
+#include "gxs/gxstokenqueue.h"		
+#include "rsitems/rsgxsiditems.h"
 #include "util/rsmemcache.h"
 #include "util/rstickevent.h"
 #include "util/rsrecogn.h"
-
 #include "pqi/authgpg.h"
-
 #include "rsitems/rsgxsrecognitems.h"
 
 class PgpAuxUtils;
-
-/* 
- * Identity Service
- *
- */
-
-#if 0
-class GxsReputation
-{
-	public:
-	GxsReputation();
-
-	bool updateIdScore(bool pgpLinked, bool pgpKnown);
-	bool update();    // checks ranges and calculates overall score.
-	int mOverallScore;
-	int mIdScore;      // PGP, Known, etc.
-	int mOwnOpinion;
-	int mPeerOpinion;
-};
-
-#endif
 
 class OpinionRequest
 {
@@ -312,17 +288,36 @@ public:
 	/**************** RsGixs Implementation ***************/
 
 	/// @see RsIdentity
-	bool getOwnSignedIds(std::vector<RsGxsId> ids) override;
+	bool getOwnSignedIds(std::vector<RsGxsId>& ids) override;
 
 	/// @see RsIdentity
-	bool getOwnPseudonimousIds(std::vector<RsGxsId> ids) override;
+	bool getOwnPseudonimousIds(std::vector<RsGxsId>& ids) override;
 
-	virtual bool getOwnIds(std::list<RsGxsId> &ownIds, bool signed_only = false);
+	/// @see RsIdentity
+	bool getOwnIds(
+	        std::list<RsGxsId> &ownIds, bool signed_only = false ) override;
 
-	//virtual bool getPublicKey(const RsGxsId &id, RsTlvSecurityKey &key) ;
-	//virtual void networkRequestPublicKey(const RsGxsId& key_id,const std::list<RsPeerId>& peer_ids) ;
+	/// @see RsIdentity
+	bool isKnownId(const RsGxsId& id) override;
 
-	virtual bool isOwnId(const RsGxsId& key_id) ;
+	/// @see RsIdentity
+	bool isOwnId(const RsGxsId& key_id) override;
+
+	/// @see RsIdentity
+	bool exportIdentityLink(
+	        std::string& link, const RsGxsId& id,
+	        bool includeGxsData = true,
+	        const std::string& baseUrl = DEFAULT_IDENTITY_BASE_URL,
+	        std::string& errMsg = RS_DEFAULT_STORAGE_PARAM(std::string)
+	        ) override;
+
+	/// @see RsIdentity
+	bool importIdentityLink(
+	        const std::string& link,
+	        RsGxsId& id = RS_DEFAULT_STORAGE_PARAM(RsGxsId),
+	        std::string& errMsg = RS_DEFAULT_STORAGE_PARAM(std::string)
+	        ) override;
+
 
 	virtual bool signData( const uint8_t* data,
 	                       uint32_t data_size,
@@ -378,19 +373,18 @@ public:
 	                         const RsIdentityUsage &use_info );
 	virtual bool requestPrivateKey(const RsGxsId &id);
 
-
-	/// @see RsIdentity
-	bool identityToBase64( const RsGxsId& id,
-	                       std::string& base64String ) override;
-
-	/// @see RsIdentity
-	bool identityFromBase64( const std::string& base64String,
-	                         RsGxsId& id ) override;
-
+	RS_DEPRECATED_FOR(exportIdentityLink)
 	virtual bool serialiseIdentityToMemory(const RsGxsId& id,
 	                                       std::string& radix_string);
+	RS_DEPRECATED_FOR(importIdentityLink)
 	virtual bool deserialiseIdentityFromMemory(const std::string& radix_string,
 	                                           RsGxsId* id = nullptr);
+
+	/// @see RsIdentity
+	bool requestIdentity(
+	            const RsGxsId& id,
+	            const std::vector<RsPeerId>& peers = std::vector<RsPeerId>()
+	        ) override;
 
 	/**************** RsGixsReputation Implementation ****************/
 
@@ -503,7 +497,7 @@ private:
 
 	/* MUTEX PROTECTED DATA (mIdMtx - maybe should use a 2nd?) */
 
-	std::map<RsPgpId, PGPFingerprintType> mPgpFingerprintMap;
+	std::map<RsPgpId, RsPgpFingerprint> mPgpFingerprintMap;
 	std::list<RsGxsIdGroup> mGroupsToProcess;
 
 	/************************************************************************
@@ -640,10 +634,7 @@ private:
 	bool ownIdsAreLoaded() { RS_STACK_MUTEX(mIdMtx); return mOwnIdsLoaded; }
 
 	bool mAutoAddFriendsIdentitiesAsContacts;
-    uint32_t mMaxKeepKeysBanned ;
+	uint32_t mMaxKeepKeysBanned;
+
+	RS_SET_CONTEXT_DEBUG_LEVEL(2)
 };
-
-#endif // P3_IDENTITY_SERVICE_HEADER
-
-
-

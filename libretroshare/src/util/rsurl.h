@@ -22,6 +22,8 @@
 
 #include "serialiser/rsserializable.h"
 
+struct sockaddr_storage;
+
 /**
  * Very simplistic and minimal URL helper class for RetroShare, after looking
  * for a small and self-contained C/C++ URL parsing and manipulation library,
@@ -36,7 +38,8 @@
 struct RsUrl : RsSerializable
 {
 	RsUrl();
-	RsUrl(const std::string& urlStr);
+	explicit RsUrl(const std::string& urlStr);
+	explicit RsUrl(const sockaddr_storage& ssas);
 
 	RsUrl& fromString(const std::string& urlStr);
 	std::string toString() const;
@@ -59,6 +62,8 @@ struct RsUrl : RsSerializable
 	RsUrl& setQuery(const std::map<std::string, std::string>& query);
 	RsUrl& setQueryKV(const std::string& key, const std::string& value);
 	RsUrl& delQueryK(const std::string& key);
+	bool hasQueryK(const std::string& key);
+	const std::string* getQueryV(const std::string& key);
 
 	const std::string& fragment() const;
 	RsUrl& setFragment(const std::string& fragment);

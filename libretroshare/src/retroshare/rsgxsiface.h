@@ -3,7 +3,8 @@
  *                                                                             *
  * libretroshare: retroshare core library                                      *
  *                                                                             *
- * Copyright 2012 by Christopher Evi-Parker                                    *
+ * Copyright (C) 2012  Christopher Evi-Parker                                  *
+ * Copyright (C) 2019  Gioacchino Mazzurco <gio@eigenlab.org>                  *
  *                                                                             *
  * This program is free software: you can redistribute it and/or modify        *
  * it under the terms of the GNU Lesser General Public License as              *
@@ -19,9 +20,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
  *                                                                             *
  *******************************************************************************/
-
-#ifndef RSGXSIFACE_H_
-#define RSGXSIFACE_H_
+#pragma once
 
 #include "retroshare/rsreputations.h"
 #include "retroshare/rsgxsservice.h"
@@ -29,6 +28,8 @@
 #include "retroshare/rsgxsifacetypes.h"
 #include "util/rsdeprecate.h"
 #include "serialiser/rsserializable.h"
+#include "rsitems/rsserviceids.h"
+#include "retroshare/rsevents.h"
 
 /*!
  * This structure is used to transport group summary information when a GXS
@@ -67,21 +68,41 @@ struct RsGxsGroupSummary : RsSerializable
 		RS_SERIAL_PROCESS(mPopularity);
 		RS_SERIAL_PROCESS(mSearchContext);
 	}
+
+	~RsGxsGroupSummary();
 };
 
 
 /*!
- * Stores ids of changed gxs groups and messages. It is used to notify the GUI about changes.
+ * Stores ids of changed gxs groups and messages.
+ * It is used to notify about GXS changes.
  */
-struct RsGxsChanges
+struct RsGxsChanges : RsEvent
 {
-    RsGxsChanges(): mService(0){}
-    RsTokenService *mService;
-    std::map<RsGxsGroupId, std::set<RsGxsMessageId> > mMsgs;
-    std::map<RsGxsGroupId, std::set<RsGxsMessageId> > mMsgsMeta;
-    std::list<RsGxsGroupId> mGrps;
-    std::list<RsGxsGroupId> mGrpsMeta;
-    std::list<TurtleRequestId> mDistantSearchReqs;
+	RsGxsChanges();
+
+	/// Type of the service
+	RsServiceType mServiceType;
+	std::map<RsGxsGroupId, std::set<RsGxsMessageId> > mMsgs;
+	std::map<RsGxsGroupId, std::set<RsGxsMessageId> > mMsgsMeta;
+	std::list<RsGxsGroupId> mGrps;
+	std::list<RsGxsGroupId> mGrpsMeta;
+	std::list<TurtleRequestId> mDistantSearchReqs;
+
+	/// @see RsSerializable
+	void serial_process( RsGenericSerializer::SerializeJob j,
+	                     RsGenericSerializer::SerializeContext& ctx) override
+	{
+		RsEvent::serial_process(j,ctx);
+		RS_SERIAL_PROCESS(mServiceType);
+		RS_SERIAL_PROCESS(mMsgs);
+		RS_SERIAL_PROCESS(mMsgsMeta);
+		RS_SERIAL_PROCESS(mGrps);
+		RS_SERIAL_PROCESS(mGrpsMeta);
+		RS_SERIAL_PROCESS(mDistantSearchReqs);
+	}
+
+	RsTokenService* mService; /// Weak pointer, not serialized
 };
 
 /*!
@@ -89,8 +110,6 @@ struct RsGxsChanges
  */
 struct RsGxsIface
 {
-	virtual ~RsGxsIface() {}
-
     /*!
      * Gxs services should call this for automatic handling of
      * changes, send
@@ -219,8 +238,32 @@ struct RsGxsIface
 
 	virtual RsReputationLevel minReputationForForwardingMessages(
 	        uint32_t group_sign_flags,uint32_t identity_flags ) = 0;
+
+	/**
+	 * @brief Export group public data in base64 format
+	 * @jsonapi{development}
+	 * @param[out] radix storage for the generated base64 data
+	 * @param[in] groupId Id of the group of which to output the data
+	 * @param[out] errMsg optional storage for error message, meaningful only in
+	 *	case of failure
+	 * @return false if something failed, true otherwhise
+	 */
+	virtual bool exportGroupBase64(
+	        std::string& radix, const RsGxsGroupId& groupId,
+	        std::string& errMsg = RS_DEFAULT_STORAGE_PARAM(std::string) ) = 0;
+
+	/**
+	 * @brief Import group public data from base64 string
+	 * @param[in] radix group invite in radix format
+	 * @param[out] groupId optional storage for imported group id
+	 * @param[out] errMsg optional storage for error message, meaningful only in
+	 *	case of failure
+	 * @return false if some error occurred, true otherwise
+	 */
+	virtual bool importGroupBase64(
+	        const std::string& radix,
+	        RsGxsGroupId& groupId = RS_DEFAULT_STORAGE_PARAM(RsGxsGroupId),
+	        std::string& errMsg = RS_DEFAULT_STORAGE_PARAM(std::string) ) = 0;
+
+	virtual ~RsGxsIface();
 };
-
-
-
-#endif /* RSGXSIFACE_H_ */

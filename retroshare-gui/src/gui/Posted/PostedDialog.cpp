@@ -99,7 +99,7 @@ QString PostedDialog::icon(IconType type)
 {
 	switch (type) {
 	case ICON_NAME:
-		return ":/icons/png/posted.png";
+		return ":/icons/png/postedlinks.png";
 	case ICON_NEW:
 		return ":/icons/png/add.png";
 	case ICON_YOUR_GROUP:
@@ -110,6 +110,8 @@ QString PostedDialog::icon(IconType type)
 		return "";
 	case ICON_OTHER_GROUP:
 		return "";
+	case ICON_SEARCH:
+		return ":/images/find.png";
 	case ICON_DEFAULT:
 		return ":/icons/png/posted.png";
 	}
@@ -163,7 +165,7 @@ void PostedDialog::loadGroupSummaryToken(const uint32_t &token, std::list<RsGrou
 		
 		if (group.mGroupImage.mData != NULL) {
 			QPixmap image;
-			image.loadFromData(group.mGroupImage.mData, group.mGroupImage.mSize, "PNG");
+			GxsIdDetails::loadPixmapFromData(group.mGroupImage.mData, group.mGroupImage.mSize, image,GxsIdDetails::ORIGINAL);
 			postedData->mIcon[group.mMeta.mGroupId] = image;
 		}
 

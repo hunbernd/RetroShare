@@ -25,6 +25,7 @@
 #include "GxsForumUserNotify.h"
 #include "gui/notifyqt.h"
 #include "gui/gxs/GxsGroupShareKey.h"
+#include "util/qtthreadsutils.h"
 #include "gui/common/GroupTreeWidget.h"
 
 class GxsForumGroupInfoData : public RsUserdata
@@ -41,6 +42,29 @@ GxsForumsDialog::GxsForumsDialog(QWidget *parent)
 	: GxsGroupFrameDialog(rsGxsForums, parent)
 {
 	mCountChildMsgs = true;
+    mEventHandlerId = 0;
+    // Needs to be asynced because this function is likely to be called by another thread!
+
+	rsEvents->registerEventsHandler(RsEventType::GXS_FORUMS, [this](std::shared_ptr<const RsEvent> event) {   RsQThreadUtils::postToObject( [=]() { handleEvent_main_thread(event); }, this ); }, mEventHandlerId );
+}
+
+void GxsForumsDialog::handleEvent_main_thread(std::shared_ptr<const RsEvent> event)
+{
+    if(event->mType == RsEventType::GXS_FORUMS)
+    {
+        const RsGxsForumEvent *e = dynamic_cast<const RsGxsForumEvent*>(event.get());
+
+        if(!e)
+            return;
+
+        switch(e->mForumEventCode)
+        {
+        case RsForumEventCode::SUBSCRIBE_STATUS_CHANGED: updateDisplay(true);
+            break;
+        default:
+            break;
+        }
+    }
 }
 
 GxsForumsDialog::~GxsForumsDialog()
@@ -114,7 +138,7 @@ QString GxsForumsDialog::icon(IconType type)
 {
 	switch (type) {
 	case ICON_NAME:
-		return ":/icons/png/forums.png";
+		return ":/icons/png/forum.png";
 	case ICON_NEW:
 		return ":/icons/png/add.png";
 	case ICON_YOUR_GROUP:
@@ -125,6 +149,8 @@ QString GxsForumsDialog::icon(IconType type)
 		return ":/icons/png/feed-popular.png";
 	case ICON_OTHER_GROUP:
 		return ":/icons/png/feed-other.png";
+	case ICON_SEARCH:
+		return ":/images/find.png";
 	case ICON_DEFAULT:
 		return ":/icons/png/forums-default.png";
 	}

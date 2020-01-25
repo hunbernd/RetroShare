@@ -18,6 +18,7 @@
  *                                                                             *
  *******************************************************************************/
 
+#include "gui/gxs/GxsIdDetails.h"
 #include "GxsChannelGroupItem.h"
 #include "ui_GxsChannelGroupItem.h"
 
@@ -134,7 +135,7 @@ void GxsChannelGroupItem::fill()
 
 	if (mGroup.mImage.mData != NULL) {
 		QPixmap chanImage;
-		chanImage.loadFromData(mGroup.mImage.mData, mGroup.mImage.mSize, "PNG");
+		GxsIdDetails::loadPixmapFromData(mGroup.mImage.mData, mGroup.mImage.mSize, chanImage,GxsIdDetails::ORIGINAL);
 		ui->logoLabel->setPixmap(QPixmap(chanImage));
 	}
 
@@ -175,13 +176,13 @@ void GxsChannelGroupItem::doExpand(bool open)
 	if (open)
 	{
 		ui->expandFrame->show();
-		ui->expandButton->setIcon(QIcon(QString(":/images/edit_remove24.png")));
+		ui->expandButton->setIcon(QIcon(QString(":/icons/png/up-arrow.png")));
 		ui->expandButton->setToolTip(tr("Hide"));
 	}
 	else
 	{
 		ui->expandFrame->hide();
-		ui->expandButton->setIcon(QIcon(QString(":/images/edit_add24.png")));
+		ui->expandButton->setIcon(QIcon(QString(":/icons/png/down-arrow.png")));
 		ui->expandButton->setToolTip(tr("Expand"));
 	}
 

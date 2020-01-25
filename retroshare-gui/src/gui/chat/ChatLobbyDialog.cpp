@@ -132,8 +132,8 @@ ChatLobbyDialog::ChatLobbyDialog(const ChatLobbyId& lid, QWidget *parent, Qt::Wi
 	// Add a button to invite friends.
 	//
 	inviteFriendsButton = new QToolButton ;
-	inviteFriendsButton->setMinimumSize(icon_size);
-	inviteFriendsButton->setMaximumSize(icon_size);
+	//inviteFriendsButton->setMinimumSize(icon_size);
+	//inviteFriendsButton->setMaximumSize(icon_size);
 	inviteFriendsButton->setText(QString()) ;
 	inviteFriendsButton->setAutoRaise(true) ;
 	inviteFriendsButton->setToolTip(tr("Invite friends to this lobby"));
@@ -177,8 +177,8 @@ ChatLobbyDialog::ChatLobbyDialog(const ChatLobbyId& lid, QWidget *parent, Qt::Wi
     connect(ownIdChooser,SIGNAL(currentIndexChanged(int)),this,SLOT(changeNickname())) ;
 
 	unsubscribeButton = new QToolButton;
-	unsubscribeButton->setMinimumSize(icon_size);
-	unsubscribeButton->setMaximumSize(icon_size);
+	//unsubscribeButton->setMinimumSize(icon_size);
+	//unsubscribeButton->setMaximumSize(icon_size);
 	unsubscribeButton->setText(QString()) ;
 	unsubscribeButton->setAutoRaise(true) ;
 	unsubscribeButton->setToolTip(tr("Leave this chat room (Unsubscribe)"));
@@ -424,9 +424,8 @@ ChatLobbyDialog::~ChatLobbyDialog()
 	// announce leaving of lobby
 
 	// check that the lobby still exists.
-    if (mChatId.isLobbyId()) {
-        rsMsgs->unsubscribeChatLobby(mChatId.toLobbyId());
-	}
+    if (mChatId.isLobbyId())
+        rsMsgs->sendLobbyStatusPeerLeaving(mChatId.toLobbyId());
 
 	// save settings
 	processSettings(false);
@@ -912,7 +911,10 @@ void ChatLobbyDialog::showDialog(uint chatflags)
 	if (chatflags & RS_CHAT_FOCUS)
 	{
 		MainWindow::showWindow(MainWindow::ChatLobby);
-		dynamic_cast<ChatLobbyWidget*>(MainWindow::getPage(MainWindow::ChatLobby))->setCurrentChatPage(this) ;
+        MainPage *p = MainWindow::getPage(MainWindow::ChatLobby);
+
+        if(p != NULL)
+			dynamic_cast<ChatLobbyWidget*>(p)->setCurrentChatPage(this) ;
 	}
 }
 

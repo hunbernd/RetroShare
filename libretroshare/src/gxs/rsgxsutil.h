@@ -21,8 +21,7 @@
  *                                                                             *
  *******************************************************************************/
 
-#ifndef GXSUTIL_H_
-#define GXSUTIL_H_
+#pragma once
 
 #include <vector>
 #include "rsitems/rsnxsitems.h"
@@ -184,7 +183,7 @@ private:
  * Checks the integrity message and groups
  * in rsDataService using computed hash
  */
-class RsGxsIntegrityCheck : public RsSingleJobThread
+class RsGxsIntegrityCheck : public RsThread
 {
 
 	enum CheckState { CheckStart, CheckChecking };
@@ -214,8 +213,9 @@ private:
 
 	RsGeneralDataService* const mDs;
 	RsGenExchange *mGenExchangeClient;
+#ifdef RS_DEEP_CHANNEL_INDEX
 	RsSerialType& mSerializer;
-
+#endif
 	bool mDone;
 	RsMutex mIntegrityMutex;
 	std::list<RsGxsGroupId> mDeletedGrps;
@@ -262,5 +262,3 @@ public:
 	GxsMsgReq mMsgs ;
 	uint32_t mToken;
 };
-
-#endif /* GXSUTIL_H_ */

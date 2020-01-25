@@ -23,7 +23,7 @@
 
 #include "gui/gxs/GxsGroupFrameDialog.h"
 
-#define IMAGE_GXSCHANNELS       ":/icons/png/channels.png"
+#define IMAGE_GXSCHANNELS       ":/icons/png/channel.png"
 
 class GxsChannelDialog : public GxsGroupFrameDialog
 {
@@ -74,6 +74,10 @@ private:
 	virtual QWidget *createCommentHeaderWidget(const RsGxsGroupId &grpId, const RsGxsMessageId &msgId);
 	virtual uint32_t requestGroupSummaryType() { return GXS_REQUEST_TYPE_GROUP_DATA; } // request complete group data
 	virtual void loadGroupSummaryToken(const uint32_t &token, std::list<RsGroupMetaData> &groupInfo, RsUserdata* &userdata);
+
+	void handleEvent_main_thread(std::shared_ptr<const RsEvent> event);
+
+    RsEventsHandlerId_t mEventHandlerId;
 };
 
 #endif

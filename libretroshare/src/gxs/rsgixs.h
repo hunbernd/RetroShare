@@ -92,8 +92,6 @@
  * as these will be used very frequently.
  *****/
 
-typedef PGPIdType RsPgpId;
-
 /* Identity Interface for GXS Message Verification.
  */
 class RsGixs
@@ -167,6 +165,8 @@ public:
     virtual bool  getKey(const RsGxsId &id, RsTlvPublicRSAKey& key) = 0;
     virtual bool  getPrivateKey(const RsGxsId &id, RsTlvPrivateRSAKey& key) = 0;	// For signing outgoing messages.
     virtual bool  getIdDetails(const RsGxsId& id, RsIdentityDetails& details) = 0 ;  // Proxy function so that we get p3Identity info from Gxs
+
+	virtual ~RsGixs();
 };
 
 class GixsReputation
