@@ -3,7 +3,8 @@
  *                                                                             *
  * libretroshare: retroshare core library                                      *
  *                                                                             *
- * Copyright 2012-2012 Robert Fernie <retroshare@lunamutt.com>                 *
+ * Copyright (C) 2012-2014  Robert Fernie <retroshare@lunamutt.com>            *
+ * Copyright (C) 2018-2019  Gioacchino Mazzurco <gio@eigenlab.org>             *
  *                                                                             *
  * This program is free software: you can redistribute it and/or modify        *
  * it under the terms of the GNU Lesser General Public License as              *
@@ -19,19 +20,17 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
  *                                                                             *
  *******************************************************************************/
-#ifndef P3_CIRCLES_SERVICE_HEADER
-#define P3_CIRCLES_SERVICE_HEADER
+#pragma once
 
 
 #include "retroshare/rsgxscircles.h"	// External Interfaces.
 #include "gxs/rsgenexchange.h"		// GXS service.
 #include "gxs/rsgixs.h"			// Internal Interfaces.
-
 #include "services/p3idservice.h"	// For constructing Caches
-
 #include "gxs/gxstokenqueue.h"
 #include "util/rstickevent.h"
 #include "util/rsmemcache.h"
+#include "util/rsdebug.h"
 
 #include <map>
 #include <string>
@@ -170,18 +169,67 @@ class RsGxsCircleCache
 
 class PgpAuxUtils;
 
-class p3GxsCircles: public RsGxsCircleExchange, public RsGxsCircles, public GxsTokenQueue, public RsTickEvent
+class p3GxsCircles: public RsGxsCircleExchange, public RsGxsCircles,
+        public GxsTokenQueue, public RsTickEvent
 {
-	public:
-	p3GxsCircles(RsGeneralDataService* gds, RsNetworkExchangeService* nes,  p3IdService *identities, PgpAuxUtils *pgpUtils);
+public:
+	p3GxsCircles(
+	        RsGeneralDataService* gds, RsNetworkExchangeService* nes,
+	        p3IdService* identities, PgpAuxUtils* pgpUtils );
 
-virtual RsServiceInfo getServiceInfo();
+	RsServiceInfo getServiceInfo() override;
 
-	/*********** External Interface ***************/
+	/// @see RsGxsCircles
+	bool createCircle(
+	        const std::string& circleName, RsGxsCircleType circleType,
+	        RsGxsCircleId& circleId = RS_DEFAULT_STORAGE_PARAM(RsGxsCircleId),
+	        const RsGxsCircleId& restrictedId = RsGxsCircleId(),
+	        const RsGxsId& authorId = RsGxsId(),
+	        const std::set<RsGxsId>& gxsIdMembers = std::set<RsGxsId>(),
+	        const std::set<RsPgpId>& localMembers = std::set<RsPgpId>()
+	        ) override;
+
+	/// @see RsGxsCircles
+	bool editCircle(RsGxsCircleGroup& cData) override;
+
+	/// @see RsGxsCircles
+	bool getCirclesSummaries(std::list<RsGroupMetaData>& circles) override;
+
+	/// @see RsGxsCircles
+	bool getCirclesInfo(
+	        const std::list<RsGxsGroupId>& circlesIds,
+	        std::vector<RsGxsCircleGroup>& circlesInfo ) override;
+
+	/// @see RsGxsCircles
+	bool getCircleRequests( const RsGxsGroupId& circleId,
+	                        std::vector<RsGxsCircleMsg>& requests ) override;
+
+	/// @see RsGxsCircles
+	bool inviteIdsToCircle( const std::set<RsGxsId>& identities,
+	                        const RsGxsCircleId& circleId ) override;
+
+    /// @see RsGxsCircles
+	bool getCircleRequest(const RsGxsGroupId& circleId,
+                          const RsGxsMessageId& msgId,
+                          RsGxsCircleMsg& msg) override;
+
+	/// @see RsGxsCircles
+	bool exportCircleLink(
+	        std::string& link, const RsGxsCircleId& circleId,
+	        bool includeGxsData = true,
+	        const std::string& baseUrl = DEFAULT_CIRCLE_BASE_URL,
+	        std::string& errMsg = RS_DEFAULT_STORAGE_PARAM(std::string)
+	        ) override;
+
+	/// @see RsGxsCircles
+	bool importCircleLink(
+	        const std::string& link,
+	        RsGxsCircleId& circleId = RS_DEFAULT_STORAGE_PARAM(RsGxsCircleId),
+	        std::string& errMsg = RS_DEFAULT_STORAGE_PARAM(std::string)
+	        ) override;
 
 	virtual bool getCircleDetails(const RsGxsCircleId &id, RsGxsCircleDetails &details);
 	virtual bool getCircleExternalIdList(std::list<RsGxsCircleId> &circleIds);
-	virtual bool getCirclePersonalIdList(std::list<RsGxsCircleId> &circleIds);
 
 	virtual bool isLoaded(const RsGxsCircleId &circleId);
 	virtual bool loadCircle(const RsGxsCircleId &circleId);
@@ -257,6 +305,8 @@ virtual RsServiceInfo getServiceInfo();
     // put a circle id into the external or personal circle id list
     // this function locks the mutex
     // if the id is already in the list, it will not be added again
+	// G10h4ck: this is terrible, an std::set instead of a list should be used
+	//	to guarantee uniqueness
     void addCircleIdToList(const RsGxsCircleId& circleId, uint32_t circleType);
 
 	RsMutex mCircleMtx; /* Locked Below Here */
@@ -291,6 +341,6 @@ virtual RsServiceInfo getServiceInfo();
 	uint32_t mDummyIdToken;
 	std::list<RsGxsId> mDummyPgpLinkedIds;
 	std::list<RsGxsId> mDummyOwnIds;
-};
 
-#endif // P3_CIRCLES_SERVICE_HEADER
+	RS_SET_CONTEXT_DEBUG_LEVEL(2)
+};

@@ -21,12 +21,7 @@
 #pragma once
 
 #include <iostream>
-
-#ifdef HAS_RAPIDJSON
-#	include <rapidjson/document.h>
-#else
-#	include <rapid_json/document.h>
-#endif // HAS_RAPIDJSON
+#include <rapidjson/document.h>
 
 /**
  * Use this type for JSON documents representations in RetroShare code
@@ -39,7 +34,7 @@ typedef rapidjson::Document RsJson;
  * @param[in] jDoc JSON document to print
  * @return same output stream passed as out parameter
  */
-std::ostream &operator<<(std::ostream &out, const RsJson &jDoc);
+std::ostream& operator<<(std::ostream &out, const RsJson &jDoc);
 
 /**
  * Stream manipulator to print RsJson in compact format

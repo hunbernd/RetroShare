@@ -1,5 +1,5 @@
 /*******************************************************************************
- * libretroshare/src/retroshare: rsturtle.h                                    *
+ * libretroshare/src/rsserver: rstypes.h                                       *
  *                                                                             *
  * libretroshare: retroshare core library                                      *
  *                                                                             *
@@ -37,21 +37,12 @@
 
 #define USE_NEW_CHUNK_CHECKING_CODE
 
-// This adds a level of indirection to types, so we can easily change them if needed
-//
-//typedef std::string   RsCertId;	// unused
-//typedef std::string   RsChanId;
-//typedef std::string   RsMsgId;
-//typedef std::string   RsAuthId;
-
-typedef SSLIdType     RsPeerId ;
-typedef PGPIdType     RsPgpId ;
 typedef Sha1CheckSum  RsFileHash ;
 typedef Sha1CheckSum  RsMessageId ;
 
 const uint32_t FT_STATE_FAILED			= 0x0000 ;
-const uint32_t FT_STATE_OKAY				= 0x0001 ;
-const uint32_t FT_STATE_WAITING 			= 0x0002 ;
+const uint32_t FT_STATE_OKAY			= 0x0001 ;
+const uint32_t FT_STATE_WAITING 		= 0x0002 ;
 const uint32_t FT_STATE_DOWNLOADING		= 0x0003 ;
 const uint32_t FT_STATE_COMPLETE 		= 0x0004 ;
 const uint32_t FT_STATE_QUEUED   		= 0x0005 ;
@@ -257,8 +248,6 @@ struct FileInfo : RsSerializable
 	}
 };
 
-std::ostream &operator<<(std::ostream &out, const FileInfo& info);
-
 /**
  * Pointers in this class have no real meaning as pointers, they are used as
  * indexes, internally by retroshare.
@@ -277,11 +266,27 @@ struct DirStub : RsSerializable
 	{
 		RS_SERIAL_PROCESS(type);
 		RS_SERIAL_PROCESS(name);
+
 #if defined(__GNUC__) && !defined(__clang__)
 #	pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif // defined(__GNUC__) && !defined(__clang__)
-		std::uintptr_t& handle(reinterpret_cast<std::uintptr_t&>(ref));
-		RS_SERIAL_PROCESS(handle);
+		// (Cyril) We have to do this because on some systems (MacOS) uintptr_t is unsigned long which is not well defined. It is always
+        // preferable to force type serialization to the correct size rather than letting the compiler choose for us.
+        // /!\ This structure cannot be sent over the network. The serialization would be inconsistent.
+
+		if(sizeof(ref) == 4)
+		{
+			std::uint32_t& handle(reinterpret_cast<std::uint32_t&>(ref));
+			RS_SERIAL_PROCESS(handle);
+		}
+		else if(sizeof(ref) == 8)
+		{
+			std::uint64_t& handle(reinterpret_cast<std::uint64_t&>(ref));
+			RS_SERIAL_PROCESS(handle);
+		}
+		else
+			std::cerr << __PRETTY_FUNCTION__ << ": cannot serialize raw pointer of size " << sizeof(ref) << std::endl;
+
 #if defined(__GNUC__) && !defined(__clang__)
 #	pragma GCC diagnostic pop
 #endif // defined(__GNUC__) && !defined(__clang__)
@@ -322,13 +327,32 @@ struct DirDetails : RsSerializable
 #if defined(__GNUC__) && !defined(__clang__)
 #	pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif // defined(__GNUC__) && !defined(__clang__)
-		std::uintptr_t& handle(reinterpret_cast<std::uintptr_t&>(ref));
-		RS_SERIAL_PROCESS(handle);
-		std::uintptr_t& parentHandle(reinterpret_cast<std::uintptr_t&>(parent));
-		RS_SERIAL_PROCESS(parentHandle);
+
+        // (Cyril) We have to do this because on some systems (MacOS) uintptr_t is unsigned long which is not well defined. It is always
+        // preferable to force type serialization to the correct size rather than letting the compiler choose for us.
+        // /!\ This structure cannot be sent over the network. The serialization would be inconsistent.
+
+		if(sizeof(ref) == 4)
+		{
+			std::uint32_t& handle(reinterpret_cast<std::uint32_t&>(ref));
+			RS_SERIAL_PROCESS(handle);
+			std::uint32_t& parentHandle(reinterpret_cast<std::uint32_t&>(parent));
+			RS_SERIAL_PROCESS(parentHandle);
+		}
+		else if(sizeof(ref) == 8)
+		{
+			std::uint64_t& handle(reinterpret_cast<std::uint64_t&>(ref));
+			RS_SERIAL_PROCESS(handle);
+			std::uint64_t& parentHandle(reinterpret_cast<std::uint64_t&>(parent));
+			RS_SERIAL_PROCESS(parentHandle);
+		}
+		else
+			std::cerr << __PRETTY_FUNCTION__ << ": cannot serialize raw pointer of size " << sizeof(ref) << std::endl;
+
 #if defined(__GNUC__) && !defined(__clang__)
 #	pragma GCC diagnostic pop
 #endif // defined(__GNUC__) && !defined(__clang__)
+
 		RS_SERIAL_PROCESS(prow);
 		RS_SERIAL_PROCESS(type);
 		RS_SERIAL_PROCESS(id);
@@ -343,8 +367,6 @@ struct DirDetails : RsSerializable
 		RS_SERIAL_PROCESS(parent_groups);
 	}
 };
-
-std::ostream &operator<<(std::ostream &out, const DirDetails& details);
 
 class FileDetail
 {
@@ -377,11 +399,20 @@ struct FileChunksInfo : RsSerializable
 		CHUNK_STRATEGY_PROGRESSIVE
 	};
 
-	struct SliceInfo
+	struct SliceInfo : RsSerializable
 	{
 		uint32_t start;
 		uint32_t size;
 		RsPeerId peer_id;
+
+		/// @see RsSerializable
+		void serial_process(RsGenericSerializer::SerializeJob j,
+		                    RsGenericSerializer::SerializeContext& ctx) override
+		{
+			RS_SERIAL_PROCESS(start);
+			RS_SERIAL_PROCESS(size);
+			RS_SERIAL_PROCESS(peer_id);
+		}
 	};
 
 	uint64_t file_size; /// real size of the file
@@ -410,7 +441,7 @@ struct FileChunksInfo : RsSerializable
 		RS_SERIAL_PROCESS(chunks);
 		RS_SERIAL_PROCESS(compressed_peer_availability_maps);
 		RS_SERIAL_PROCESS(active_chunks);
-		//RS_SERIAL_PROCESS(pending_slices);
+		RS_SERIAL_PROCESS(pending_slices);
 	}
 };
 

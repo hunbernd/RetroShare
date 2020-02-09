@@ -20,7 +20,10 @@
  *                                                                             *
  *******************************************************************************/
 #pragma once
+
 #include "serialiser/rsserializer.h"
+
+#include <iosfwd>
 
 
 /** @brief Minimal ancestor for all serializable structs in RetroShare.
@@ -34,6 +37,8 @@ struct RsSerializable
 	 */
 	virtual void serial_process(RsGenericSerializer::SerializeJob j,
 	                            RsGenericSerializer::SerializeContext& ctx) = 0;
+
+	virtual ~RsSerializable() = default;
 };
 
 /** @def RS_SERIAL_PROCESS(I)
@@ -49,3 +54,5 @@ struct RsSerializable
 #define RS_SERIAL_PROCESS(I) do { \
 	RsTypeSerializer::serial_process(j, ctx, I, #I ); \
 	} while(0)
+
+std::ostream &operator<<(std::ostream& out, const RsSerializable& serializable);

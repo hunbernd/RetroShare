@@ -1,30 +1,28 @@
+/*******************************************************************************
+ * libretroshare/src/gxs: rsnxs.h                                              *
+ *                                                                             *
+ * libretroshare: retroshare core library                                      *
+ *                                                                             *
+ * Copyright 2011-2011 by Robert Fernie <retroshare.project@gmail.com>         *
+ * Copyright 2011-2011 by Christopher Evi-Parker                               *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Lesser General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Lesser General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Lesser General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
+
 #ifndef RSGNP_H
 #define RSGNP_H
-
-/*
- * libretroshare/src/gxs: rsnxs.h
- *
- * Network Exchange Service interface for RetroShare.
- *
- * Copyright 2011-2011 by Robert Fernie, Christopher Evi-Prker
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License Version 2 as published by the Free Software Foundation.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
- * USA.
- *
- * Please report all bugs and problems to "retroshare@lunamutt.com".
- *
- */
 
 #include <set>
 #include <string>
@@ -255,13 +253,14 @@ public:
      * \param identity_flags	Flags of the identity
      * \return
      */
-    static RsReputations::ReputationLevel minReputationForRequestingMessages(uint32_t /* group_sign_flags */, uint32_t /* identity_flags */)
+	static RsReputationLevel minReputationForRequestingMessages(
+	        uint32_t /* group_sign_flags */, uint32_t /* identity_flags */ )
 	{
 		// We always request messages, except if the author identity is locally banned.
-
-		return RsReputations::REPUTATION_REMOTELY_NEGATIVE;
+		return RsReputationLevel::REMOTELY_NEGATIVE;
 	}
-    static RsReputations::ReputationLevel minReputationForForwardingMessages(uint32_t group_sign_flags, uint32_t identity_flags)
+	static RsReputationLevel minReputationForForwardingMessages(
+	        uint32_t group_sign_flags, uint32_t identity_flags )
 	{
 		// If anti-spam is enabled, do not send messages from authors with bad reputation. The policy is to only forward messages if the reputation of the author is at least
 		// equal to the minimal reputation in the table below (R=remotely, L=locally, P=positive, N=negative, O=neutral) :
@@ -279,20 +278,20 @@ public:
 		//
 
 		if(identity_flags & RS_IDENTITY_FLAGS_PGP_KNOWN)
-			return RsReputations::REPUTATION_NEUTRAL;
+			return RsReputationLevel::NEUTRAL;
 		else if(identity_flags & RS_IDENTITY_FLAGS_PGP_LINKED)
 		{
 			if(group_sign_flags & GXS_SERV::FLAG_AUTHOR_AUTHENTICATION_GPG_KNOWN)
-				return RsReputations::REPUTATION_REMOTELY_POSITIVE;
+				return RsReputationLevel::REMOTELY_POSITIVE;
 			else
-				return RsReputations::REPUTATION_NEUTRAL;
+				return RsReputationLevel::NEUTRAL;
 		}
 		else
 		{
 			if( (group_sign_flags & GXS_SERV::FLAG_AUTHOR_AUTHENTICATION_GPG_KNOWN) || (group_sign_flags & GXS_SERV::FLAG_AUTHOR_AUTHENTICATION_GPG))
-				return RsReputations::REPUTATION_REMOTELY_POSITIVE;
+				return RsReputationLevel::REMOTELY_POSITIVE;
 			else
-				return RsReputations::REPUTATION_NEUTRAL;
+				return RsReputationLevel::NEUTRAL;
 		}
 	}
 };

@@ -1,25 +1,22 @@
-/*
- * Retroshare Gxs Feed Item
- *
- * Copyright 2014 RetroShare Team
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License Version 2.1 as published by the Free Software Foundation.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
- * USA.
- *
- * Please report all bugs and problems to "retroshare@lunamutt.com".
- *
- */
+/*******************************************************************************
+ * gui/feeds/GxsForumMsgItem.h                                                 *
+ *                                                                             *
+ * Copyright (c) 2014, Retroshare Team <retroshare.project@gmail.com>          *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 
 #ifndef _GXSFORUMMSGITEM_H
 #define _GXSFORUMMSGITEM_H
@@ -46,6 +43,7 @@ public:
 	bool setGroup(const RsGxsForumGroup &group, bool doFill = true);
 	bool setMessage(const RsGxsForumMsg &msg, bool doFill = true);
 
+    uint64_t uniqueIdentifier() const override { return hash_64bits("GxsForumMsgItem " + messageId().toStdString()) ; }
 protected:
 	/* FeedItem */
 	virtual void doExpand(bool open);
@@ -69,7 +67,7 @@ protected:
 
 private slots:
 	/* default stuff */
-	void toggle();
+	void toggle() override;
 	void readAndClearItem();
 
 	void unsubscribeForum();

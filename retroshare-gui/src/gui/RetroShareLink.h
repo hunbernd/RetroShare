@@ -1,21 +1,22 @@
-/***************************************************************************
- *   Copyright (C) 2009 Cyril Soler                                        *
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- *   This program is distributed in the hope that it will be useful,       *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                          *
- *                                                                         *
- *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
- ***************************************************************************/
+/*******************************************************************************
+ * gui/RetroshareLink.h                                                        *
+ *                                                                             *
+ * Copyright (c) 2009 Cyril Soler      <retroshare.project@gmail.com>          *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 
 #ifndef RETROSHARE_LINK_ANALYZER
 #define RETROSHARE_LINK_ANALYZER
@@ -89,7 +90,7 @@ class RetroShareLink
 		static RetroShareLink createMessage(const RsPeerId &peerId, const QString& subject);
 		static RetroShareLink createMessage(const RsGxsId &peerId, const QString& subject);
 		static RetroShareLink createCertificate(const RsPeerId &ssl_id) ;
-		static RetroShareLink createUnknwonSslCertificate(const RsPeerId &sslId, const RsPgpId &gpgId = RsPgpId()) ;
+		static RetroShareLink createUnknownSslCertificate(const RsPeerId &sslId, const RsPgpId &gpgId = RsPgpId()) ;
 		static RetroShareLink createExtraFile(const QString& name, uint64_t size, const QString& hash, const QString& ssl_id);
 		static RetroShareLink createPublicMsgInvite(time_t time_stamp,const QString& pgp_id,const QString& hash) ;
 		static RetroShareLink createIdentity(const RsGxsId& gxs_id,const QString& name,const QString& radix_data) ;

@@ -1,25 +1,22 @@
-/*
- * Retroshare Gxs Support
- *
- * Copyright 2012-2013 by Robert Fernie.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License Version 2.1 as published by the Free Software Foundation.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
- * USA.
- *
- * Please report all bugs and problems to "retroshare@lunamutt.com".
- *
- */
+/*******************************************************************************
+ * retroshare-gui/src/gui/gxs/GxsCommentTreeWidget.cpp                         *
+ *                                                                             *
+ * Copyright 2012-2013 by Robert Fernie   <retroshare.project@gmail.com>       *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 
 #include <QAbstractTextDocumentLayout>
 #include <QApplication>
@@ -34,6 +31,7 @@
 #include "gui/gxs/GxsCommentTreeWidget.h"
 #include "gui/gxs/GxsCreateCommentDialog.h"
 #include "gui/gxs/GxsIdTreeWidgetItem.h"
+#include "gui/common/RSTreeWidgetItem.h"
 
 #include <iostream>
 
@@ -46,6 +44,9 @@
 #define PCITEM_COLUMN_OWNVOTE		6
 #define PCITEM_COLUMN_MSGID		7
 #define PCITEM_COLUMN_PARENTID		8
+#define PCITEM_COLUMN_AUTHORID		9
+
+#define ROLE_SORT           Qt::UserRole + 1
 
 #define GXSCOMMENTS_LOADTHREAD		1
 
@@ -140,6 +141,9 @@ GxsCommentTreeWidget::GxsCommentTreeWidget(QWidget *parent)
 	setWordWrap(true);
 
     setItemDelegateForColumn(PCITEM_COLUMN_COMMENT,new MultiLinesCommentDelegate(QFontMetricsF(font()))) ;
+	
+	commentsRole = new RSTreeWidgetItemCompareRole;
+    commentsRole->setRole(PCITEM_COLUMN_DATE, ROLE_SORT);
 
 //	QFont font = QFont("ARIAL", 10);
 //	font.setBold(true);
@@ -173,6 +177,9 @@ void GxsCommentTreeWidget::setCurrentCommentMsgId(QTreeWidgetItem *current, QTre
 	{
 		mCurrentCommentMsgId = RsGxsMessageId(current->text(PCITEM_COLUMN_MSGID).toStdString());
 		mCurrentCommentText = current->text(PCITEM_COLUMN_COMMENT);
+		mCurrentCommentAuthor = current->text(PCITEM_COLUMN_AUTHOR);
+		mCurrentCommentAuthorId = RsGxsId(current->text(PCITEM_COLUMN_AUTHORID).toStdString());
+
 	}
 }
 
@@ -269,7 +276,7 @@ void GxsCommentTreeWidget::vote(const RsGxsGroupId &groupId, const RsGxsMessageI
         std::cerr << "AuthorId : " << vote.mMeta.mAuthorId << std::endl;
 
 	uint32_t token;
-        mCommentService->createVote(token, vote);
+        mCommentService->createNewVote(token, vote);
         mTokenQueue->queueRequest(token, TOKENREQ_MSGINFO, RS_TOKREQ_ANSTYPE_ACK, COMMENT_VOTE_ACK);
 }
 
@@ -310,6 +317,8 @@ void GxsCommentTreeWidget::replyToComment()
 	msgId.first = mGroupId;
 	msgId.second = mCurrentCommentMsgId;
 	GxsCreateCommentDialog pcc(mTokenQueue, mCommentService, msgId, mLatestMsgId, this);
+
+	pcc.loadComment(mCurrentCommentText, mCurrentCommentAuthor, mCurrentCommentAuthorId);
 	pcc.exec();
 }
 
@@ -523,7 +532,7 @@ void GxsCommentTreeWidget::service_loadThread(const uint32_t &token)
 		std::cerr << "GxsCommentTreeWidget::service_loadThread() Got Comment: " << comment.mMeta.mMsgId;
 		std::cerr << std::endl;
 
-		GxsIdRSTreeWidgetItem *item = new GxsIdRSTreeWidgetItem(NULL,GxsIdDetails::ICON_TYPE_ALL) ;
+		GxsIdRSTreeWidgetItem *item = new GxsIdRSTreeWidgetItem(NULL,GxsIdDetails::ICON_TYPE_AVATAR) ;
 		QString text;
 
 		{
@@ -533,6 +542,8 @@ void GxsCommentTreeWidget::service_loadThread(const uint32_t &token)
 			text = qtime.toString("yyyy-MM-dd hh:mm:ss") ;
 			item->setText(PCITEM_COLUMN_DATE, text) ;
 			item->setToolTip(PCITEM_COLUMN_DATE, text) ;
+			item->setData(PCITEM_COLUMN_DATE, ROLE_SORT, QVariant(qlonglong(comment.mMeta.mPublishTs)));
+
 		}
 
 		text = QString::fromUtf8(comment.mComment.c_str());
@@ -560,6 +571,9 @@ void GxsCommentTreeWidget::service_loadThread(const uint32_t &token)
 
 		text = QString::fromUtf8(comment.mMeta.mParentId.toStdString().c_str());
 		item->setText(PCITEM_COLUMN_PARENTID, text);
+		
+		text = QString::fromUtf8(comment.mMeta.mAuthorId.toStdString().c_str());
+		item->setText(PCITEM_COLUMN_AUTHORID, text);
 
 
 		addItem(comment.mMeta.mMsgId, comment.mMeta.mParentId, item);
@@ -583,6 +597,8 @@ QTreeWidgetItem *GxsCommentTreeWidget::service_createMissingItem(const RsGxsMess
 	item->setText(PCITEM_COLUMN_AUTHOR, text);
 
 	item->setText(PCITEM_COLUMN_MSGID, text);
+	
+	item->setText(PCITEM_COLUMN_AUTHORID, text);
 
 
 		text = QString::fromUtf8(parent.toStdString().c_str());

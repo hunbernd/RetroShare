@@ -1,23 +1,22 @@
-/****************************************************************
- *  RetroShare is distributed under the following license:
- *
- *  Copyright (C) 2006 -2009 RetroShare Team
- *
- *  This program is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU General Public License
- *  as published by the Free Software Foundation; either version 2
- *  of the License, or (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor,
- *  Boston, MA  02110-1301, USA.
- ****************************************************************/
+/*******************************************************************************
+ * gui/settings/rsettingswin.cpp                                               *
+ *                                                                             *
+ * Copyright (c) 2008, Retroshare Team <retroshare.project@gmail.com>          *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 
 #include <QMessageBox>
 
@@ -25,7 +24,6 @@
 #include <rshare.h>
 #include "GeneralPage.h"
 #include "ServerPage.h"
-#include "NetworkPage.h"
 #include "NotifyPage.h"
 #include "CryptoPage.h"
 #include "AppearancePage.h"
@@ -46,7 +44,7 @@
 #include "gui/common/FloatingHelpBrowser.h"
 #include "gui/common/RSElidedItemDelegate.h"
 
-#ifdef ENABLE_WEBUI
+#ifdef RS_WEBUI
 #	include "WebuiPage.h"
 #endif
 
@@ -166,12 +164,15 @@ SettingsPage::initStackedWidget()
     addPage(new AppearancePage()); // APPEARENCE
     addPage(new SoundPage() ); // SOUND
     addPage(new ServicePermissionsPage() ); // PERMISSIONS
-#ifdef ENABLE_WEBUI
-    addPage(new WebuiPage() );
-#endif // ENABLE_WEBUI
-
 #ifdef RS_JSONAPI
+    JsonApiPage *jsonapi_p = new JsonApiPage() ;
 	addPage(new JsonApiPage());
+#ifdef RS_WEBUI
+    WebuiPage *webui_p = new WebuiPage() ;
+    addPage(new WebuiPage() );
+
+    QObject::connect(webui_p,SIGNAL(passwordChanged()),jsonapi_p,SLOT(load()));
+#endif
 #endif
 
 	 // add widgets from plugins

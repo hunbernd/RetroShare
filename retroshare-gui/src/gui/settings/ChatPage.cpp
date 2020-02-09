@@ -1,26 +1,24 @@
-/****************************************************************
- *  RetroShare is distributed under the following license:
- *
- *  Copyright (C) 2006 - 2010 RetroShare Team
- *
- *  This program is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU General Public License
- *  as published by the Free Software Foundation; either version 2
- *  of the License, or (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor,
- *  Boston, MA  02110-1301, USA.
- ****************************************************************/
+/*******************************************************************************
+ * gui/settings/ChatPage.cpp                                                   *
+ *                                                                             *
+ * Copyright 2006, Retroshare Team <retroshare.project@gmail.com>              *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 
 #include <QColorDialog>
-#include <QFontDialog>
 #include <QMenu>
 #include <QMessageBox>
 #include <time.h>
@@ -168,14 +166,18 @@ void ChatPage::updateHistoryParams()
 	Settings->setPublicChatHistoryCount(ui.publicChatLoadCount->value());
 	Settings->setPrivateChatHistoryCount(ui.privateChatLoadCount->value());
 	Settings->setLobbyChatHistoryCount(ui.lobbyChatLoadCount->value());
+	Settings->setDistantChatHistoryCount(ui.distantChatLoadCount->value());
 
 	rsHistory->setEnable(RS_HISTORY_TYPE_PUBLIC , ui.publicChatEnable->isChecked());
 	rsHistory->setEnable(RS_HISTORY_TYPE_PRIVATE, ui.privateChatEnable->isChecked());
 	rsHistory->setEnable(RS_HISTORY_TYPE_LOBBY  , ui.lobbyChatEnable->isChecked());
+	rsHistory->setEnable(RS_HISTORY_TYPE_DISTANT, ui.distantChatEnable->isChecked());
 
 	rsHistory->setSaveCount(RS_HISTORY_TYPE_PUBLIC , ui.publicChatSaveCount->value());
     rsHistory->setSaveCount(RS_HISTORY_TYPE_PRIVATE, ui.privateChatSaveCount->value());
     rsHistory->setSaveCount(RS_HISTORY_TYPE_LOBBY  , ui.lobbyChatSaveCount->value());
+	rsHistory->setSaveCount(RS_HISTORY_TYPE_DISTANT, ui.distantChatSaveCount->value());
+
 }
 
 void ChatPage::updatePublicStyle()
@@ -249,13 +251,19 @@ ChatPage::ChatPage(QWidget * parent, Qt::WindowFlags flags)
 
 	connect(ui.publicChatLoadCount,        SIGNAL(valueChanged(int)),        this, SLOT(updateHistoryParams()));
 	connect(ui.privateChatLoadCount,       SIGNAL(valueChanged(int)),        this, SLOT(updateHistoryParams()));
+	connect(ui.distantChatLoadCount,       SIGNAL(valueChanged(int)),        this, SLOT(updateHistoryParams()));
 	connect(ui.lobbyChatLoadCount,         SIGNAL(valueChanged(int)),        this, SLOT(updateHistoryParams()));
+	
 	connect(ui.publicChatEnable,           SIGNAL(toggled(bool)),            this, SLOT(updateHistoryParams()));
 	connect(ui.privateChatEnable,          SIGNAL(toggled(bool)),            this, SLOT(updateHistoryParams()));
+	connect(ui.distantChatEnable,          SIGNAL(toggled(bool)),            this, SLOT(updateHistoryParams()));
 	connect(ui.lobbyChatEnable,            SIGNAL(toggled(bool)),            this, SLOT(updateHistoryParams()));
+	
 	connect(ui.publicChatSaveCount,        SIGNAL(valueChanged(int)),        this, SLOT(updateHistoryParams()));
 	connect(ui.privateChatSaveCount,       SIGNAL(valueChanged(int)),        this, SLOT(updateHistoryParams()));
 	connect(ui.lobbyChatSaveCount,         SIGNAL(valueChanged(int)),        this, SLOT(updateHistoryParams()));
+	connect(ui.distantChatSaveCount,       SIGNAL(valueChanged(int)),        this, SLOT(updateHistoryParams()));
+
 
     connect(ui.publicStyle,                SIGNAL(currentIndexChanged(int)),   this, SLOT(updatePublicStyle())) ;
     connect(ui.publicComboBoxVariant,      SIGNAL(currentIndexChanged(int)), this, SLOT(updatePublicStyle())) ;
@@ -351,14 +359,18 @@ ChatPage::load()
     whileBlocking(ui.publicChatLoadCount)->setValue(Settings->getPublicChatHistoryCount());
     whileBlocking(ui.privateChatLoadCount)->setValue(Settings->getPrivateChatHistoryCount());
     whileBlocking(ui.lobbyChatLoadCount)->setValue(Settings->getLobbyChatHistoryCount());
+	whileBlocking(ui.distantChatLoadCount)->setValue(Settings->getDistantChatHistoryCount());
 
     whileBlocking(ui.publicChatEnable)->setChecked(rsHistory->getEnable(RS_HISTORY_TYPE_PUBLIC));
     whileBlocking(ui.privateChatEnable)->setChecked(rsHistory->getEnable(RS_HISTORY_TYPE_PRIVATE));
     whileBlocking(ui.lobbyChatEnable)->setChecked(rsHistory->getEnable(RS_HISTORY_TYPE_LOBBY));
+	whileBlocking(ui.distantChatEnable)->setChecked(rsHistory->getEnable(RS_HISTORY_TYPE_DISTANT));
 
     whileBlocking(ui.publicChatSaveCount)->setValue(rsHistory->getSaveCount(RS_HISTORY_TYPE_PUBLIC));
     whileBlocking(ui.privateChatSaveCount)->setValue(rsHistory->getSaveCount(RS_HISTORY_TYPE_PRIVATE));
     whileBlocking(ui.lobbyChatSaveCount)->setValue(rsHistory->getSaveCount(RS_HISTORY_TYPE_LOBBY));
+	whileBlocking(ui.distantChatSaveCount)->setValue(rsHistory->getSaveCount(RS_HISTORY_TYPE_DISTANT));
+
     
     // using fontTempChat.rawname() does not always work!
     // see http://doc.qt.digia.com/qt-maemo/qfont.html#rawName
@@ -416,7 +428,8 @@ ChatPage::load()
 void ChatPage::on_pushButtonChangeChatFont_clicked()
 {
 	bool ok;
-	QFont font = QFontDialog::getFont(&ok, fontTempChat, this, tr("Choose your default font for Chat."),QFontDialog::DontUseNativeDialog);
+	QFont font = misc::getFont(&ok, fontTempChat, this, tr("Choose your default font for Chat."));
+
 	if (ok) {
 		fontTempChat = font;
 		// using fontTempChat.rawname() does not always work!

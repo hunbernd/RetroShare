@@ -85,9 +85,7 @@ public:
 	void togglePauseHashingProcess() ;
 	bool hashingProcessPaused();
 
-    // Functions called by the thread
-
-    virtual void data_tick() ;
+	void threadTick() override; /// @see RsTickingThread
 
     friend std::ostream& operator<<(std::ostream& o,const HashStorageInfo& info) ;
 private:
@@ -96,6 +94,9 @@ private:
      * 		This function is responsible for removing old hashes, etc
      */
     void clean() ;
+
+    void startHashThread();
+    void stopHashThread();
 
     // loading/saving the entire hash database to a file
 

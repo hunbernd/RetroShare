@@ -1,23 +1,22 @@
-/****************************************************************
- *  RetroShare is distributed under the following license:
- *
- *  Copyright (C) 2014 RetroShare Team
- *
- *  This program is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU General Public License
- *  as published by the Free Software Foundation; either version 2
- *  of the License, or (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor,
- *  Boston, MA  02110-1301, USA.
- ****************************************************************/
+/*******************************************************************************
+ * retroshare-gui/src/gui/gxschannels/GxsChannelFilesWidget.cpp                *
+ *                                                                             *
+ * Copyright 2014 by Retroshare Team   <retroshare.project@gmail.com>          *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 
 #include <QDateTime>
 
@@ -35,9 +34,9 @@
 
 #define COLUMN_FILENAME  0
 #define COLUMN_SIZE      1
-#define COLUMN_TITLE     2
-#define COLUMN_PUBLISHED 3
-#define COLUMN_STATUS    4
+#define COLUMN_STATUS    2
+#define COLUMN_TITLE     3
+#define COLUMN_PUBLISHED 4
 #define COLUMN_COUNT     5
 #define COLUMN_DATA      0
 
@@ -108,9 +107,10 @@ void GxsChannelFilesWidget::addFiles(const RsGxsChannelPost &post, bool related)
 		treeItem->setData(COLUMN_DATA, ROLE_MESSAGE_ID, qVariantFromValue(post.mMeta.mMsgId));
 		treeItem->setData(COLUMN_DATA, ROLE_FILE_HASH, qVariantFromValue(file.mHash));
 		treeItem->setData(COLUMN_DATA, ROLE_MSG, QString::fromUtf8(post.mMsg.c_str()));
+		treeItem->setTextAlignment(COLUMN_SIZE, Qt::AlignRight) ;
 
 		ui->treeWidget->addTopLevelItem(treeItem);
-
+		
 		QWidget *statusWidget = new GxsChannelFilesStatusWidget(post.mMeta.mGroupId, post.mMeta.mMsgId, file);
 		ui->treeWidget->setItemWidget(treeItem, COLUMN_STATUS, statusWidget);
 

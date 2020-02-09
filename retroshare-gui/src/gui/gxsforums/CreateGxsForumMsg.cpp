@@ -1,23 +1,22 @@
-/****************************************************************
- *  RetroShare is distributed under the following license:
- *
- *  Copyright (C) 2008 Robert Fernie
- *
- *  This program is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU General Public License
- *  as published by the Free Software Foundation; either version 2
- *  of the License, or (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor,
- *  Boston, MA  02110-1301, USA.
- ****************************************************************/
+/*******************************************************************************
+ * retroshare-gui/src/gui/gxsforums/CreateGxsForumMsg.cpp                      *
+ *                                                                             *
+ * Copyright 2013 Robert Fernie        <retroshare.project@gmail.com>          *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 
 #include "CreateGxsForumMsg.h"
 
@@ -26,6 +25,7 @@
 #include <QDesktopWidget>
 #include <QDropEvent>
 #include <QPushButton>
+#include <QTextDocumentFragment>
 
 #include <retroshare/rsgxsforums.h>
 #include <retroshare/rsgxscircles.h>
@@ -86,8 +86,10 @@ CreateGxsForumMsg::CreateGxsForumMsg(const RsGxsGroupId &fId, const RsGxsMessage
 
 	QString text = mOId.isNull()?(pId.isNull() ? tr("Start New Thread") : tr("Post Forum Message")):tr("Edit Message");
 	setWindowTitle(text);
+	
+	ui.forumMessage->setPlaceholderText(tr ("Text"));
 
-	ui.headerFrame->setHeaderImage(QPixmap(":/images/konversation64.png"));
+	ui.headerFrame->setHeaderImage(QPixmap(":/icons/png/forums.png"));
 	ui.headerFrame->setHeaderText(text);
 
 	ui.generateSpinBox->setEnabled(false);
@@ -104,6 +106,8 @@ CreateGxsForumMsg::CreateGxsForumMsg(const RsGxsGroupId &fId, const RsGxsMessage
 	connect(ui.buttonBox, SIGNAL(rejected()), this, SLOT(reject()));
 	connect(ui.emoticonButton, SIGNAL(clicked()), this, SLOT(smileyWidgetForums()));
 	connect(ui.attachFileButton, SIGNAL(clicked()), this, SLOT(addFile()));
+	connect(ui.attachPictureButton, SIGNAL(clicked()), this, SLOT(addPicture()));
+	connect(ui.forumMessage, SIGNAL(textChanged()), this, SLOT(checkLength()));
 	connect(ui.generateCheckBox, SIGNAL(toggled(bool)), ui.generateSpinBox, SLOT(setEnabled(bool)));
 
 	setAcceptDrops(true);
@@ -115,6 +119,8 @@ CreateGxsForumMsg::CreateGxsForumMsg(const RsGxsGroupId &fId, const RsGxsMessage
 	mForumCircleLoaded = false;
 
 	newMsg();
+	
+	ui.hashGroupBox->hide();
 
 #ifndef ENABLE_GENERATE
 	ui.generateCheckBox->hide();
@@ -314,7 +320,10 @@ void  CreateGxsForumMsg::loadFormInformation()
 		ui.forumSubject->setText(misc::removeNewLine(subj));
 
 	if (ui.forumSubject->text().isEmpty())
+	{
 		ui.forumSubject->setFocus();
+		ui.forumSubject->setPlaceholderText(tr ("Title"));
+	}
 	else
 		ui.forumMessage->setFocus();
 
@@ -336,6 +345,26 @@ void  CreateGxsForumMsg::loadFormInformation()
 	}
 
 	//ui.forumMessage->setText("");
+}
+
+static const uint32_t MAX_ALLOWED_GXS_MESSAGE_SIZE = 199000;
+
+void CreateGxsForumMsg::checkLength()
+{
+	QString text;
+	RsHtml::optimizeHtml(ui.forumMessage, text);
+	std::wstring msg = text.toStdWString();
+	int charRemains = MAX_ALLOWED_GXS_MESSAGE_SIZE - msg.length();
+	if(charRemains >= 0) {
+		text = tr("It remains %1 characters after HTML conversion.").arg(charRemains);
+		ui.infoLabel->setStyleSheet("QLabel#infoLabel { }");
+	}else{
+		text = tr("Warning: This message is too big of %1 characters after HTML conversion.").arg((0-charRemains));
+	    ui.infoLabel->setStyleSheet("QLabel#infoLabel {color: red; font: bold; }");
+	}
+	ui.buttonBox->button(QDialogButtonBox::Ok)->setToolTip(text);
+	ui.buttonBox->button(QDialogButtonBox::Ok)->setEnabled(charRemains>=0);
+	ui.infoLabel->setText(text);
 }
 
 void  CreateGxsForumMsg::createMsg()
@@ -487,6 +516,19 @@ void CreateGxsForumMsg::addFile()
 	QStringList files;
 	if (misc::getOpenFileNames(this, RshareSettings::LASTDIR_EXTRAFILE, tr("Add Extra File"), "", files)) {
 		ui.hashBox->addAttachments(files,RS_FILE_REQ_ANONYMOUS_ROUTING);
+		ui.hashGroupBox->show();
+	}
+}
+
+void CreateGxsForumMsg::addPicture()
+{
+	QString file;
+	if (misc::getOpenFileName(window(), RshareSettings::LASTDIR_IMAGES, tr("Load Picture File"), "Pictures (*.png *.xpm *.jpg *.jpeg)", file)) {
+		QString encodedImage;
+		if (RsHtml::makeEmbeddedImage(file, encodedImage, 640*480, MAX_ALLOWED_GXS_MESSAGE_SIZE - 200)) {
+			QTextDocumentFragment fragment = QTextDocumentFragment::fromHtml(encodedImage);
+			ui.forumMessage->textCursor().insertFragment(fragment);
+		}
 	}
 }
 
@@ -511,6 +553,7 @@ void CreateGxsForumMsg::fileHashingFinished(QList<HashedFile> hashedFiles)
 	}
 
 	ui.forumMessage->setFocus( Qt::OtherFocusReason );
+	ui.hashGroupBox->hide();
 }
 
 void CreateGxsForumMsg::loadForumInfo(const uint32_t &token)

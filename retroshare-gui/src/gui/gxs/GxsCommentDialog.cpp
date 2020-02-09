@@ -1,27 +1,25 @@
-/*
- * Retroshare Comment Dialog
- *
- * Copyright 2012-2012 by Robert Fernie.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License Version 2.1 as published by the Free Software Foundation.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
- * USA.
- *
- * Please report all bugs and problems to "retroshare@lunamutt.com".
- *
- */
+/*******************************************************************************
+ * retroshare-gui/src/gui/gxs/GxsCommentDialog.cpp                             *
+ *                                                                             *
+ * Copyright 2012-2012 by Robert Fernie   <retroshare.project@gmail.com>       *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 
 #include "gui/gxs/GxsCommentDialog.h"
+#include "gui/gxs/GxsCommentTreeWidget.h"
 #include "ui_GxsCommentDialog.h"
 
 #include <iostream>
@@ -52,6 +50,16 @@ GxsCommentDialog::GxsCommentDialog(QWidget *parent, RsTokenService *token_servic
 	connect(ui->refreshButton, SIGNAL(clicked()), this, SLOT(refresh()));
 	connect(ui->idChooser, SIGNAL(currentIndexChanged( int )), this, SLOT(voterSelectionChanged( int )));
     connect(ui->idChooser, SIGNAL(idsLoaded()), this, SLOT(idChooserReady()));
+	
+	connect(ui->commentButton, SIGNAL(clicked()), ui->treeWidget, SLOT(makeComment()));
+	connect(ui->sortBox, SIGNAL(currentIndexChanged(int)), this, SLOT(sortComments(int)));
+	
+	// default sort method "HOT".
+	ui->treeWidget->sortByColumn(4, Qt::DescendingOrder);
+	
+	int S = QFontMetricsF(font()).height() ;
+	
+	ui->sortBox->setIconSize(QSize(S*1.5,S*1.5));
 }
 
 GxsCommentDialog::~GxsCommentDialog()
@@ -143,4 +151,23 @@ void GxsCommentDialog::setCommentHeader(QWidget *header)
 
 	ui->notesBrowser->setPlainText(QString::fromStdString(mCurrentPost.mNotes));
 #endif
+}
+
+void GxsCommentDialog::sortComments(int i)
+{
+
+	switch(i)
+	{
+	default:
+	case 0:
+		ui->treeWidget->sortByColumn(4, Qt::DescendingOrder); 
+		break;
+	case 1:
+		ui->treeWidget->sortByColumn(2, Qt::DescendingOrder); 
+		break;
+	case 2:
+		ui->treeWidget->sortByColumn(3, Qt::DescendingOrder); 
+		break;
+	}
+
 }

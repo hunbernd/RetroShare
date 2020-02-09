@@ -1,23 +1,22 @@
-/****************************************************************
- *  RetroShare is distributed under the following license:
- *
- *  Copyright (C) 2006 - 2009 RetroShare Team
- *
- *  This program is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU General Public License
- *  as published by the Free Software Foundation; either version 2
- *  of the License, or (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor,
- *  Boston, MA  02110-1301, USA.
- ****************************************************************/
+/*******************************************************************************
+ * gui/settings/CryptoPage.cpp                                                 *
+ *                                                                             *
+ * Copyright 2006, Retroshare Team <retroshare.project@gmail.com>              *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 
 #include <QDate>
 #include <QMessageBox>
@@ -42,22 +41,26 @@
 CryptoPage::CryptoPage(QWidget * parent, Qt::WindowFlags flags)
     : ConfigPage(parent, flags)
 {
-  /* Invoke the Qt Designer generated object setup routine */
-  ui.setupUi(this);
+	/* Invoke the Qt Designer generated object setup routine */
+	ui.setupUi(this);
 
-//  connect(ui.copykeyButton, SIGNAL(clicked()), this, SLOT(copyPublicKey()));
-  connect(ui.saveButton, SIGNAL(clicked()), this, SLOT(fileSaveAs()));
-  connect(ui._includeSignatures_CB, SIGNAL(toggled(bool)), this, SLOT(load()));
-  connect(ui._includeAllIPs_CB, SIGNAL(toggled(bool)), this, SLOT(load()));
-  connect(ui._copyLink_PB, SIGNAL(clicked()), this, SLOT(copyRSLink()));
-  connect(ui.showStats_PB, SIGNAL(clicked()), this, SLOT(showStats()));
+	ui._shortFormat_CB->setChecked(true);
 
-  // hide profile manager as it causes bugs when generating a new profile.
-  //ui.profile_Button->hide() ;
+	//  connect(ui.copykeyButton, SIGNAL(clicked()), this, SLOT(copyPublicKey()));
+	connect(ui.saveButton, SIGNAL(clicked()), this, SLOT(fileSaveAs()));
+	connect(ui._includeSignatures_CB, SIGNAL(toggled(bool)), this, SLOT(load()));
+	connect(ui._shortFormat_CB, SIGNAL(toggled(bool)), this, SLOT(load()));
+	connect(ui._includeAllIPs_CB, SIGNAL(toggled(bool)), this, SLOT(load()));
+	connect(ui._copyLink_PB, SIGNAL(clicked()), this, SLOT(copyRSLink()));
+	connect(ui.showStats_PB, SIGNAL(clicked()), this, SLOT(showStats()));
 
-  connect(ui.createNewNode_PB,SIGNAL(clicked()), this, SLOT(profilemanager()));
+	// hide profile manager as it causes bugs when generating a new profile.
+	//ui.profile_Button->hide() ;
 
-    ui.onlinesince->setText(DateTime::formatLongDateTime(Rshare::startupTime()));
+	connect(ui.exportprofile,SIGNAL(clicked()), this, SLOT(profilemanager()));
+
+
+	ui.onlinesince->setText(DateTime::formatLongDateTime(Rshare::startupTime()));
 }
 
 void CryptoPage::profilemanager()
@@ -76,6 +79,10 @@ void CryptoPage::showEvent ( QShowEvent * /*event*/ )
         ui.pgpid->setText(QString::fromStdString(detail.gpg_id.toStdString()));
         ui.pgpfingerprint->setText(misc::fingerPrintStyleSplit(QString::fromStdString(detail.fpr.toStdString())));
 
+        std::string invite ;
+        rsPeers->getShortInvite(invite,rsPeers->getOwnId(),true,false);
+        ui.retroshareid->setText(QString::fromUtf8(invite.c_str()));
+		
         /* set retroshare version */
         ui.version->setText(Rshare::retroshareVersion(true));
 
@@ -85,6 +92,16 @@ void CryptoPage::showEvent ( QShowEvent * /*event*/ )
         int friends = ids.size();
 
         ui.friendsEdit->setText(QString::number(friends));
+		
+		
+		QString string ;
+		string = rsFiles->getPartialsDirectory().c_str();
+		QString datadir = string;
+			if(datadir.contains("Partials"))
+			{
+				datadir.replace("Partials","");
+			}
+				ui.labelpath->setText(datadir);
     }
 	 load() ;
 }
@@ -98,16 +115,21 @@ CryptoPage::~CryptoPage()
 void
 CryptoPage::load()
 {
-	ui.certplainTextEdit->setPlainText(
-	            QString::fromUtf8(
-	                rsPeers->GetRetroshareInvite( rsPeers->getOwnId(), ui._includeSignatures_CB->isChecked(), ui._includeAllIPs_CB->isChecked() ).c_str()
-                    ) );
+    std::string cert ;
+
+    if(ui._shortFormat_CB->isChecked())
+        rsPeers->getShortInvite(cert,rsPeers->getOwnId(), true, !ui._includeAllIPs_CB->isChecked());
+	else
+		cert = rsPeers->GetRetroshareInvite( rsPeers->getOwnId(), ui._includeSignatures_CB->isChecked(), ui._includeAllIPs_CB->isChecked() );
+
+	ui.certplainTextEdit->setPlainText( QString::fromUtf8( cert.c_str() ) );
 
     RsPeerDetails detail;
     rsPeers->getPeerDetails(rsPeers->getOwnId(),detail);
 
-    ui.certplainTextEdit->setToolTip(ConfCertDialog::getCertificateDescription(detail, ui._includeSignatures_CB->isChecked(), ui._includeAllIPs_CB->isChecked() ));
+    ui.certplainTextEdit->setToolTip(ConfCertDialog::getCertificateDescription(detail, ui._includeSignatures_CB->isChecked(), ui._shortFormat_CB->isChecked(), ui._includeAllIPs_CB->isChecked() ));
 }
+
 void
 CryptoPage::copyRSLink()
 {

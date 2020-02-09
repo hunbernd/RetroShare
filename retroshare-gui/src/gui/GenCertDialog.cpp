@@ -1,23 +1,22 @@
-/****************************************************************
- *  RetroShare is distributed under the following license:
- *
- *  Copyright (C) 2006,  crypton
- *
- *  This program is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU General Public License
- *  as published by the Free Software Foundation; either version 2
- *  of the License, or (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, 
- *  Boston, MA  02110-1301, USA.
- ****************************************************************/
+/*******************************************************************************
+ * gui/GenCertDialog.cpp                                                       *
+ *                                                                             *
+ * Copyright (C) 2006 Crypton         <retroshare.project@gmail.com>           *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 
 #include "GenCertDialog.h"
 
@@ -243,7 +242,7 @@ void GenCertDialog::initKeyList()
 			RsAccounts::GetPGPLoginDetails(*it, name, email);
 			std::cerr << "Adding PGPUser: " << name << " id: " << *it << std::endl;
 			QString gid = QString::fromStdString( (*it).toStdString()).right(8) ;
-			ui.genPGPuser->addItem(QString::fromUtf8(name.c_str()) + " <" + QString::fromUtf8(email.c_str()) + "> (" + gid + ")", userData);
+			ui.genPGPuser->addItem(QString::fromUtf8(name.c_str()) + " (" + gid + ")", userData);
 			haveGPGKeys = true;
 		}
 	}
@@ -295,7 +294,8 @@ void GenCertDialog::setupState()
 
     ui.reuse_existing_node_CB->setEnabled(adv_state) ;
     ui.importIdentity_PB->setVisible(adv_state && !generate_new) ;
-    ui.exportIdentity_PB->setVisible(adv_state && !generate_new) ;
+    //ui.exportIdentity_PB->setVisible(adv_state && !generate_new) ;
+    ui.exportIdentity_PB->setVisible(false); // not useful, and probably confusing
 
     ui.genPGPuser->setVisible(adv_state && haveGPGKeys && !generate_new) ;
 
@@ -317,6 +317,11 @@ void GenCertDialog::setupState()
 
 	ui.password_input->setVisible(true);
 	ui.password_label->setVisible(true);
+
+    if(generate_new)
+        ui.password_input->setToolTip(tr("<html><p>Put a strong password here. This password will be required to start your Retroshare node and protects all your data.</p></html>"));
+	else
+        ui.password_input->setToolTip(tr("<html><p>Please supply the existing password for the selected profile above.</p></html>"));
 
 	ui.password2_check_LB->setVisible(generate_new);
 	ui.password2_input->setVisible(generate_new);
@@ -342,7 +347,7 @@ void GenCertDialog::setupState()
 
 		ui.genButton->setVisible(false) ;
 		ui.generate_label->setVisible(false) ;
-		ui.info_label->setText("Please fill your profile name and password...") ;
+		ui.info_label->setText("Please choose a profile name and password...") ;
 		ui.info_label->setVisible(true) ;
 	}
 	else if(!mEntropyOk)
@@ -469,7 +474,10 @@ bool GenCertDialog::importIdentity()
 		RsAccounts::GetPGPLoginDetails(gpg_id, name, email);
 		std::cerr << "Adding PGPUser: " << name << " id: " << gpg_id << std::endl;
 
-		QMessageBox::information(this,tr("New profile imported"),tr("Your profile was imported successfully:")+" \n"+"\nName :"+QString::fromStdString(name)+"\nemail: " + QString::fromStdString(email)+"\nKey ID: "+QString::fromStdString(gpg_id.toStdString())+"\n\n"+tr("You can use it now to create a new node.")) ;
+		QMessageBox::information(this,tr("New profile imported"),tr("Your profile was imported successfully:")+" \n"+"\nName :"+QString::fromStdString(name)+"\nKey ID: "+QString::fromStdString(gpg_id.toStdString())+"\n\n"+tr("You can use it now to create a new node.")) ;
+
+		initKeyList();
+		setupState();
 
         return true ;
 	}

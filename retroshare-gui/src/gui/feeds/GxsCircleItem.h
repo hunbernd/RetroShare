@@ -1,25 +1,22 @@
-/*
- * Retroshare Gxs Feed Item
- *
- * Copyright 2014 RetroShare Team
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License Version 2.1 as published by the Free Software Foundation.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
- * USA.
- *
- * Please report all bugs and problems to "retroshare@lunamutt.com".
- *
- */
+/*******************************************************************************
+ * gui/feeds/GxsCircleItem.h                                                   *
+ *                                                                             *
+ * Copyright (c) 2014, Retroshare Team <retroshare.project@gmail.com>          *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 
 #ifndef _GXSCIRCLEITEM_H
 #define _GXSCIRCLEITEM_H
@@ -55,8 +52,7 @@ public:
 	GxsCircleItem(FeedHolder *feedHolder, uint32_t feedId, const RsGxsCircleId &circleId, const RsGxsId &gxsId, const uint32_t type);
 	virtual ~GxsCircleItem();
 
-	bool isSame(const RsGxsCircleId &circleId, const RsGxsId &gxsId, uint32_t type);
-
+    uint64_t uniqueIdentifier() const override;
 	void loadRequest(const TokenQueue *queue, const TokenRequest &req);
 
 
@@ -69,9 +65,6 @@ protected:
 
 
 private slots:
-	/* default stuff */
-	void removeItem();
-
 	void showCircleDetails();
 	void acceptCircleSubscription();
 	void grantCircleMembership() ;
@@ -80,8 +73,6 @@ private slots:
 private:
 	void setup();
 
-	FeedHolder *mFeedHolder;
-	uint32_t mFeedId;
 	uint32_t mType;
 
 	RsGxsCircleId mCircleId;

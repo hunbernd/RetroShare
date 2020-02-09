@@ -92,8 +92,6 @@
  * as these will be used very frequently.
  *****/
 
-typedef PGPIdType RsPgpId;
-
 /* Identity Interface for GXS Message Verification.
  */
 class RsGixs
@@ -167,6 +165,8 @@ public:
     virtual bool  getKey(const RsGxsId &id, RsTlvPublicRSAKey& key) = 0;
     virtual bool  getPrivateKey(const RsGxsId &id, RsTlvPrivateRSAKey& key) = 0;	// For signing outgoing messages.
     virtual bool  getIdDetails(const RsGxsId& id, RsIdentityDetails& details) = 0 ;  // Proxy function so that we get p3Identity info from Gxs
+
+	virtual ~RsGixs();
 };
 
 class GixsReputation
@@ -178,25 +178,23 @@ public:
 	uint32_t reputation_level ;
 };
 
-class RsGixsReputation
+struct RsGixsReputation
 {
-public:
-	// get Reputation.
-	virtual RsReputations::ReputationLevel overallReputationLevel(const RsGxsId& id,uint32_t *identity_flags=NULL) = 0;
+	virtual RsReputationLevel overallReputationLevel(
+	        const RsGxsId& id, uint32_t* identity_flags = nullptr ) = 0;
 	virtual ~RsGixsReputation(){}
 };
 
 /*** This Class pulls all the GXS Interfaces together ****/
 
-class RsGxsIdExchange: 
-	public RsGenExchange, 
-	public RsGixs
+struct RsGxsIdExchange : RsGenExchange, RsGixs
 {
-public:
-	RsGxsIdExchange(RsGeneralDataService* gds, RsNetworkExchangeService* ns, RsSerialType* serviceSerialiser, uint16_t mServType, uint32_t authenPolicy)
-	:RsGenExchange(gds,ns,serviceSerialiser,mServType, this, authenPolicy) { return; }
-virtual ~RsGxsIdExchange() { return; }
-
+	RsGxsIdExchange(
+	        RsGeneralDataService* gds, RsNetworkExchangeService* ns,
+	        RsSerialType* serviceSerialiser, uint16_t mServType,
+	        uint32_t authenPolicy )
+	    : RsGenExchange(
+	          gds, ns, serviceSerialiser, mServType, this, authenPolicy ) {}
 };
 
 

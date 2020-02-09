@@ -69,12 +69,12 @@ bool HashStorage::hashingProcessPaused()
 
 static std::string friendlyUnit(uint64_t val)
 {
-    const std::string units[5] = {"B","KB","MB","GB","TB"};
+    const std::string units[6] = {"B","KB","MB","GB","TB","PB"};
     char buf[50] ;
 
     double fact = 1.0 ;
 
-    for(unsigned int i=0; i<5; ++i)
+    for(unsigned int i=0; i<6; ++i)
         if(double(val)/fact < 1024.0)
         {
             sprintf(buf,"%2.2f",double(val)/fact) ;
@@ -87,7 +87,7 @@ static std::string friendlyUnit(uint64_t val)
     return  std::string(buf) + " TB";
 }
 
-void HashStorage::data_tick()
+void HashStorage::threadTick()
 {
     FileHashJob job;
     RsFileHash hash;
@@ -133,12 +133,7 @@ void HashStorage::data_tick()
 
                 if(!mChanged)	// otherwise it might prevent from saving the hash cache
                 {
-                    std::cerr << "Stopping hashing thread." << std::endl;
-                    shutdown();
-                    mRunning = false ;
-                    mTotalSizeToHash = 0;
-                    mTotalFilesToHash = 0;
-                    std::cerr << "done." << std::endl;
+                    stopHashThread();
                 }
 
                 RsServer::notify()->notifyHashingInfo(NOTIFY_HASHTYPE_FINISH, "") ;
@@ -262,10 +257,12 @@ bool HashStorage::requestHash(const std::string& full_path,uint64_t size,rstime_
         it->second.time_stamp = now ;
 
 #ifdef WINDOWS_SYS
-        if(it->second.time_stamp != (uint64_t)mod_time)
+        if(it->second.modf_stamp != (uint64_t)mod_time)
         {
             std::cerr << "(WW) detected a 1 hour shift in file modification time. This normally happens to many files at once, when daylight saving time shifts (file=\"" << full_path << "\")." << std::endl;
-            it->second.time_stamp = (uint64_t)mod_time;
+            it->second.modf_stamp = (uint64_t)mod_time;
+            mChanged = true;
+            startHashThread();
         }
 #endif
 
@@ -301,6 +298,13 @@ bool HashStorage::requestHash(const std::string& full_path,uint64_t size,rstime_
     mTotalSizeToHash += size ;
     ++mTotalFilesToHash;
 
+    startHashThread();
+
+    return false;
+}
+
+void HashStorage::startHashThread()
+{
     if(!mRunning)
     {
         mRunning = true ;
@@ -308,10 +312,22 @@ bool HashStorage::requestHash(const std::string& full_path,uint64_t size,rstime_
         mHashCounter = 0;
         mTotalHashedSize = 0;
 
-		start("fs hash cache") ;
+        start("fs hash cache") ;
     }
+}
 
-    return false;
+void HashStorage::stopHashThread()
+{
+	if(mRunning)
+	{
+		RsInfo() << __PRETTY_FUNCTION__ << "Stopping hashing thread."
+		         << std::endl;
+
+		RsThread::askForStop();
+        mRunning = false ;
+        mTotalSizeToHash = 0;
+        mTotalFilesToHash = 0;
+    }
 }
 
 void HashStorage::clean()

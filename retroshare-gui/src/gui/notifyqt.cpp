@@ -1,23 +1,23 @@
-/****************************************************************
- * This file is distributed under the following license:
- *
- * Copyright (c) 2010 RetroShare Team
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- *************************************************************************/
+/*******************************************************************************
+ * gui/NotifyQt.cpp                                                            *
+ *                                                                             *
+ * Copyright (c) 2010 Retroshare Team  <retroshare.project@gmail.com>          *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
+
 #include <retroshare/rsgxsifacehelper.h>
 
 #include <QInputDialog>
@@ -422,6 +422,7 @@ void NotifyQt::notifyPeerStatusChangedSummary()
 	emit peerStatusChangedSummary();
 }
 
+#ifdef TO_REMOVE
 void NotifyQt::notifyGxsChange(const RsGxsChanges& changes)
 {
     {
@@ -436,6 +437,7 @@ void NotifyQt::notifyGxsChange(const RsGxsChanges& changes)
 
     emit gxsChange(changes);
 }
+#endif
 
 void NotifyQt::notifyOwnStatusMessageChanged()
 {
@@ -490,20 +492,6 @@ void NotifyQt::notifyChatLobbyTimeShift(int shift)
 	std::cerr << "notifyQt: Received chat lobby time shift message: shift = " << shift << std::endl;
 #endif
 	emit chatLobbyTimeShift(shift) ;
-}
-
-void NotifyQt::notifyConnectionWithoutCert()
-{
-	{
-		QMutexLocker m(&_mutex) ;
-		if(!_enabled)
-			return ;
-	}
-
-#ifdef NOTIFY_DEBUG
-	std::cerr << "notifyQt: Received notifyConnectionWithoutCert" << std::endl;
-#endif
-	emit connectionWithoutCert();
 }
 
 void NotifyQt::handleChatLobbyTimeShift(int /*shift*/)
@@ -750,7 +738,6 @@ void NotifyQt::notifyListChange(int list, int type)
 	return;
 }
 
-
 void NotifyQt::notifyListPreChange(int list, int /*type*/)
 {
 	{
@@ -894,6 +881,7 @@ void NotifyQt::UpdateGUI()
 					}
 					break;
 				case RS_POPUP_GROUPCHAT:
+#ifdef RS_DIRECT_CHAT
 					if ((popupflags & RS_POPUP_GROUPCHAT) && !_disableAllToaster)
 					{
 						MainWindow *mainWindow = MainWindow::getInstance();
@@ -907,6 +895,7 @@ void NotifyQt::UpdateGUI()
 						}
 						toaster = new ToasterItem(new GroupChatToaster(RsPeerId(id), QString::fromUtf8(msg.c_str())));
 					}
+#endif // RS_DIRECT_CHAT
 					break;
 				case RS_POPUP_CHATLOBBY:
 					if ((popupflags & RS_POPUP_CHATLOBBY) && !_disableAllToaster)
@@ -1041,7 +1030,9 @@ void NotifyQt::testToasters(uint notifyFlags, /*RshareSettings::enumToasterPosit
                 toaster = new ToasterItem(new ChatToaster(id, message));
 				break;
 			case RS_POPUP_GROUPCHAT:
+#ifdef RS_DIRECT_CHAT
 				toaster = new ToasterItem(new GroupChatToaster(id, message));
+#endif // RS_DIRECT_CHAT
 				break;
 			case RS_POPUP_CHATLOBBY:
 				{

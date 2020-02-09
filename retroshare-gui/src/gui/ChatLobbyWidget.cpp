@@ -1,3 +1,23 @@
+/*******************************************************************************
+ * gui/ChatLobbyWidget.cpp                                                     *
+ *                                                                             *
+ * Copyright (C) 2012 Retroshare Team <retroshare.project@gmail.com>           *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
+
 
 #include "ChatLobbyWidget.h"
 
@@ -34,8 +54,7 @@
 #define COLUMN_NAME       0
 #define COLUMN_USER_COUNT 1
 #define COLUMN_TOPIC      2
-#define COLUMN_SUBSCRIBED 3
-#define COLUMN_COUNT      4
+#define COLUMN_COUNT      3
 #define COLUMN_DATA       0
 
 #define ROLE_SORT          Qt::UserRole
@@ -50,16 +69,17 @@
 #define TYPE_LOBBY        1
 
 #define IMAGE_CREATE          ""
-#define IMAGE_PUBLIC          ":/images/chat_x24.png"
-#define IMAGE_PRIVATE         ":/images/chat_red24.png"
-#define IMAGE_SUBSCRIBE       ":/images/edit_add24.png"  
-#define IMAGE_UNSUBSCRIBE     ":/images/cancel.png"
+#define IMAGE_PUBLIC          ":/icons/png/chats.png"
+#define IMAGE_PRIVATE         ":/icons/png/chats-private.png"
+#define IMAGE_SIGNED          ":/icons/png/chats-signed.png"
+#define IMAGE_SUBSCRIBE       ":/icons/png/enter.png"  
+#define IMAGE_UNSUBSCRIBE     ":/icons/png/leave2.png"
 #define IMAGE_PEER_ENTERING   ":images/user/add_user24.png"
 #define IMAGE_PEER_LEAVING    ":images/user/remove_user24.png"
-#define IMAGE_TYPING		      ":images/typing.png" 
+#define IMAGE_TYPING          ":icons/png/typing.png" 
 #define IMAGE_MESSAGE	      ":images/chat.png" 
 #define IMAGE_AUTOSUBSCRIBE   ":images/accepted16.png"
-#define IMAGE_COPYRSLINK      ":/images/copyrslink.png"
+#define IMAGE_COPYRSLINK      ":/icons/png/copy.png"
 
 ChatLobbyWidget::ChatLobbyWidget(QWidget *parent, Qt::WindowFlags flags)
   : RsAutoUpdatePage(5000, parent, flags)
@@ -95,17 +115,14 @@ ChatLobbyWidget::ChatLobbyWidget(QWidget *parent, Qt::WindowFlags flags)
 	headerItem->setText(COLUMN_NAME, tr("Name"));
 	headerItem->setText(COLUMN_USER_COUNT, tr("Count"));
 	headerItem->setText(COLUMN_TOPIC, tr("Topic"));
-    headerItem->setText(COLUMN_SUBSCRIBED, tr("Subscribed"));
 	headerItem->setTextAlignment(COLUMN_NAME, Qt::AlignHCenter | Qt::AlignVCenter);
 	headerItem->setTextAlignment(COLUMN_TOPIC, Qt::AlignHCenter | Qt::AlignVCenter);
 	headerItem->setTextAlignment(COLUMN_USER_COUNT, Qt::AlignHCenter | Qt::AlignVCenter);
-	headerItem->setTextAlignment(COLUMN_SUBSCRIBED, Qt::AlignHCenter | Qt::AlignVCenter);
 
 	QHeaderView *header = ui.lobbyTreeWidget->header();
 	QHeaderView_setSectionResizeModeColumn(header, COLUMN_NAME, QHeaderView::Interactive);
 	QHeaderView_setSectionResizeModeColumn(header, COLUMN_USER_COUNT, QHeaderView::Interactive);
 	QHeaderView_setSectionResizeModeColumn(header, COLUMN_TOPIC, QHeaderView::Interactive);
-    QHeaderView_setSectionResizeModeColumn(header, COLUMN_SUBSCRIBED, QHeaderView::Interactive);
 
     privateSubLobbyItem = new RSTreeWidgetItem(compareRole, TYPE_FOLDER);
     privateSubLobbyItem->setText(COLUMN_NAME, tr("Private Subscribed chat rooms"));
@@ -139,7 +156,6 @@ ChatLobbyWidget::ChatLobbyWidget(QWidget *parent, Qt::WindowFlags flags)
 	ui.lobbyTreeWidget->setColumnHidden(COLUMN_NAME,false) ;
 	ui.lobbyTreeWidget->setColumnHidden(COLUMN_USER_COUNT,true) ;
 	ui.lobbyTreeWidget->setColumnHidden(COLUMN_TOPIC,true) ;
-	ui.lobbyTreeWidget->setColumnHidden(COLUMN_SUBSCRIBED,true) ;
 	ui.lobbyTreeWidget->setSortingEnabled(true) ;
 
     	float fact = QFontMetricsF(font()).height()/14.0f;
@@ -156,9 +172,6 @@ ChatLobbyWidget::ChatLobbyWidget(QWidget *parent, Qt::WindowFlags flags)
     showTopicAct= new QAction(headerItem->text(COLUMN_TOPIC),this);
     showTopicAct->setCheckable(true); showTopicAct->setToolTip(tr("Show")+" "+showTopicAct->text()+" "+tr("column"));
     connect(showTopicAct,SIGNAL(triggered(bool)),this,SLOT(setShowTopicColumn(bool))) ;
-    showSubscribeAct= new QAction(headerItem->text(COLUMN_SUBSCRIBED),this);
-    showSubscribeAct->setCheckable(true); showSubscribeAct->setToolTip(tr("Show")+" "+showSubscribeAct->text()+" "+tr("column"));
-    connect(showSubscribeAct,SIGNAL(triggered(bool)),this,SLOT(setShowSubscribeColumn(bool))) ;
 
 	// Set initial size of the splitter
 	ui.splitter->setStretchFactor(0, 0);
@@ -199,6 +212,8 @@ ChatLobbyWidget::ChatLobbyWidget(QWidget *parent, Qt::WindowFlags flags)
                           ).arg(QString::number(2*S)).arg(QString::number(S)) ;
 
 	    registerHelpButton(ui.helpButton,help_str,"ChatLobbyDialog") ;
+		
+	ui.lobbyTreeWidget->setIconSize(QSize(S*1.5,S*1.5));	
 }
 
 ChatLobbyWidget::~ChatLobbyWidget()
@@ -310,8 +325,8 @@ void ChatLobbyWidget::lobbyTreeWidgetCustomPopupMenu(QPoint)
 
                     QPixmap pixmap ;
 
-                    if(idd.mAvatar.mSize == 0 || !pixmap.loadFromData(idd.mAvatar.mData, idd.mAvatar.mSize, "PNG"))
-                        pixmap = QPixmap::fromImage(GxsIdDetails::makeDefaultIcon(*it)) ;
+                    if(idd.mAvatar.mSize == 0 || !GxsIdDetails::loadPixmapFromData(idd.mAvatar.mData, idd.mAvatar.mSize, pixmap, GxsIdDetails::SMALL))
+                        pixmap = GxsIdDetails::makeDefaultIcon(*it,GxsIdDetails::SMALL) ;
 
                     QAction *action = mnu->addAction(QIcon(pixmap), QString("%1 (%2)").arg(QString::fromUtf8(idd.mNickname.c_str()), QString::fromStdString((*it).toStdString())), this, SLOT(subscribeChatLobbyAs()));
                     action->setData(QString::fromStdString((*it).toStdString())) ;
@@ -319,10 +334,14 @@ void ChatLobbyWidget::lobbyTreeWidgetCustomPopupMenu(QPoint)
             }
         }
 
+#ifdef TO_BE_REMOVED
+        // This code is not needed anymore because AutoSubscribe is now automatically handled with chat room subscription.
+
         if (item->data(COLUMN_DATA, ROLE_AUTOSUBSCRIBE).toBool())
             contextMnu.addAction(QIcon(IMAGE_AUTOSUBSCRIBE), tr("Remove Auto Subscribe"), this, SLOT(autoSubscribeItem()));
         else if(!own_identities.empty())
             contextMnu.addAction(QIcon(IMAGE_SUBSCRIBE), tr("Add Auto Subscribe"), this, SLOT(autoSubscribeItem()));
+#endif
 
         contextMnu.addAction(QIcon(IMAGE_COPYRSLINK), tr("Copy RetroShare Link"), this, SLOT(copyItemLink()));
     }
@@ -331,12 +350,10 @@ void ChatLobbyWidget::lobbyTreeWidgetCustomPopupMenu(QPoint)
 
         showUserCountAct->setChecked(!ui.lobbyTreeWidget->isColumnHidden(COLUMN_USER_COUNT));
         showTopicAct->setChecked(!ui.lobbyTreeWidget->isColumnHidden(COLUMN_TOPIC));
-        showSubscribeAct->setChecked(!ui.lobbyTreeWidget->isColumnHidden(COLUMN_SUBSCRIBED));
 
         QMenu *menu = contextMnu.addMenu(tr("Columns"));
         menu->addAction(showUserCountAct);
         menu->addAction(showTopicAct);
-        menu->addAction(showSubscribeAct);
 
         contextMnu.exec(QCursor::pos());
 }
@@ -364,8 +381,6 @@ static void updateItem(QTreeWidget *treeWidget, QTreeWidgetItem *item, ChatLobby
 
     //item->setText(COLUMN_USER_COUNT, QString::number(count));
     item->setData(COLUMN_USER_COUNT, Qt::EditRole, count);
-
-    item->setText(COLUMN_SUBSCRIBED, subscribed?qApp->translate("ChatLobbyWidget", "Yes"):qApp->translate("ChatLobbyWidget", "No"));
 
 	item->setData(COLUMN_DATA, ROLE_ID, (qulonglong)id);
 	item->setData(COLUMN_DATA, ROLE_SUBSCRIBED, subscribed);
@@ -595,19 +610,16 @@ void ChatLobbyWidget::updateDisplay()
 			item->setIcon(COLUMN_NAME, subscribed ? icon : icon.pixmap(ui.lobbyTreeWidget->iconSize(), QIcon::Disabled));
 		}
 
+        // In the new model (after lobby save to disk) the auto-subscribe flag is used to automatically join lobbies that where
+        // previously being used when the t software quits.
+
 		bool autoSubscribe = rsMsgs->getLobbyAutoSubscribe(lobby.lobby_id);
 
-		if (autoSubscribe && subscribed)
+		if (autoSubscribe && subscribed && _lobby_infos.find(lobby.lobby_id) == _lobby_infos.end())
 		{
-			if(_lobby_infos.find(lobby.lobby_id) == _lobby_infos.end())
-			{
-				if (item == ui.lobbyTreeWidget->currentItem())
-				{
-                    ChatDialog::chatFriend(ChatId(lobby.lobby_id)) ;
-				}else{
-                    ChatDialog::chatFriend(ChatId(lobby.lobby_id),false) ;
-				}
-			}
+			ChatDialog *cd = ChatDialog::getChat(ChatId(lobby.lobby_id), RS_CHAT_OPEN);
+
+			addChatPage(dynamic_cast<ChatLobbyDialog*>(cd));
 		}
 
 		updateItem(ui.lobbyTreeWidget, item, lobby.lobby_id, lobby.lobby_name,lobby.lobby_topic, lobby.total_number_of_peers, subscribed, autoSubscribe,lobby_flags);
@@ -666,6 +678,16 @@ void ChatLobbyWidget::updateDisplay()
 		bool autoSubscribe = rsMsgs->getLobbyAutoSubscribe(lobby.lobby_id);
 
         updateItem(ui.lobbyTreeWidget, item, lobby.lobby_id, lobby.lobby_name,lobby.lobby_topic, lobby.gxs_ids.size(), true, autoSubscribe,lobby_flags);
+
+		std::map<ChatLobbyId,ChatLobbyInfoStruct>::iterator it = _lobby_infos.find(lobby.lobby_id) ;
+
+        // look for chat rooms that are subscribed but not displayed as such
+
+        if(it == _lobby_infos.end() && rsMsgs->joinVisibleChatLobby(lobby.lobby_id,lobby.gxs_id))
+        {
+            std::cerr << "Adding back ChatLobbyDialog for subscribed lobby " << std::hex << lobby.lobby_id << std::dec << std::endl;
+			ChatDialog::chatFriend(ChatId(lobby.lobby_id),true) ;
+        }
 	}
 	publicSubLobbyItem->setHidden(publicSubLobbyItem->childCount()==0);
 	publicSubLobbyItem->setText(COLUMN_NAME, tr("Public Subscribed chat rooms")+ QString(" (") + QString::number(publicSubLobbyItem->childCount())+QString(")"));
@@ -1263,7 +1285,6 @@ void ChatLobbyWidget::processSettings(bool bLoad)
 
 		setShowUserCountColumn(Settings->value("showUserCountColumn", !ui.lobbyTreeWidget->isColumnHidden(COLUMN_USER_COUNT)).toBool());
 		setShowTopicColumn(Settings->value("showTopicColumn", !ui.lobbyTreeWidget->isColumnHidden(COLUMN_TOPIC)).toBool());
-		setShowSubscribeColumn(Settings->value("showSubscribeColumn", !ui.lobbyTreeWidget->isColumnHidden(COLUMN_SUBSCRIBED)).toBool());
 	} else {
 		// save settings
 		Settings->setValue("splitter", ui.splitter->saveState());
@@ -1272,7 +1293,6 @@ void ChatLobbyWidget::processSettings(bool bLoad)
 
 		Settings->setValue("showUserCountColumn", !ui.lobbyTreeWidget->isColumnHidden(COLUMN_USER_COUNT));
 		Settings->setValue("showTopicColumn", !ui.lobbyTreeWidget->isColumnHidden(COLUMN_TOPIC));
-		Settings->setValue("showSubscribeColumn", !ui.lobbyTreeWidget->isColumnHidden(COLUMN_SUBSCRIBED));
 	}
 
 	Settings->endGroup();
@@ -1291,14 +1311,6 @@ void ChatLobbyWidget::setShowTopicColumn(bool show)
 {
 	if (ui.lobbyTreeWidget->isColumnHidden(COLUMN_TOPIC) == show) {
 		ui.lobbyTreeWidget->setColumnHidden(COLUMN_TOPIC, !show);
-	}
-	ui.lobbyTreeWidget->header()->setVisible(getNumColVisible()>1);
-}
-
-void ChatLobbyWidget::setShowSubscribeColumn(bool show)
-{
-	if (ui.lobbyTreeWidget->isColumnHidden(COLUMN_SUBSCRIBED) == show) {
-		ui.lobbyTreeWidget->setColumnHidden(COLUMN_SUBSCRIBED, !show);
 	}
 	ui.lobbyTreeWidget->header()->setVisible(getNumColVisible()>1);
 }

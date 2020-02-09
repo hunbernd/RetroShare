@@ -160,7 +160,6 @@ int 	p3ServerConfig::getConfigNetStatus(RsConfigNetStatus &status)
 	pqiNetStatus nstatus;
 	mNetMgr->getNetStatus(nstatus);
 
-	status.netLocalOk = nstatus.mLocalAddrOk;
 	status.netUpnpOk  = nstatus.mUpnpOk;
 	status.netStunOk  = false;
 	status.netExtAddressOk = nstatus.mExtAddrOk;
@@ -560,4 +559,8 @@ int p3ServerConfig::GetCurrentDataRates( float &inKb, float &outKb )
 	return 1;
 }
 
-
+int p3ServerConfig::GetTrafficSum(uint64_t &inb, uint64_t &outb )
+{
+	mPqiHandler->GetTraffic(inb, outb);
+	return 1;
+}

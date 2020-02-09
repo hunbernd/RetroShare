@@ -1,23 +1,22 @@
-/****************************************************************
- *  RetroShare is distributed under the following license:
- *
- *  Copyright (C) 2008 Robert Fernie
- *
- *  This program is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU General Public License
- *  as published by the Free Software Foundation; either version 2
- *  of the License, or (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor,
- *  Boston, MA  02110-1301, USA.
- ****************************************************************/
+/*******************************************************************************
+ * retroshare-gui/src/gui/gxsforums/GxsForumsDialog.cpp                        *
+ *                                                                             *
+ * Copyright 2013 Robert Fernie        <retroshare.project@gmail.com>          *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 
 #include "GxsForumsDialog.h"
 #include "GxsForumGroupDialog.h"
@@ -26,6 +25,7 @@
 #include "GxsForumUserNotify.h"
 #include "gui/notifyqt.h"
 #include "gui/gxs/GxsGroupShareKey.h"
+#include "util/qtthreadsutils.h"
 #include "gui/common/GroupTreeWidget.h"
 
 class GxsForumGroupInfoData : public RsUserdata
@@ -42,6 +42,29 @@ GxsForumsDialog::GxsForumsDialog(QWidget *parent)
 	: GxsGroupFrameDialog(rsGxsForums, parent)
 {
 	mCountChildMsgs = true;
+    mEventHandlerId = 0;
+    // Needs to be asynced because this function is likely to be called by another thread!
+
+	rsEvents->registerEventsHandler(RsEventType::GXS_FORUMS, [this](std::shared_ptr<const RsEvent> event) {   RsQThreadUtils::postToObject( [=]() { handleEvent_main_thread(event); }, this ); }, mEventHandlerId );
+}
+
+void GxsForumsDialog::handleEvent_main_thread(std::shared_ptr<const RsEvent> event)
+{
+    if(event->mType == RsEventType::GXS_FORUMS)
+    {
+        const RsGxsForumEvent *e = dynamic_cast<const RsGxsForumEvent*>(event.get());
+
+        if(!e)
+            return;
+
+        switch(e->mForumEventCode)
+        {
+        case RsForumEventCode::SUBSCRIBE_STATUS_CHANGED: updateDisplay(true);
+            break;
+        default:
+            break;
+        }
+    }
 }
 
 GxsForumsDialog::~GxsForumsDialog()
@@ -115,19 +138,21 @@ QString GxsForumsDialog::icon(IconType type)
 {
 	switch (type) {
 	case ICON_NAME:
-		return ":/icons/png/forums.png";
+		return ":/icons/png/forum.png";
 	case ICON_NEW:
 		return ":/icons/png/add.png";
 	case ICON_YOUR_GROUP:
-		return ":/images/folder16.png";
+		return ":/icons/png/feedreader.png";
 	case ICON_SUBSCRIBED_GROUP:
-		return ":/images/folder_red.png";
+		return ":/icons/png/feed-subscribed.png";
 	case ICON_POPULAR_GROUP:
-		return ":/images/folder_green.png";
+		return ":/icons/png/feed-popular.png";
 	case ICON_OTHER_GROUP:
-		return ":/images/folder_yellow.png";
+		return ":/icons/png/feed-other.png";
+	case ICON_SEARCH:
+		return ":/images/find.png";
 	case ICON_DEFAULT:
-		return ":/images/konversation.png";
+		return ":/icons/png/forums-default.png";
 	}
 
 	return "";
@@ -192,6 +217,6 @@ void GxsForumsDialog::groupInfoToGroupItemInfo(const RsGroupMetaData &groupInfo,
 	//if (IS_GROUP_ADMIN(groupInfo.mSubscribeFlags)) 
 	//	groupItemInfo.icon = QIcon(":images/konv_message2.png");
 	if ((IS_GROUP_PGP_AUTHED(groupInfo.mSignFlags)) || (IS_GROUP_MESSAGE_TRACKING(groupInfo.mSignFlags)) )
-		groupItemInfo.icon = QIcon(":images/konv_message3.png");
+		groupItemInfo.icon = QIcon(":icons/png/forums-signed.png");
 
 }

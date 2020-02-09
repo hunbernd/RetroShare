@@ -1,23 +1,22 @@
-/****************************************************************
- *  RetroShare is distributed under the following license:
- *
- *  Copyright (C) 2006, 2007 crypton
- *
- *  This program is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU General Public License
- *  as published by the Free Software Foundation; either version 2
- *  of the License, or (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor,
- *  Boston, MA  02110-1301, USA.
- ****************************************************************/
+/*******************************************************************************
+ * gui/MainWindow.cpp                                                          *
+ *                                                                             *
+ * Copyright (c) 2006 Crypton          <retroshare.project@gmail.com>          *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 
 #include <QColorDialog>
 #include <QDesktopServices>
@@ -32,16 +31,19 @@
 #include <retroshare/rsplugin.h>
 #include <retroshare/rsconfig.h>
 
+#ifdef MESSENGER_WINDOW
+#include "MessengerWindow.h"
+#endif
+
 #include "rshare.h"
 #include "MainWindow.h"
 #include "ui_MainWindow.h"
-#include "MessengerWindow.h"
 #include "HomePage.h"
 #include "NetworkDialog.h"
 #include "gui/FileTransfer/SearchDialog.h"
 #include "gui/FileTransfer/SharedFilesDialog.h"
 #include "gui/FileTransfer/TransfersDialog.h"
-#include "MessagesDialog.h"
+#include "gui/msgs/MessagesDialog.h"
 #include "PluginsPage.h"
 #include "NewsFeed.h"
 #include "ShareManager.h"
@@ -111,7 +113,7 @@
 #include "common/StatusDefs.h"
 #include "gui/notifyqt.h"
 
-#ifdef ENABLE_WEBUI
+#ifdef RS_WEBUI
 #	include "settings/WebuiPage.h"
 #endif
 
@@ -119,8 +121,11 @@
 #include <unistd.h>
 
 #define IMAGE_QUIT              ":/icons/png/exit.png"
-#define IMAGE_PREFERENCES       ":/icons/png/options.png"
+#define IMAGE_PREFERENCES       ":/icons/png/options2.png"
 #define IMAGE_ABOUT             ":/icons/png/info.png"
+#define IMAGE_STATS             ":/icons/png/netgraph2.png"
+#define IMAGE_CLOSE             ":/icons/png/exit2.png"
+
 #define IMAGE_ADDFRIEND         ":/icons/png/invite.png"
 #define IMAGE_RETROSHARE        ":/icons/logo_128.png"
 #define IMAGE_NOONLINE          ":/icons/logo_0_connected_128.png"
@@ -128,9 +133,8 @@
 #define IMAGE_TWOONLINE         ":/icons/logo_2_connected_128.png"
 #define IMAGE_OVERLAY           ":/icons/star_overlay_128.png"
 
-#define IMAGE_BWGRAPH           ":/images/ksysguard.png"
+#define IMAGE_BWGRAPH           ":/icons/png/bandwidth.png"
 #define IMAGE_MESSENGER         ":/images/rsmessenger48.png"
-#define IMAGE_CLOSE             ":/images/close_normal.png"
 #define IMAGE_BLOCK         	":/images/blockdevice.png"
 #define IMAGE_COLOR         	":/images/highlight.png"
 #define IMAGE_GAMES             ":/images/kgames.png"
@@ -144,7 +148,6 @@
 
 #define IMAGE_PLUGINS           ":/images/extension_32.png"
 #define IMAGE_BLOGS             ":/images/kblogger.png"
-#define IMAGE_DHT               ":/images/dht16.png"
 
 /*static*/ bool MainWindow::hiddenmode = false;
 
@@ -172,6 +175,16 @@ MainWindow::MainWindow(QWidget* parent, Qt::WindowFlags flags)
 {
     ui = new Ui::MainWindow;
     trayIcon = NULL;
+
+	friendsDialog=NULL;
+	idDialog=NULL;
+	chatLobbyDialog=NULL;
+	settingsDialog=NULL;
+	transfersDialog=NULL;
+	messagesDialog=NULL;
+	gxschannelDialog=NULL;
+	gxsforumDialog=NULL;
+	postedDialog=NULL;
 
     /* Invoke the Qt Designer generated QObject setup routine */
     ui->setupUi(this);
@@ -360,7 +373,9 @@ MainWindow::~MainWindow()
     delete soundStatus;
     delete toasterDisable;
     delete sysTrayStatus;
+#ifdef MESSENGER_WINDOW
     MessengerWindow::releaseInstance();
+#endif
 #ifdef UNFINISHED
     delete applicationWindow;
 #endif
@@ -587,13 +602,17 @@ void MainWindow::createTrayIcon()
     notifyMenu->menuAction()->setVisible(false);
 
     trayMenu->addSeparator();
+#ifdef MESSENGER_WINDOW
     trayMenu->addAction(QIcon(IMAGE_MESSENGER), tr("Open Messenger"), this, SLOT(showMessengerWindow()));
+#endif
     trayMenu->addAction(QIcon(IMAGE_MESSAGES), tr("Open Messages"), this, SLOT(showMess()));
-#ifdef ENABLE_WEBUI
+#ifdef RS_JSONAPI
+#ifdef RS_WEBUI
     trayMenu->addAction(QIcon(":/images/emblem-web.png"), tr("Show web interface"), this, SLOT(showWebinterface()));
-#endif // ENABLE_WEBUI
+#endif
+#endif
     trayMenu->addAction(QIcon(IMAGE_BWGRAPH), tr("Bandwidth Graph"), this, SLOT(showBandwidthGraph()));
-    trayMenu->addAction(QIcon(IMAGE_DHT), tr("Statistics"), this, SLOT(showStatisticsWindow()));
+    trayMenu->addAction(QIcon(IMAGE_STATS), tr("Statistics"), this, SLOT(showStatisticsWindow()));
 
 
 #ifdef UNFINISHED
@@ -731,9 +750,12 @@ void MainWindow::updateStatus()
     float downKb = 0;
     float upKb = 0;
     rsConfig->GetCurrentDataRates(downKb, upKb);
+	uint64_t down = 0;
+	uint64_t up = 0;
+	rsConfig->GetTrafficSum(down, up);
 
     if (ratesstatus)
-        ratesstatus->getRatesStatus(downKb, upKb);
+        ratesstatus->getRatesStatus(downKb, down, upKb, up);
 
     if(torstatus)
         torstatus->getTorStatus();
@@ -1083,11 +1105,13 @@ void MainWindow::showSettings()
     showWindow(MainWindow::Options);
 }
 
+#ifdef MESSENGER_WINDOW
 /** Shows Messenger window */
 void MainWindow::showMessengerWindow()
 {
     MessengerWindow::showYourself();
 }
+#endif
 
 /** Shows Statistics window */
 void MainWindow::showStatisticsWindow()
@@ -1095,12 +1119,14 @@ void MainWindow::showStatisticsWindow()
     StatisticsWindow::showYourself();
 }
 
-#ifdef ENABLE_WEBUI
+#ifdef RS_JSONAPI
+#ifdef RS_WEBUI
 void MainWindow::showWebinterface()
 {
     WebuiPage::showWebui();
 }
 #endif // ENABLE_WEBUI
+#endif 
 
 /** Shows Application window */
 #ifdef UNFINISHED

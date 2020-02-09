@@ -87,9 +87,9 @@ if %errorlevel%==2 exit /B 1
 :no_confirm
 
 if "%RsBuildConfig%" NEQ "release" (
-	set RsGitLog=%DeployPath%\RetroShare-%RsVersion%-Windows-Portable-%RsDate%-%RsRevision%-Qt-%QtVersion%%RsType%-msys2%RsArchiveAdd%-%RsBuildConfig%.txt
+	set RsGitLog=%DeployPath%\RetroShare-%RsVersion%-Windows-Portable-%RsDate%-%RsRevision%-Qt-%QtVersion%-%RsArchitecture%%RsType%-msys2%RsArchiveAdd%-%RsBuildConfig%.txt
 ) else (
-	set RsGitLog=%DeployPath%\RetroShare-%RsVersion%-Windows-Portable-%RsDate%-%RsRevision%-Qt-%QtVersion%%RsType%-msys2%RsArchiveAdd%.txt
+	set RsGitLog=%DeployPath%\RetroShare-%RsVersion%-Windows-Portable-%RsDate%-%RsRevision%-Qt-%QtVersion%-%RsArchitecture%%RsType%-msys2%RsArchiveAdd%.txt
 )
 
 title %SourceName%-%RsBuildConfig% [git log]

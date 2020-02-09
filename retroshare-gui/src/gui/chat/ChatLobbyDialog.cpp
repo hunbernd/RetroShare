@@ -1,27 +1,24 @@
-/****************************************************************
- *
- *  RetroShare is distributed under the following license:
- *
- *  Copyright (C) 2011, csoler
- *
- *  This program is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU General Public License
- *  as published by the Free Software Foundation; either version 2
- *  of the License, or (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor,
- *  Boston, MA  02110-1301, USA.
- *
- ****************************************************************/
-
-
+/*******************************************************************************
+ * gui/chat/ChatLobbyDialog.cpp                                                *
+ *                                                                             *
+ * LibResAPI: API for local socket server                                      *
+ *                                                                             *
+ * Copyright (C) 2006 Cyril Soler <csoler@users.sourceforge.net>               *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 #include <QInputDialog>
 #include <QMenu>
 #include <QMessageBox>
@@ -135,8 +132,8 @@ ChatLobbyDialog::ChatLobbyDialog(const ChatLobbyId& lid, QWidget *parent, Qt::Wi
 	// Add a button to invite friends.
 	//
 	inviteFriendsButton = new QToolButton ;
-	inviteFriendsButton->setMinimumSize(icon_size);
-	inviteFriendsButton->setMaximumSize(icon_size);
+	//inviteFriendsButton->setMinimumSize(icon_size);
+	//inviteFriendsButton->setMaximumSize(icon_size);
 	inviteFriendsButton->setText(QString()) ;
 	inviteFriendsButton->setAutoRaise(true) ;
 	inviteFriendsButton->setToolTip(tr("Invite friends to this lobby"));
@@ -180,8 +177,8 @@ ChatLobbyDialog::ChatLobbyDialog(const ChatLobbyId& lid, QWidget *parent, Qt::Wi
     connect(ownIdChooser,SIGNAL(currentIndexChanged(int)),this,SLOT(changeNickname())) ;
 
 	unsubscribeButton = new QToolButton;
-	unsubscribeButton->setMinimumSize(icon_size);
-	unsubscribeButton->setMaximumSize(icon_size);
+	//unsubscribeButton->setMinimumSize(icon_size);
+	//unsubscribeButton->setMaximumSize(icon_size);
 	unsubscribeButton->setText(QString()) ;
 	unsubscribeButton->setAutoRaise(true) ;
 	unsubscribeButton->setToolTip(tr("Leave this chat room (Unsubscribe)"));
@@ -280,7 +277,7 @@ void ChatLobbyDialog::initParticipantsContextMenu(QMenu *contextMnu, QList<RsGxs
 	contextMnu->addAction(showInPeopleAct);
 
 	distantChatAct->setEnabled(false);
-	sendMessageAct->setEnabled(true);
+	sendMessageAct->setEnabled(false);
 	muteAct->setEnabled(false);
 	muteAct->setCheckable(true);
 	muteAct->setChecked(false);
@@ -302,9 +299,18 @@ void ChatLobbyDialog::initParticipantsContextMenu(QMenu *contextMnu, QList<RsGxs
 	if(!gxsid.isNull() && !rsIdentity->isOwnId(gxsid))
 	{
 		distantChatAct->setEnabled(true);
-		votePositiveAct->setEnabled(rsReputations->overallReputationLevel(gxsid) != RsReputations::REPUTATION_LOCALLY_POSITIVE);
-		voteNeutralAct->setEnabled((rsReputations->overallReputationLevel(gxsid) == RsReputations::REPUTATION_LOCALLY_POSITIVE) || (rsReputations->overallReputationLevel(gxsid) == RsReputations::REPUTATION_LOCALLY_NEGATIVE) );
-		voteNegativeAct->setEnabled(rsReputations->overallReputationLevel(gxsid) != RsReputations::REPUTATION_LOCALLY_NEGATIVE);
+		sendMessageAct->setEnabled(true);
+		votePositiveAct->setEnabled(
+		            rsReputations->overallReputationLevel(gxsid) !=
+		        RsReputationLevel::LOCALLY_POSITIVE );
+		voteNeutralAct->setEnabled(
+		            ( rsReputations->overallReputationLevel(gxsid) ==
+		              RsReputationLevel::LOCALLY_POSITIVE ) ||
+		            ( rsReputations->overallReputationLevel(gxsid) ==
+		              RsReputationLevel::LOCALLY_NEGATIVE ) );
+		voteNegativeAct->setEnabled(
+		            rsReputations->overallReputationLevel(gxsid) !=
+		        RsReputationLevel::LOCALLY_NEGATIVE );
 		muteAct->setEnabled(true);
 		muteAct->setChecked(isParticipantMuted(gxsid));
 	}
@@ -321,16 +327,15 @@ void ChatLobbyDialog::voteParticipant()
 
 	QList<RsGxsId> idList = act->data().value<QList<RsGxsId>>();
 
-	RsReputations::Opinion op = RsReputations::OPINION_NEUTRAL ;
-	if (act == votePositiveAct)
-		op = RsReputations::OPINION_POSITIVE;
-	if (act == voteNegativeAct)
-		op = RsReputations::OPINION_NEGATIVE;
+	RsOpinion op = RsOpinion::NEUTRAL;
+	if (act == votePositiveAct)	op = RsOpinion::POSITIVE;
+	if (act == voteNegativeAct)	op = RsOpinion::NEGATIVE;
 
 	for (QList<RsGxsId>::iterator item = idList.begin(); item != idList.end(); ++item)
 	{
 		rsReputations->setOwnOpinion(*item, op);
-		std::cerr << "Giving opinion to GXS id " << *item << " to " << op << std::endl;
+		std::cerr << "Giving opinion to GXS id " << *item << " to "
+		          << static_cast<uint32_t>(op) << std::endl;
 	}
 
 	updateParticipantsList();
@@ -419,9 +424,8 @@ ChatLobbyDialog::~ChatLobbyDialog()
 	// announce leaving of lobby
 
 	// check that the lobby still exists.
-    if (mChatId.isLobbyId()) {
-        rsMsgs->unsubscribeChatLobby(mChatId.toLobbyId());
-	}
+    if (mChatId.isLobbyId())
+        rsMsgs->sendLobbyStatusPeerLeaving(mChatId.toLobbyId());
 
 	// save settings
 	processSettings(false);
@@ -907,7 +911,10 @@ void ChatLobbyDialog::showDialog(uint chatflags)
 	if (chatflags & RS_CHAT_FOCUS)
 	{
 		MainWindow::showWindow(MainWindow::ChatLobby);
-		dynamic_cast<ChatLobbyWidget*>(MainWindow::getPage(MainWindow::ChatLobby))->setCurrentChatPage(this) ;
+        MainPage *p = MainWindow::getPage(MainWindow::ChatLobby);
+
+        if(p != NULL)
+			dynamic_cast<ChatLobbyWidget*>(p)->setCurrentChatPage(this) ;
 	}
 }
 

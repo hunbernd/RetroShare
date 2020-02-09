@@ -1,23 +1,49 @@
-/****************************************************************
- *  RetroShare is distributed under the following license:
- *
- *  Copyright (C) 2006,2007 crypton
- *
- *  This program is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU General Public License
- *  as published by the Free Software Foundation; either version 2
- *  of the License, or (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor,
- *  Boston, MA  02110-1301, USA.
- ****************************************************************/
+/*******************************************************************************
+ * retroshare-gui/src/gui/FileTransfer/TransfersDialog.cpp                     *
+ *                                                                             *
+ * Copyright (c) 2007 Crypton         <retroshare.project@gmail.com>           *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
+
+#include "TransfersDialog.h"
+
+#include "gui/notifyqt.h"
+#include "gui/RetroShareLink.h"
+#include "gui/common/FilesDefs.h"
+#include "gui/common/RsCollection.h"
+#include "gui/common/RSTreeView.h"
+#include "gui/common/RsUrlHandler.h"
+#include "gui/FileTransfer/DetailsDialog.h"
+#include "gui/FileTransfer/DLListDelegate.h"
+#include "gui/FileTransfer/FileTransferInfoWidget.h"
+#include "gui/FileTransfer/SearchDialog.h"
+#include "gui/FileTransfer/SharedFilesDialog.h"
+#include "gui/FileTransfer/TransferUserNotify.h"
+#include "gui/FileTransfer/ULListDelegate.h"
+#include "gui/FileTransfer/xprogressbar.h"
+#include "gui/settings/rsharesettings.h"
+#include "util/misc.h"
+#include "util/QtVersion.h"
+#include "util/RsFile.h"
+
+#include "retroshare/rsdisc.h"
+#include "retroshare/rsfiles.h"
+#include "retroshare/rspeers.h"
+#include "retroshare/rsplugin.h"
+#include "retroshare/rsturtle.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -30,37 +56,9 @@
 #include <QShortcut>
 #include <QStandardItemModel>
 
-#include <gui/common/FilesDefs.h>
-#include <gui/common/RsCollection.h>
-#include <gui/common/RsUrlHandler.h>
-#include <gui/common/RSTreeView.h>
-
 #include <algorithm>
 #include <limits>
 #include <math.h>
-
-#include "TransfersDialog.h"
-#include <gui/RetroShareLink.h>
-#include "DetailsDialog.h"
-#include "DLListDelegate.h"
-#include "ULListDelegate.h"
-#include "FileTransferInfoWidget.h"
-#include <gui/FileTransfer/SearchDialog.h>
-#include <gui/FileTransfer/SharedFilesDialog.h>
-#include "xprogressbar.h"
-#include <gui/settings/rsharesettings.h>
-#include "util/misc.h"
-#include <gui/common/RsCollection.h>
-#include "TransferUserNotify.h"
-#include "util/QtVersion.h"
-#include "util/RsFile.h"
-
-#include <retroshare/rsfiles.h>
-#include <retroshare/rspeers.h>
-#include <retroshare/rsdisc.h>
-#include <retroshare/rsplugin.h>
-
-#include <retroshare/rsturtle.h>
 
 /* Images for context menu icons */
 #define IMAGE_INFO                 ":/images/fileinfo.png"
@@ -143,7 +141,7 @@ public:
 #endif
 		return mDownloads[entry].peers.size();
 	}
-	int columnCount(const QModelIndex &parent = QModelIndex()) const
+	int columnCount(const QModelIndex &/*parent*/ = QModelIndex()) const
 	{
 		return COLUMN_COUNT ;
 	}
@@ -251,7 +249,7 @@ public:
 		return createIndex(entry,child.column(),parent_ref) ;
 	}
 
-	QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const
+	QVariant headerData(int section, Qt::Orientation /*orientation*/, int role = Qt::DisplayRole) const
 	{
 		if(role != Qt::DisplayRole)
 			return QVariant();
@@ -280,7 +278,7 @@ public:
 		if(!index.isValid())
 			return QVariant();
 
-		int coln = index.column() ;
+		//int coln = index.column() ;
 
 		switch(role)
 		{
@@ -353,19 +351,19 @@ public:
 		switch(col)
 		{
 		default:
-		case COLUMN_NAME:         return QVariant( factor * 170 );
-		case COLUMN_SIZE:         return QVariant( factor * 70  );
-		case COLUMN_COMPLETED:    return QVariant( factor * 75  );
-		case COLUMN_DLSPEED:      return QVariant( factor * 75  );
-		case COLUMN_PROGRESS:     return QVariant( factor * 170 );
-		case COLUMN_SOURCES:      return QVariant( factor * 90  );
-		case COLUMN_STATUS:       return QVariant( factor * 100 );
-		case COLUMN_PRIORITY:     return QVariant( factor * 100 );
-		case COLUMN_REMAINING:    return QVariant( factor * 100 );
-		case COLUMN_DOWNLOADTIME: return QVariant( factor * 100 );
-		case COLUMN_ID:           return QVariant( factor * 100 );
-		case COLUMN_LASTDL:       return QVariant( factor * 100 );
-		case COLUMN_PATH:         return QVariant( factor * 100 );
+		case COLUMN_NAME:         return QVariant( QSize(factor * 170, factor*14.0f ));
+		case COLUMN_SIZE:         return QVariant( QSize(factor * 70 , factor*14.0f ));
+		case COLUMN_COMPLETED:    return QVariant( QSize(factor * 75 , factor*14.0f ));
+		case COLUMN_DLSPEED:      return QVariant( QSize(factor * 75 , factor*14.0f ));
+		case COLUMN_PROGRESS:     return QVariant( QSize(factor * 170, factor*14.0f ));
+		case COLUMN_SOURCES:      return QVariant( QSize(factor * 90 , factor*14.0f ));
+		case COLUMN_STATUS:       return QVariant( QSize(factor * 100, factor*14.0f ));
+		case COLUMN_PRIORITY:     return QVariant( QSize(factor * 100, factor*14.0f ));
+		case COLUMN_REMAINING:    return QVariant( QSize(factor * 100, factor*14.0f ));
+		case COLUMN_DOWNLOADTIME: return QVariant( QSize(factor * 100, factor*14.0f ));
+		case COLUMN_ID:           return QVariant( QSize(factor * 100, factor*14.0f ));
+		case COLUMN_LASTDL:       return QVariant( QSize(factor * 100, factor*14.0f ));
+		case COLUMN_PATH:         return QVariant( QSize(factor * 100, factor*14.0f ));
 		}
 	}
 
@@ -719,6 +717,7 @@ private:
 
 		// we pack the couple (id of DL, id of source) into a single 32-bits pointer that is required by the AbstractItemModel class.
 
+#pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 		uint32_t src = uint32_t(  *reinterpret_cast<uint32_t*>(&ref)   & TRANSFERS_NB_SOURCES_BIT_MASK_32BITS ) ;
 		uint32_t ntr =         (  *reinterpret_cast<uint32_t*>(&ref)) >> TRANSFERS_NB_SOURCES_BITS_32BITS ;
@@ -1008,6 +1007,7 @@ TransfersDialog::TransfersDialog(QWidget *parent)
 	connect(collViewAct,SIGNAL(triggered()),this,SLOT(collView()));
 	collOpenAct = new QAction(QIcon(IMAGE_COLLOPEN), tr( "Download from collection file..." ), this );
 	connect(collOpenAct, SIGNAL(triggered()), this, SLOT(collOpen()));
+	connect(NotifyQt::getInstance(), SIGNAL(downloadComplete(QString)), this, SLOT(collAutoOpen(QString)));
 
 	/** Setup the actions for the download header context menu */
     showDLSizeAct= new QAction(tr("Size"),this);
@@ -1108,6 +1108,8 @@ void TransfersDialog::activatePage(TransfersDialog::Page page)
 		case TransfersDialog::LocalSharedFilesTab: ui.tabWidget->setCurrentWidget(localSharedFiles) ;
 													break ;
 		case TransfersDialog::RemoteSharedFilesTab: ui.tabWidget->setCurrentWidget(remoteSharedFiles) ;
+													break ;
+		case TransfersDialog::DownloadTab: ui.tabWidget->setCurrentWidget(ui.tab) ;
 													break ;
 	}
 }
@@ -2821,6 +2823,35 @@ void TransfersDialog::collOpen()
 	RsCollection collection;
 	if (collection.load(this)) {
 		collection.downloadFiles();
+	}
+}
+
+void TransfersDialog::collAutoOpen(const QString &fileHash)
+{
+	if (Settings->valueFromGroup("Transfer","AutoDLColl").toBool())
+	{
+		RsFileHash hash = RsFileHash(fileHash.toStdString());
+		FileInfo info;
+		if (rsFiles->FileDetails(hash, RS_FILE_HINTS_DOWNLOAD, info)) {
+
+			/* make path for downloaded files */
+			if (info.downloadStatus == FT_STATE_COMPLETE) {
+				std::string path;
+				path = info.path + "/" + info.fname;
+
+				/* open file with a suitable application */
+				QFileInfo qinfo;
+				qinfo.setFile(QString::fromUtf8(path.c_str()));
+				if (qinfo.exists()) {
+					if (qinfo.absoluteFilePath().endsWith(RsCollection::ExtensionString)) {
+						RsCollection collection;
+						if (collection.load(qinfo.absoluteFilePath(), false)) {
+							collection.autoDownloadFiles();
+						}
+					}
+				}
+			}
+		}
 	}
 }
 

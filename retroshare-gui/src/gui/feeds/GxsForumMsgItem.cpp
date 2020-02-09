@@ -1,25 +1,22 @@
-/*
- * Retroshare Gxs Feed Item
- *
- * Copyright 2014 RetroShare Team
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License Version 2.1 as published by the Free Software Foundation.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
- * USA.
- *
- * Please report all bugs and problems to "retroshare@lunamutt.com".
- *
- */
+/*******************************************************************************
+ * gui/feeds/GxsForumMsgItem.cpp                                               *
+ *                                                                             *
+ * Copyright (c) 2014, Retroshare Team <retroshare.project@gmail.com>          *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 
 #include <QTimer>
 #include <QFileInfo>
@@ -31,8 +28,11 @@
 
 #include "FeedHolder.h"
 #include "gui/RetroShareLink.h"
+#include "gui/gxs/GxsIdDetails.h"
 #include "util/HandleRichText.h"
 #include "util/DateTime.h"
+
+#include <retroshare/rsidentity.h>
 
 #include <iostream>
 
@@ -43,6 +43,8 @@
 GxsForumMsgItem::GxsForumMsgItem(FeedHolder *feedHolder, uint32_t feedId, const RsGxsGroupId &groupId, const RsGxsMessageId &messageId, bool isHome, bool autoUpdate) :
     GxsFeedItem(feedHolder, feedId, groupId, messageId, isHome, rsGxsForums, autoUpdate)
 {
+    mMessage.mMeta.mMsgId = messageId;	// useful for uniqueIdentifier() before the post is actually loaded
+    mMessage.mMeta.mGroupId = groupId;
 	setup();
 
 	requestGroup();
@@ -282,9 +284,9 @@ void GxsForumMsgItem::fill()
 	}
 
 	if (IS_GROUP_PUBLISHER(mGroup.mMeta.mSubscribeFlags)) {
-		ui->iconLabel->setPixmap(QPixmap(":/images/konv_message64.png"));
+		ui->iconLabel->setPixmap(QPixmap(":/icons/png/forums.png"));
 	} else {
-		ui->iconLabel->setPixmap(QPixmap(":/images/konversation64.png"));
+		ui->iconLabel->setPixmap(QPixmap(":/icons/png/forums-default.png"));
 	}
 
 	if (!mIsHome) {
@@ -292,6 +294,16 @@ void GxsForumMsgItem::fill()
 			mCloseOnRead = true;
 		}
 	}
+	
+	RsIdentityDetails idDetails ;
+	rsIdentity->getIdDetails(mMessage.mMeta.mAuthorId,idDetails);
+		
+	QPixmap pixmap ;
+
+	if(idDetails.mAvatar.mSize == 0 || !GxsIdDetails::loadPixmapFromData(idDetails.mAvatar.mData, idDetails.mAvatar.mSize, pixmap,GxsIdDetails::SMALL))
+				pixmap = GxsIdDetails::makeDefaultIcon(mMessage.mMeta.mAuthorId,GxsIdDetails::SMALL);
+			
+	ui->avatar->setPixmap(pixmap);
 
 	ui->nameLabel->setId(mMessage.mMeta.mAuthorId);
 
@@ -325,6 +337,16 @@ void GxsForumMsgItem::fill()
 		ui->parentMsgLabel->setText(RsHtml().formatText(NULL, QString::fromUtf8(mParentMessage.mMsg.c_str()), RSHTML_FORMATTEXT_EMBED_SMILEYS | RSHTML_FORMATTEXT_EMBED_LINKS));
 
 		ui->parentNameLabel->setId(mParentMessage.mMeta.mAuthorId);
+		
+		RsIdentityDetails idDetails ;
+		rsIdentity->getIdDetails(mParentMessage.mMeta.mAuthorId,idDetails);
+		
+		QPixmap pixmap ;
+
+		if(idDetails.mAvatar.mSize == 0 || !GxsIdDetails::loadPixmapFromData(idDetails.mAvatar.mData, idDetails.mAvatar.mSize, pixmap,GxsIdDetails::SMALL))
+				pixmap = GxsIdDetails::makeDefaultIcon(mParentMessage.mMeta.mAuthorId,GxsIdDetails::SMALL);
+			
+		ui->parentAvatar->setPixmap(pixmap);
 
 //		if (rsPeers->getPeerName(msgParent.srcId) !="")
 //		{
@@ -372,7 +394,7 @@ void GxsForumMsgItem::doExpand(bool open)
 	if (open)
 	{
 		ui->expandFrame->show();
-		ui->expandButton->setIcon(QIcon(QString(":/images/edit_remove24.png")));
+		ui->expandButton->setIcon(QIcon(QString(":/icons/png/up-arrow.png")));
 		ui->expandButton->setToolTip(tr("Hide"));
 
 		if (!mParentMessage.mMeta.mMsgId.isNull()) {
@@ -385,7 +407,7 @@ void GxsForumMsgItem::doExpand(bool open)
 	{
 		ui->expandFrame->hide();
 		ui->parentFrame->hide();
-		ui->expandButton->setIcon(QIcon(QString(":/images/edit_add24.png")));
+		ui->expandButton->setIcon(QIcon(QString(":/icons/png/down-arrow.png")));
 		ui->expandButton->setToolTip(tr("Expand"));
 	}
 

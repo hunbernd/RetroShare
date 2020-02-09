@@ -1,27 +1,22 @@
-/****************************************************************
- * This file is distributed under the following license:
- *
- * Copyright (c) 2010, Thomas Kister
- *
- *  This program is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU General Public License
- *  as published by the Free Software Foundation; either version 2
- *  of the License, or (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, 
- *  Boston, MA  02110-1301, USA.
- *
- *  ccr . 2016 Jan 30 . Change regular expression(s) for identifying
- *      .             . hotlinks in feral text.
- *
- ****************************************************************/
+/*******************************************************************************
+ * util/HandleRichText.cpp                                                     *
+ *                                                                             *
+ * Copyright (c) 2010 Thomas Kister    <retroshare.project@gmail.com>          *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 
 #include <QApplication>
 #include <QTextBrowser>
@@ -40,9 +35,7 @@
 
 #ifdef USE_CMARK
 //Include for CMark
-// This needs to be fixed: use system library if available, etc.
-#include <gui/../../../supportlibs/cmark/src/cmark.h>
-#include <gui/../../../supportlibs/cmark/src/node.h>
+#include <cmark.h>
 #endif
 
 #include <iostream>
@@ -598,7 +591,7 @@ QString RsHtml::formatText(QTextDocument *textDocument, const QString &text, ulo
 		// Parse CommonMark
 		int options = CMARK_OPT_DEFAULT;
 		cmark_parser *parser = cmark_parser_new(options);
-		cmark_parser_feed(parser, formattedText.toStdString().c_str(),formattedText.length());
+		cmark_parser_feed(parser, formattedText.toStdString().c_str(),static_cast<size_t>(formattedText.length()));
 		cmark_node *document = cmark_parser_finish(parser);
 		cmark_parser_free(parser);
 		char *result;
@@ -606,7 +599,6 @@ QString RsHtml::formatText(QTextDocument *textDocument, const QString &text, ulo
 		// Get result as html
 		formattedText = QString::fromUtf8(result);
 		//Clean
-		cmark_node_mem(document)->free(result);
 		cmark_node_free(document);
 		//Get document formed HTML
 		textBrowser.setHtml(formattedText);

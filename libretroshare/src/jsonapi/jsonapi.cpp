@@ -1,22 +1,24 @@
 /*
  * RetroShare JSON API
- * Copyright (C) 2018  Gioacchino Mazzurco <gio@eigenlab.org>
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
+ * Copyright (C) 2018-2020  Gioacchino Mazzurco <gio@eigenlab.org>
+ * Copyright (C) 2019-2020  Asociación Civil Altermundi <info@altermundi.net>
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
+ * This program is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU Affero General Public License as published by the
+ * Free Software Foundation, version 3.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.
+ * See the GNU Affero General Public License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <https://www.gnu.org/licenses/>
+ *
+ * SPDX-FileCopyrightText: 2004-2019 RetroShare Team <contact@retroshare.cc>
+ * SPDX-License-Identifier: AGPL-3.0-only
  */
-
-#include "jsonapi.h"
 
 #include <string>
 #include <sstream>
@@ -25,28 +27,36 @@
 #include <vector>
 #include <openssl/crypto.h>
 
+
+#include "jsonapi.h"
+
 #include "util/rsjson.h"
 #include "retroshare/rsfiles.h"
 #include "util/radix64.h"
-#include "retroshare/rsversion.h"
 #include "retroshare/rsinit.h"
 #include "util/rsnet.h"
 #include "retroshare/rsiface.h"
 #include "retroshare/rsinit.h"
 #include "util/rsurl.h"
 #include "util/rstime.h"
+#include "retroshare/rsevents.h"
+#include "retroshare/rsversion.h"
 
 // Generated at compile time
 #include "jsonapi-includes.inl"
 
-/*extern*/ JsonApiServer* jsonApiServer = nullptr;
+/*extern*/ RsJsonApi* rsJsonApi = nullptr;
+
+const std::string RsJsonApi::DEFAULT_BINDING_ADDRESS = "127.0.0.1";
 
 /*static*/ const std::multimap<std::string, std::string>
 JsonApiServer::corsHeaders =
 {
     { "Access-Control-Allow-Origin", "*" },
     { "Access-Control-Allow-Methods", "GET, POST, OPTIONS"},
-    { "Access-Control-Allow-Headers", "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range" },
+    { "Access-Control-Allow-Headers", "Authorization,DNT,User-Agent,"
+                                      "X-Requested-With,If-Modified-Since,"
+                                      "Cache-Control,Content-Type,Range" },
     { "Access-Control-Expose-Headers", "Content-Length,Content-Range" }
 };
 
@@ -55,7 +65,9 @@ JsonApiServer::corsOptionsHeaders =
 {
     { "Access-Control-Allow-Origin", "*" },
     { "Access-Control-Allow-Methods", "GET, POST, OPTIONS"},
-    { "Access-Control-Allow-Headers", "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range" },
+    { "Access-Control-Allow-Headers", "Authorization,DNT,User-Agent,"
+                                      "X-Requested-With,If-Modified-Since,"
+                                      "Cache-Control,Content-Type,Range" },
     { "Access-Control-Max-Age", "1728000" }, // 20 days
     { "Content-Type", "text/plain; charset=utf-8" },
     { "Content-Length", "0" }
@@ -93,9 +105,9 @@ JsonApiServer::corsOptionsHeaders =
 
 
 /*static*/ bool JsonApiServer::checkRsServicePtrReady(
-        void* serviceInstance, const std::string& serviceName,
+        const void* serviceInstance, const std::string& serviceName,
         RsGenericSerializer::SerializeContext& ctx,
-        const std::shared_ptr<restbed::Session> session)
+        const std::shared_ptr<rb::Session> session )
 {
 	if(serviceInstance) return true;
 
@@ -112,17 +124,37 @@ JsonApiServer::corsOptionsHeaders =
 	return false;
 }
 
-JsonApiServer::JsonApiServer(uint16_t port, const std::string& bindAddress,
-        const std::function<bool(const std::string&)> newAccessRequestCallback ) :
-    mPort(port), mBindAddress(bindAddress),
-    mNewAccessRequestCallback(newAccessRequestCallback),
-    configMutex("JsonApiServer config")
+bool RsJsonApi::parseToken(
+        const std::string& clear_token, std::string& user,std::string& passwd )
+{
+	uint32_t colonIndex = 0;
+	uint32_t colonCounter = 0;
+	const auto tkLen = clear_token.length();
+
+	for(uint32_t i=0; i < tkLen && colonCounter < 2; ++i)
+		if(clear_token[i] == ':') { ++colonCounter; colonIndex = i; }
+		else if(!librs::util::is_alphanumeric(clear_token[i])) return false;
+
+	if(colonCounter != 1) return false;
+
+	user   = clear_token.substr(0, colonIndex);
+	passwd = clear_token.substr(colonIndex + 1);
+
+	return true;
+}
+
+
+JsonApiServer::JsonApiServer(): configMutex("JsonApiServer config"),
+    mService(std::make_shared<restbed::Service>()),
+    mServiceMutex("JsonApiServer restbed ptr"),
+    mListeningPort(RsJsonApi::DEFAULT_PORT),
+    mBindingAddress(RsJsonApi::DEFAULT_BINDING_ADDRESS)
 {
 	registerHandler("/rsLoginHelper/createLocation",
 	                [this](const std::shared_ptr<rb::Session> session)
 	{
-		size_t reqSize = session->get_request()->get_header("Content-Length", 0);
-		session->fetch( reqSize, [this](
+		auto reqSize = session->get_request()->get_header("Content-Length", 0);
+		session->fetch( static_cast<size_t>(reqSize), [this](
 		                const std::shared_ptr<rb::Session> session,
 		                const rb::Bytes& body )
 		{
@@ -150,7 +182,7 @@ JsonApiServer::JsonApiServer(uint16_t port, const std::string& bindAddress,
 			            makeAutoTor );
 
 			if(retval)
-				authorizeToken(location.mLocationId.toStdString()+":"+password);
+				authorizeUser(location.mLocationId.toStdString(),password);
 
 			// serialize out parameters and return value to JSON
 			{
@@ -169,8 +201,8 @@ JsonApiServer::JsonApiServer(uint16_t port, const std::string& bindAddress,
 	registerHandler("/rsLoginHelper/attemptLogin",
 	                [this](const std::shared_ptr<rb::Session> session)
 	{
-		size_t reqSize = session->get_request()->get_header("Content-Length", 0);
-		session->fetch( reqSize, [this](
+		auto reqSize = session->get_request()->get_header("Content-Length", 0);
+		session->fetch( static_cast<size_t>(reqSize), [this](
 		                const std::shared_ptr<rb::Session> session,
 		                const rb::Bytes& body )
 		{
@@ -192,7 +224,7 @@ JsonApiServer::JsonApiServer(uint16_t port, const std::string& bindAddress,
 			        rsLoginHelper->attemptLogin(account, password);
 
 			if( retval == RsInit::OK )
-				authorizeToken(account.toStdString()+":"+password);
+				authorizeUser(account.toStdString(), password);
 
 			// serialize out parameters and return value to JSON
 			{
@@ -209,8 +241,8 @@ JsonApiServer::JsonApiServer(uint16_t port, const std::string& bindAddress,
 	registerHandler("/rsControl/rsGlobalShutDown",
 	                [](const std::shared_ptr<rb::Session> session)
 	{
-		size_t reqSize = session->get_request()->get_header("Content-Length", 0);
-		session->fetch( reqSize, [](
+		auto reqSize = session->get_request()->get_header("Content-Length", 0);
+		session->fetch( static_cast<size_t>(reqSize), [](
 		                const std::shared_ptr<rb::Session> session,
 		                const rb::Bytes& body )
 		{
@@ -223,8 +255,8 @@ JsonApiServer::JsonApiServer(uint16_t port, const std::string& bindAddress,
 	registerHandler("/rsFiles/getFileData",
 	                [](const std::shared_ptr<rb::Session> session)
 	{
-		size_t reqSize = session->get_request()->get_header("Content-Length", 0);
-		session->fetch( reqSize, [](
+		auto reqSize = session->get_request()->get_header("Content-Length", 0);
+		session->fetch( static_cast<size_t>(reqSize), [](
 		                const std::shared_ptr<rb::Session> session,
 		                const rb::Bytes& body )
 		{
@@ -276,30 +308,88 @@ JsonApiServer::JsonApiServer(uint16_t port, const std::string& bindAddress,
 		} );
 	}, true);
 
+	registerHandler("/rsEvents/registerEventsHandler",
+	        [this](const std::shared_ptr<rb::Session> session)
+	{
+		const std::weak_ptr<rb::Service> weakService(mService);
+		const std::multimap<std::string, std::string> headers
+		{
+			{ "Connection", "keep-alive" },
+			{ "Content-Type", "text/event-stream" }
+		};
+		session->yield(rb::OK, headers);
+
+		size_t reqSize = static_cast<size_t>(
+		            session->get_request()->get_header("Content-Length", 0) );
+		session->fetch( reqSize, [weakService](
+		                const std::shared_ptr<rb::Session> session,
+		                const rb::Bytes& body )
+		{
+			INITIALIZE_API_CALL_JSON_CONTEXT;
+
+			if( !checkRsServicePtrReady(
+						rsEvents, "rsEvents", cAns, session ) )
+				return;
+
+			RsEventType eventType = RsEventType::NONE;
+
+			// deserialize input parameters from JSON
+			{
+				RsGenericSerializer::SerializeContext& ctx(cReq);
+				RsGenericSerializer::SerializeJob j(RsGenericSerializer::FROM_JSON);
+				RS_SERIAL_PROCESS(eventType);
+			}
+
+			const std::weak_ptr<rb::Session> weakSession(session);
+			RsEventsHandlerId_t hId = rsEvents->generateUniqueHandlerId();
+			std::function<void(std::shared_ptr<const RsEvent>)> multiCallback =
+			        [weakSession, weakService, hId](
+			        std::shared_ptr<const RsEvent> event )
+			{
+				auto lService = weakService.lock();
+				if(!lService || lService->is_down())
+				{
+					if(rsEvents) rsEvents->unregisterEventsHandler(hId);
+					return;
+				}
+
+				lService->schedule( [weakSession, hId, event]()
+				{
+					auto session = weakSession.lock();
+					if(!session || session->is_closed())
+					{
+						if(rsEvents) rsEvents->unregisterEventsHandler(hId);
+						return;
+					}
+
+					RsGenericSerializer::SerializeContext ctx;
+					RsTypeSerializer::serial_process(
+					            RsGenericSerializer::TO_JSON, ctx,
+					            *const_cast<RsEvent*>(event.get()), "event" );
+
+					std::stringstream message;
+					message << "data: " << compactJSON << ctx.mJson << "\n\n";
+
+					session->yield(message.str());
+				} );
+			};
+
+			bool retval = rsEvents->registerEventsHandler(eventType,multiCallback, hId);
+
+			{
+				RsGenericSerializer::SerializeContext& ctx(cAns);
+				RsGenericSerializer::SerializeJob j(RsGenericSerializer::TO_JSON);
+				RS_SERIAL_PROCESS(retval);
+			}
+
+			// return them to the API caller
+			std::stringstream message;
+			message << "data: " << compactJSON << cAns.mJson << "\n\n";
+			session->yield(message.str());
+		} );
+	}, true);
 // Generated at compile time
 #include "jsonapi-wrappers.inl"
-}
-
-void JsonApiServer::run()
-{
-	std::shared_ptr<rb::Settings> settings(new rb::Settings);
-	settings->set_port(mPort);
-	settings->set_bind_address(mBindAddress);
-	settings->set_default_header("Cache-Control", "no-cache");
-
-	{
-		sockaddr_storage tmp;
-		sockaddr_storage_inet_pton(tmp, mBindAddress);
-		sockaddr_storage_setport(tmp, mPort);
-		sockaddr_storage_ipv6_to_ipv4(tmp);
-		RsUrl tmpUrl(sockaddr_storage_tostring(tmp));
-		tmpUrl.setScheme("http");
-
-		std::cerr << "JSON API listening on " << tmpUrl.toString()
-		          << std::endl;
-	}
-
-	mService.start(settings);
 }
 
 void JsonApiServer::registerHandler(
@@ -319,9 +409,15 @@ void JsonApiServer::registerHandler(
 		                const std::shared_ptr<rb::Session> session,
 		                const std::function<void (const std::shared_ptr<rb::Session>)>& callback )
 		{
+			if(session->get_request()->get_method() == "OPTIONS")
+			{
+				callback(session);
+				return;
+			}
+
 			if(!rsLoginHelper->isLoggedIn())
 			{
-				session->close(rb::CONFLICT);
+				session->close(rb::CONFLICT, corsOptionsHeaders);
 				return;
 			}
 
@@ -333,7 +429,7 @@ void JsonApiServer::registerHandler(
 
 			if(authToken != "Basic")
 			{
-				session->close(rb::UNAUTHORIZED);
+				session->close(rb::UNAUTHORIZED, corsOptionsHeaders);
 				return;
 			}
 
@@ -341,22 +437,22 @@ void JsonApiServer::registerHandler(
 			authToken = decodeToken(authToken);
 
 			if(isAuthTokenValid(authToken)) callback(session);
-			else session->close(rb::UNAUTHORIZED);
+			else session->close(rb::UNAUTHORIZED, corsOptionsHeaders);
 		} );
 
-	mService.publish(resource);
+	mResources.push_back(resource);
 }
 
 void JsonApiServer::setNewAccessRequestCallback(
-        const std::function<bool (const std::string&)>& callback )
+        const std::function<bool (const std::string&, const std::string&)>& callback )
 { mNewAccessRequestCallback = callback; }
 
-void JsonApiServer::shutdown() { mService.stop(); }
-
-bool JsonApiServer::requestNewTokenAutorization(const std::string& token)
+bool JsonApiServer::requestNewTokenAutorization(
+        const std::string& user, const std::string& passwd )
 {
-	if(rsLoginHelper->isLoggedIn() && mNewAccessRequestCallback(token))
-		return authorizeToken(token);
+	if(rsLoginHelper->isLoggedIn() && mNewAccessRequestCallback(user, passwd))
+		return authorizeUser(user, passwd);
+
 	return false;
 }
 
@@ -364,27 +460,31 @@ bool JsonApiServer::isAuthTokenValid(const std::string& token)
 {
 	RS_STACK_MUTEX(configMutex);
 
+	std::string user,passwd;
+	if(!parseToken(token,user,passwd)) return false;
+
+	auto it = mAuthTokenStorage.mAuthorizedTokens.find(user);
+	if(it == mAuthTokenStorage.mAuthorizedTokens.end()) return false;
+
 	// attempt avoiding +else CRYPTO_memcmp+ being optimized away
 	int noOptimiz = 1;
 
 	/* Do not use mAuthTokenStorage.mAuthorizedTokens.count(token), because
 	 * std::string comparison is usually not constant time on content to be
 	 * faster, so an attacker may use timings to guess authorized tokens */
-	for(const std::string& vTok : mAuthTokenStorage.mAuthorizedTokens)
-	{
-		if( token.size() == vTok.size() &&
-		        ( noOptimiz = CRYPTO_memcmp( token.data(), vTok.data(),
-		                                     vTok.size() ) ) == 0 )
-			return true;
-		// Make token size guessing harder
-		else noOptimiz = CRYPTO_memcmp(token.data(), token.data(), token.size());
-	}
+
+	if( passwd.size() == it->second.size() &&
+	        ( noOptimiz = CRYPTO_memcmp(
+	              passwd.data(), it->second.data(), it->second.size() ) ) == 0 )
+		return true;
+	// Make token size guessing harder
+	else noOptimiz = CRYPTO_memcmp(passwd.data(), passwd.data(), passwd.size());
 
 	// attempt avoiding +else CRYPTO_memcmp+ being optimized away
 	return static_cast<uint32_t>(noOptimiz) + 1 == 0;
 }
 
-std::set<std::string> JsonApiServer::getAuthorizedTokens()
+std::map<std::string, std::string> JsonApiServer::getAuthorizedTokens()
 {
 	RS_STACK_MUTEX(configMutex);
 	return mAuthTokenStorage.mAuthorizedTokens;
@@ -401,45 +501,49 @@ bool JsonApiServer::revokeAuthToken(const std::string& token)
 	return false;
 }
 
-bool JsonApiServer::authorizeToken(const std::string& token)
+void JsonApiServer::connectToConfigManager(p3ConfigMgr& cfgmgr)
 {
-	if(token.empty()) return false;
+	cfgmgr.addConfiguration("jsonapi.cfg",this);
 
-	RS_STACK_MUTEX(configMutex);
-	if(mAuthTokenStorage.mAuthorizedTokens.insert(token).second)
-	{
-		IndicateConfigChanged();
-		return true;
-	}
-	return false;
+	RsFileHash hash;
+	loadConfiguration(hash);
 }
 
-/*static*/ std::string JsonApiServer::decodeToken(const std::string& token)
+bool JsonApiServer::authorizeUser(
+        const std::string& user, const std::string& passwd )
 {
-	std::vector<uint8_t> decodedVect(Radix64::decode(token));
+	if(!librs::util::is_alphanumeric(user))
+	{
+		RsErr() << __PRETTY_FUNCTION__ << " User name is not alphanumeric"
+		        << std::endl;
+		return false;
+	}
+
+	if(passwd.empty())
+	{
+		RsWarn() << __PRETTY_FUNCTION__ << " Password is empty, are you sure "
+		         << "this what you wanted?" << std::endl;
+		return false;
+	}
+
+	RS_STACK_MUTEX(configMutex);
+
+	std::string& p(mAuthTokenStorage.mAuthorizedTokens[user]);
+	if(p != passwd)
+	{
+		p = passwd;
+		IndicateConfigChanged();
+	}
+	return true;
+}
+
+/*static*/ std::string JsonApiServer::decodeToken(const std::string& radix64_token)
+{
+	std::vector<uint8_t> decodedVect(Radix64::decode(radix64_token));
 	std::string decodedToken(
 	            reinterpret_cast<const char*>(&decodedVect[0]),
 	            decodedVect.size() );
 	return decodedToken;
-}
-
-/*static*/ std::string JsonApiServer::encondeToken(const std::string& token)
-{
-	std::string encoded;
-	Radix64::encode( reinterpret_cast<const uint8_t*>(token.c_str()),
-	                 token.length(), encoded );
-	return encoded;
-}
-
-/*static*/ void JsonApiServer::version(
-        uint32_t& major, uint32_t& minor, uint32_t& mini, std::string& extra,
-        std::string& human )
-{
-	major = RS_MAJOR_VERSION;
-	minor = RS_MINOR_VERSION;
-	mini = RS_MINI_VERSION;
-	extra = RS_EXTRA_VERSION;
-	human = RS_HUMAN_READABLE_VERSION;
 }
 
 RsSerialiser* JsonApiServer::setupSerialiser()
@@ -479,3 +583,88 @@ void JsonApiServer::handleCorsOptions(
         const std::shared_ptr<restbed::Session> session )
 { session->close(rb::NO_CONTENT, corsOptionsHeaders); }
 
+void JsonApiServer::registerResourceProvider(const JsonApiResourceProvider& rp)
+{ mResourceProviders.insert(rp); }
+void JsonApiServer::unregisterResourceProvider(const JsonApiResourceProvider& rp)
+{ mResourceProviders.erase(rp); }
+bool JsonApiServer::hasResourceProvider(const JsonApiResourceProvider& rp)
+{ return mResourceProviders.find(rp) != mResourceProviders.end(); }
+
+std::vector<std::shared_ptr<rb::Resource> > JsonApiServer::getResources() const
+{
+	auto tab = mResources;
+
+	for(auto& rp: mResourceProviders)
+		for(auto r: rp.get().getResources()) tab.push_back(r);
+
+	return tab;
+}
+
+void JsonApiServer::restart()
+{
+	/* It is important to wrap into async(...) because fullstop() method can't
+	 * be called from same thread of execution hence from JSON API thread! */
+	RsThread::async([this]()
+	{
+		fullstop();
+		RsThread::start("JSON API Server");
+	});
+}
+
+void JsonApiServer::onStopRequested()
+{
+	RS_STACK_MUTEX(mServiceMutex);
+	mService->stop();
+}
+
+uint16_t JsonApiServer::listeningPort() const { return mListeningPort; }
+void JsonApiServer::setListeningPort(uint16_t p) { mListeningPort = p; }
+void JsonApiServer::setBindingAddress(const std::string& bindAddress)
+{ mBindingAddress = bindAddress; }
+std::string JsonApiServer::getBindingAddress() const { return mBindingAddress; }
+
+void JsonApiServer::run()
+{
+	auto settings = std::make_shared<restbed::Settings>();
+	settings->set_port(mListeningPort);
+	settings->set_bind_address(mBindingAddress);
+	settings->set_default_header("Connection", "close");
+
+	/* re-allocating mService is important because it deletes the existing
+	 * service and therefore leaves the listening port open */
+	{
+		RS_STACK_MUTEX(mServiceMutex);
+		mService = std::make_shared<restbed::Service>();
+	}
+
+	for(auto& r: getResources()) mService->publish(r);
+
+	try
+	{
+		RsUrl apiUrl; apiUrl.setScheme("http").setHost(mBindingAddress)
+		        .setPort(mListeningPort);
+		RsInfo() << __PRETTY_FUNCTION__ << " JSON API server listening on "
+		         << apiUrl.toString() << std::endl;
+		mService->start(settings);
+	}
+	catch(std::exception& e)
+	{
+		RsErr() << __PRETTY_FUNCTION__ << " Failure starting JSON API server: "
+		        << e.what() << std::endl;
+		print_stacktrace();
+		return;
+	}
+
+	RsDbg() << __PRETTY_FUNCTION__ << " finished!" << std::endl;
+}
+
+/*static*/ void RsJsonApi::version(
+        uint32_t& major, uint32_t& minor, uint32_t& mini, std::string& extra,
+        std::string& human )
+{
+	major = RS_MAJOR_VERSION;
+	minor = RS_MINOR_VERSION;
+	mini = RS_MINI_VERSION;
+	extra = RS_EXTRA_VERSION;
+	human = RS_HUMAN_READABLE_VERSION;
+}

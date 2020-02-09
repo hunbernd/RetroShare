@@ -17,6 +17,9 @@ call "%~dp0env.bat" %*
 if errorlevel 2 exit /B 2
 if errorlevel 1 goto error_env
 
+:: Install ntldd
+%EnvMSYS2Cmd% "pacman --noconfirm --needed -S make git mingw-w64-%RsMSYS2Architecture%-ntldd-git"
+
 :: Remove deploy path
 if exist "%RsDeployPath%" rmdir /S /Q "%RsDeployPath%"
 
@@ -69,9 +72,9 @@ if "%QtMainVersion%"=="4" set QtMainVersion2=4
 if "%QtMainVersion%"=="5" set QtMainVersion1=5
 
 if "%RsBuildConfig%" NEQ "release" (
-	set Archive=%RsPackPath%\RetroShare-%RsVersion%-Windows-Portable-%RsDate%-%RsVersion.Extra%-Qt-%QtVersion%-msys2%RsType%%RsArchiveAdd%-%RsBuildConfig%.7z
+	set Archive=%RsPackPath%\RetroShare-%RsVersion%-Windows-Portable-%RsDate%-%RsVersion.Extra%-Qt-%QtVersion%-%RsArchitecture%-msys2%RsType%%RsArchiveAdd%-%RsBuildConfig%.7z
 ) else (
-	set Archive=%RsPackPath%\RetroShare-%RsVersion%-Windows-Portable-%RsDate%-%RsVersion.Extra%-Qt-%QtVersion%-msys2%RsType%%RsArchiveAdd%.7z
+	set Archive=%RsPackPath%\RetroShare-%RsVersion%-Windows-Portable-%RsDate%-%RsVersion.Extra%-Qt-%QtVersion%-%RsArchitecture%-msys2%RsType%%RsArchiveAdd%.7z
 )
 
 if exist "%Archive%" del /Q "%Archive%"
@@ -99,15 +102,13 @@ copy nul "%RsDeployPath%\portable" %Quite%
 echo copy binaries
 copy "%RsBuildPath%\retroshare-gui\src\%RsBuildConfig%\RetroShare*.exe" "%RsDeployPath%" %Quite%
 copy "%RsBuildPath%\retroshare-nogui\src\%RsBuildConfig%\retroshare*-nogui.exe" "%RsDeployPath%" %Quite%
+copy "%RsBuildPath%\retroshare-service\src\%RsBuildConfig%\retroshare*-service.exe" "%RsDeployPath%" %Quite%
+copy "%RsBuildPath%\supportlibs\cmark\build\src\libcmark.dll" "%RsDeployPath%" %Quite%
 
 echo copy extensions
 for /D %%D in ("%RsBuildPath%\plugins\*") do (
 	call :copy_extension "%%D" "%RsDeployPath%\Data\%Extensions%"
-	call :copy_dependencies "%RsDeployPath%\Data\%Extensions%\%%~nxD.dll" "%RsDeployPath%"
 )
-
-echo copy dependencies
-call :copy_dependencies "%RsDeployPath%\retroshare.exe" "%RsDeployPath%"
 
 echo copy Qt DLL's
 copy "%RsMinGWPath%\bin\Qt%QtMainVersion1%Svg%QtMainVersion2%.dll" "%RsDeployPath%" %Quite%
@@ -127,6 +128,11 @@ if exist "%QtSharePath%\plugins\styles\qwindowsvistastyle.dll" (
 
 copy "%QtSharePath%\plugins\imageformats\*.dll" "%RsDeployPath%\imageformats" %Quite%
 del /Q "%RsDeployPath%\imageformats\*d?.dll" %Quite%
+
+echo copy dependencies
+for /R "%RsDeployPath%" %%D in (*.dll, *.exe) do (
+	call :copy_dependencies "%%D" "%RsDeployPath%"
+)
 
 echo copy qss
 xcopy /S "%SourcePath%\retroshare-gui\src\qss" "%RsDeployPath%\qss" %Quite%
@@ -201,8 +207,7 @@ if exist "%~1\%RsBuildConfig%\%~n1.dll" (
 goto :EOF
 
 :copy_dependencies
-set CopyDependenciesCopiedSomething=0
-for /F "usebackq" %%A in (`%ToolsPath%\depends.bat list %1`) do (
+for /F "usebackq" %%A in (`%ToolsPath%\depends.bat %1`) do (
 	if not exist "%~2\%%A" (
 		if exist "%RsMinGWPath%\bin\%%A" (
 			set CopyDependenciesCopiedSomething=1
@@ -210,5 +215,4 @@ for /F "usebackq" %%A in (`%ToolsPath%\depends.bat list %1`) do (
 		)
 	)
 )
-if "%CopyDependenciesCopiedSomething%"=="1" goto copy_dependencies
 goto :EOF

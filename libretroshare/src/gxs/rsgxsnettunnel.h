@@ -1,27 +1,24 @@
-/*
- * libretroshare/src/gxs: rsgxsnettunnel.h
- *
- * General Data service, interface for RetroShare.
- *
- * Copyright 2018-2018 by Cyril Soler
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License Version 2 as published by the Free Software Foundation.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
- * USA.
- *
- * Please report all bugs and problems to "retroshare.project@gmail.com"
- *
- */
+/*******************************************************************************
+ * libretroshare/src/gxs: gxsnettunnel.h                                       *
+ *                                                                             *
+ * libretroshare: retroshare core library                                      *
+ *                                                                             *
+ * Copyright 2018 by Cyril Soler <retroshare.project@gmail.com>                *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Lesser General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Lesser General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Lesser General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 
 #pragma once
 
@@ -106,7 +103,9 @@
 class RsGxsNetTunnelItem ;
 class RsNetworkExchangeService ;
 
-class RsGxsNetTunnelService: public RsTurtleClientService, public RsTickingThread, public p3Config, public RsGxsDistSync
+class RsGxsNetTunnelService:
+        public RsTurtleClientService, public RsTickingThread, public p3Config,
+        public RsGxsDistSync
 {
 public:
 	  RsGxsNetTunnelService() ;
@@ -199,9 +198,7 @@ public:
 	  virtual bool receiveSearchRequest(unsigned char *search_request_data, uint32_t search_request_data_len, unsigned char *& search_result_data, uint32_t& search_result_data_len, uint32_t &max_allowed_hits);
 	  virtual void receiveSearchResult(TurtleSearchRequestId request_id,unsigned char *search_result_data,uint32_t search_result_data_len);
 
-	  // Overloaded from RsTickingThread
-
-	  void data_tick() ;
+	void threadTick() override; /// @see RsTickingThread
 
 	  // Overloads p3Config
 

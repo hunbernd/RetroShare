@@ -19,6 +19,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
  *                                                                             *
  *******************************************************************************/
+#pragma once
 
 //====================================== General setup of the router ===================================//
 //
@@ -129,10 +130,6 @@
 // Questions:
 // 	- should tunnels be re-used ? nope. The only useful case would be when two peers are exchanging files, which happens quite rarely.
 //
-
-
-#ifndef MRK_PQI_TURTLE_H
-#define MRK_PQI_TURTLE_H
 
 #include <string>
 #include <list>
@@ -444,7 +441,7 @@ class p3turtle: public p3Service, public RsTurtle, public p3Config
 		std::list<pqipeer> _online_peers;
 
 		/// used to force digging new tunnels
-		bool _force_digg_new_tunnels ;			
+		//bool _force_digg_new_tunnels ;
 
 		/// used as a bias to introduce randomness in a consistent way, for
 		/// altering tunnel request depths, and tunnel re-routing actions.
@@ -464,6 +461,8 @@ class p3turtle: public p3Service, public RsTurtle, public p3Config
 
 		uint32_t _service_type ;
 
+	RS_SET_CONTEXT_DEBUG_LEVEL(1)
+
 #ifdef P3TURTLE_DEBUG
 		// debug function
 		void dumpState() ;
@@ -472,5 +471,3 @@ class p3turtle: public p3Service, public RsTurtle, public p3Config
 		void TS_dumpState();
 #endif
 };
-
-#endif 

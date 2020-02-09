@@ -17,11 +17,22 @@ call "%~dp0env-base.bat" %*
 if errorlevel 2 exit /B 2
 if errorlevel 1 goto error_env
 
+:: Skip package update
+if "%ParamNoupdate%" == "1" goto :skipupdate
+
 :: Install needed things
-%EnvMSYS2Cmd% "pacman --noconfirm --needed -S make git mingw-w64-%RsMSYS2Architecture%-toolchain mingw-w64-%RsMSYS2Architecture%-qt5 mingw-w64-%RsMSYS2Architecture%-miniupnpc mingw-w64-%RsMSYS2Architecture%-sqlcipher mingw-w64-%RsMSYS2Architecture%-libmicrohttpd mingw-w64-%RsMSYS2Architecture%-xapian-core"
+%EnvMSYS2Cmd% "pacman --noconfirm --needed -S make git mingw-w64-%RsMSYS2Architecture%-toolchain mingw-w64-%RsMSYS2Architecture%-qt5 mingw-w64-%RsMSYS2Architecture%-miniupnpc mingw-w64-%RsMSYS2Architecture%-sqlcipher mingw-w64-%RsMSYS2Architecture%-libmicrohttpd mingw-w64-%RsMSYS2Architecture%-xapian-core mingw-w64-%RsMSYS2Architecture%-cmake mingw-w64-%RsMSYS2Architecture%-rapidjson"
+
+:: Clang
+if "%ParamClang%"=="1" %EnvMSYS2Cmd% "pacman --noconfirm --needed -S mingw-w64-%RsMSYS2Architecture%-clang"
 
 :: Plugins
 if "%ParamPlugins%"=="1" %EnvMSYS2Cmd% "pacman --noconfirm --needed -S mingw-w64-%RsMSYS2Architecture%-speex mingw-w64-%RsMSYS2Architecture%-speexdsp mingw-w64-%RsMSYS2Architecture%-curl mingw-w64-%RsMSYS2Architecture%-libxslt mingw-w64-%RsMSYS2Architecture%-opencv mingw-w64-%RsMSYS2Architecture%-ffmpeg"
+
+:: Json API
+if "%ParamJsonApi%"=="1" %EnvMSYS2Cmd% "pacman --noconfirm --needed -S mingw-w64-%RsMSYS2Architecture%-doxygen mingw-w64-%RsMSYS2Architecture%-cmake"
+
+:skipupdate
 
 :: Initialize environment
 call "%~dp0env.bat" %*
@@ -48,13 +59,17 @@ echo.
 
 title Build - %SourceName%-%RsBuildConfig% [qmake]
 
-set RS_QMAKE_CONFIG="CONFIG+=%RsBuildConfig%"
+set RS_QMAKE_CONFIG=%RS_QMAKE_CONFIG% "CONFIG+=%RsBuildConfig%"
 if "%ParamAutologin%"=="1" set RS_QMAKE_CONFIG=%RS_QMAKE_CONFIG% "CONFIG+=rs_autologin"
 if "%ParamPlugins%"=="1" set RS_QMAKE_CONFIG=%RS_QMAKE_CONFIG% "CONFIG+=retroshare_plugins"
 
 call "%ToolsPath%\msys2-path.bat" "%SourcePath%" MSYS2SourcePath
 call "%ToolsPath%\msys2-path.bat" "%EnvMSYS2Path%" MSYS2EnvMSYS2Path
-%EnvMSYS2Cmd% "qmake "%MSYS2SourcePath%/RetroShare.pro" -r -spec win32-g++ %RS_QMAKE_CONFIG%"
+if "%ParamClang%"=="1" (
+	%EnvMSYS2Cmd% "qmake "%MSYS2SourcePath%/RetroShare.pro" -r -spec win32-clang-g++ %RS_QMAKE_CONFIG%"
+) else (
+	%EnvMSYS2Cmd% "qmake "%MSYS2SourcePath%/RetroShare.pro" -r -spec win32-g++ %RS_QMAKE_CONFIG%"
+)
 if errorlevel 1 goto error
 
 echo.
@@ -63,7 +78,7 @@ echo.
 
 title Build - %SourceName%-%RsBuildConfig% [make]
 
-%EnvMSYS2Cmd% "make -j %Number_Of_Processors%"
+%EnvMSYS2Cmd% "make -j %NUMBER_OF_PROCESSORS%"
 
 :error
 popd

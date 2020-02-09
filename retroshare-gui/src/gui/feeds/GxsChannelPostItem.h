@@ -1,25 +1,22 @@
-/*
- * Retroshare Gxs Feed Item
- *
- * Copyright 2012-2013 by Robert Fernie.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License Version 2.1 as published by the Free Software Foundation.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
- * USA.
- *
- * Please report all bugs and problems to "retroshare@lunamutt.com".
- *
- */
+/*******************************************************************************
+ * gui/feeds/GxsChannelPostItem.h                                              *
+ *                                                                             *
+ * Copyright (c) 2012, Robert Fernie   <retroshare.project@gmail.com>          *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 
 #ifndef _GXS_CHANNEL_POST_ITEM_H
 #define _GXS_CHANNEL_POST_ITEM_H
@@ -56,6 +53,8 @@ public:
 	//GxsChannelPostItem(FeedHolder *feedHolder, uint32_t feedId, const RsGxsChannelPost &post, bool isHome, bool autoUpdate);
 	virtual ~GxsChannelPostItem();
 
+    uint64_t uniqueIdentifier() const override { hash_64bits("GxsChannelPostItem " + messageId().toStdString()) ; }
+
 	bool setGroup(const RsGxsChannelGroup &group, bool doFill = true);
 	bool setPost(const RsGxsChannelPost &post, bool doFill = true);
 
@@ -67,6 +66,7 @@ public:
 
     bool isUnread() const ;
 
+    static uint64_t computeIdentifier(const RsGxsMessageId& msgid) { return hash64("GxsChannelPostItem " + msgid.toStdString()) ; }
 protected:
 	void init(const RsGxsMessageId& messageId,const std::set<RsGxsMessageId>& older_versions);
 
@@ -91,7 +91,7 @@ protected:
 
 private slots:
 	/* default stuff */
-	void toggle();
+	void toggle() override;
 	void readAndClearItem();
 	void download();
 	void play();

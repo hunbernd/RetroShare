@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: (C) 2004-2019 Retroshare Team <contact@retroshare.cc>
+# SPDX-License-Identifier: CC0-1.0
+
 !include("../../retroshare.pri"): error("Could not include file ../../retroshare.pri")
 
 TEMPLATE = lib
@@ -18,7 +21,7 @@ linux-* {
 	OBJECTS_DIR = temp/linux/obj
 }
 
-win32-g++ {
+win32-*g++ {
 
     HEADERS += openpgpsdk/opsstring.h
     SOURCES += openpgpsdk/opsstring.c

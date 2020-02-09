@@ -95,7 +95,8 @@ typedef std::map<RsGxsGrpMsgIdPair, std::vector<RsGxsMsgItem*> > GxsMsgRelatedDa
 
 class RsGixs;
 
-class RsGenExchange : public RsNxsObserver, public RsTickingThread, public RsGxsIface
+class RsGenExchange : public RsNxsObserver, public RsTickingThread,
+        public RsGxsIface
 {
 public:
 
@@ -113,7 +114,10 @@ public:
      * @param gixs This is used for verification of msgs and groups received by Gen Exchange using identities.
      * @param authenPolicy This determines the authentication used for verfying authorship of msgs and groups
      */
-    RsGenExchange(RsGeneralDataService* gds, RsNetworkExchangeService* ns, RsSerialType* serviceSerialiser, uint16_t mServType, RsGixs* gixs, uint32_t authenPolicy);
+	RsGenExchange(
+	        RsGeneralDataService* gds, RsNetworkExchangeService* ns,
+	        RsSerialType* serviceSerialiser, uint16_t mServType, RsGixs* gixs,
+	        uint32_t authenPolicy );
 
     virtual ~RsGenExchange();
 
@@ -172,7 +176,7 @@ public:
      */
     RsTokenService* getTokenService();
 
-    virtual void data_tick();
+	void threadTick() override; /// @see RsTickingThread
 
     /*!
      * Policy bit pattern portion
@@ -312,6 +316,28 @@ public:
      */
     void turtleGroupRequest(const RsGxsGroupId& group_id);
     void turtleSearchRequest(const std::string& match_string);
+
+	/**
+	 * @brief Search local groups. Blocking API.
+	 * @param matchString string to look for in the search
+	 * @param results storage for results
+	 * @return false on error, true otherwise
+	 */
+	bool localSearch( const std::string& matchString,
+	                  std::list<RsGxsGroupSummary>& results );
+
+	/// @see RsGxsIface
+	bool exportGroupBase64(
+	        std::string& radix, const RsGxsGroupId& groupId,
+	        std::string& errMsg = RS_DEFAULT_STORAGE_PARAM(std::string)
+	        ) override;
+
+	/// @see RsGxsIface
+	bool importGroupBase64(
+	        const std::string& radix,
+	        RsGxsGroupId& groupId = RS_DEFAULT_STORAGE_PARAM(RsGxsGroupId),
+	        std::string& errMsg = RS_DEFAULT_STORAGE_PARAM(std::string)
+	        ) override;
 
 protected:
 
@@ -701,9 +727,10 @@ public:
 	virtual bool     getGroupNetworkStats(const RsGxsGroupId& grpId,RsGroupNetworkStats& stats);
 
     uint16_t serviceType() const { return mServType ; }
-    uint32_t serviceFullType() const { return ((uint32_t)mServType << 8) + (((uint32_t) RS_PKT_VERSION_SERVICE) << 24); }
+    uint32_t serviceFullType() const { return RsServiceInfo::RsServiceInfoUIn16ToFullServiceId(mServType); }
 
-    virtual RsReputations::ReputationLevel minReputationForForwardingMessages(uint32_t group_sign_flags,uint32_t identity_flags);
+	virtual RsReputationLevel minReputationForForwardingMessages(
+	        uint32_t group_sign_flags, uint32_t identity_flags );
 protected:
 
     /** Notifications **/

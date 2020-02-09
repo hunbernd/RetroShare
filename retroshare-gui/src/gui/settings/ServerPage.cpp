@@ -1,23 +1,22 @@
-/****************************************************************
- *  RetroShare is distributed under the following license:
- *
- *  Copyright (C) 2006, crypton
- *
- *  This program is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU General Public License
- *  as published by the Free Software Foundation; either version 2
- *  of the License, or (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor,
- *  Boston, MA  02110-1301, USA.
- ****************************************************************/
+/*******************************************************************************
+ * gui/settings/ServerPage.cpp                                                 *
+ *                                                                             *
+ * Copyright (c) 2006 Crypton         <retroshare.project@gmail.com>           *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 
 #include "ServerPage.h"
 
@@ -81,28 +80,37 @@ ServerPage::ServerPage(QWidget * parent, Qt::WindowFlags flags)
   ui.setupUi(this);
 
   manager = NULL ;
+  mOngoingConnectivityCheck = -1;
 
-  if(RsAccounts::isTorAuto())
+  if(RsAccounts::isHiddenNode())
   {
-  	// Here we use absolute numbers instead of consts defined above, because the consts correspond to the tab number *after* this tab removal.
+	  if(RsAccounts::isTorAuto())
+	  {
+		  // Here we use absolute numbers instead of consts defined above, because the consts correspond to the tab number *after* this tab removal.
 
-	ui.tabWidget->removeTab(TAB_RELAYS) ;		// remove relays. Not useful in Tor mode.
-	ui.tabWidget->removeTab(TAB_IP_FILTERS) ;	// remove IP filters. Not useful in Tor mode.
+		  ui.tabWidget->removeTab(TAB_RELAYS) ;		// remove relays. Not useful in Tor mode.
+		  ui.tabWidget->removeTab(TAB_IP_FILTERS) ;	// remove IP filters. Not useful in Tor mode.
 
-	ui.hiddenServiceTab->removeTab(TAB_HIDDEN_SERVICE_I2P_BOB) ; // remove the Automatic I2P/BOB tab
+		  ui.hiddenServiceTab->removeTab(TAB_HIDDEN_SERVICE_I2P_BOB) ; // remove the Automatic I2P/BOB tab
 
-	ui.hiddenpage_proxyAddress_i2p->hide() ;
-	ui.hiddenpage_proxyLabel_i2p->hide() ;
-	ui.hiddenpage_proxyPort_i2p->hide() ;
-	ui.label_i2p_outgoing->hide() ;
-	ui.iconlabel_i2p_outgoing->hide() ;
-	ui.plainTextEdit->hide() ;
-	ui.hiddenpage_configuration->hide() ;
-	ui.l_hiddenpage_configuration->hide() ;
-	ui.hiddenpageInHelpPlainTextEdit->hide() ;
+		  ui.hiddenpage_proxyAddress_i2p->hide() ;
+		  ui.hiddenpage_proxyLabel_i2p->hide() ;
+		  ui.hiddenpage_proxyPort_i2p->hide() ;
+		  ui.label_i2p_outgoing->hide() ;
+		  ui.iconlabel_i2p_outgoing->hide() ;
+		  ui.plainTextEdit->hide() ;
+		  ui.hiddenpage_configuration->hide() ;
+		  ui.l_hiddenpage_configuration->hide() ;
+		  ui.hiddenpageInHelpPlainTextEdit->hide() ;
 
-	ui.hiddenpage_outHeader->setText(tr("Tor has been automatically configured by Retroshare. You shouldn't need to change anything here.")) ;
-	ui.hiddenpage_inHeader->setText(tr("Tor has been automatically configured by Retroshare. You shouldn't need to change anything here.")) ;
+		  ui.hiddenpage_outHeader->setText(tr("Tor has been automatically configured by Retroshare. You shouldn't need to change anything here.")) ;
+		  ui.hiddenpage_inHeader->setText(tr("Tor has been automatically configured by Retroshare. You shouldn't need to change anything here.")) ;
+	  }
+  }
+  else
+  {
+      ui.hiddenServiceTab->removeTab(TAB_HIDDEN_SERVICE_I2P_BOB);	// warning: the order of operation here is very important.
+      ui.hiddenServiceTab->removeTab(TAB_HIDDEN_SERVICE_INCOMING);
   }
 
     ui.filteredIpsTable->setHorizontalHeaderItem(COLUMN_RANGE,new QTableWidgetItem(tr("IP Range"))) ;

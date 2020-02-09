@@ -37,12 +37,6 @@ struct RSTrafficClue;
 #include "serialiser/rsserial.h"
 #include "retroshare/rstypes.h"
 
-
-#define PQI_MIN_PORT 10 // TO ALLOW USERS TO HAVE PORT 80! - was 1024
-#define PQI_MIN_PORT_RNG 1024
-#define PQI_MAX_PORT 65535
-#define PQI_DEFAULT_PORT 7812
-
 int getPQIsearchId();
 int fixme(char *str, int n);
 
@@ -185,9 +179,10 @@ class NetInterface;
  **/
 class PQInterface: public RateInterface
 {
-	public:
-		explicit PQInterface(const RsPeerId &id) :peerId(id) { return; }
-		virtual	~PQInterface() { return; }
+public:
+	explicit PQInterface(const RsPeerId &id) :
+	    traf_in(0), traf_out(0), peerId(id) {}
+	virtual	~PQInterface() {}
 
 		/*!
 		 * allows user to send RsItems to a particular facility  (file, network)
@@ -227,6 +222,22 @@ class PQInterface: public RateInterface
 		virtual int	notifyEvent(NetInterface * /*ni*/, int /*event*/,
 								const sockaddr_storage & /*remote_peer_address*/)
 		{ return 0; }
+
+		virtual uint64_t getTraffic(bool in)
+		{
+			uint64_t ret = 0;
+			if (in)
+			{
+				ret = traf_in;
+				traf_in = 0;
+				return ret;
+			}
+			ret = traf_out;
+			traf_out = 0;
+			return ret;
+		}
+		uint64_t traf_in;
+		uint64_t traf_out;
 
 	private:
 

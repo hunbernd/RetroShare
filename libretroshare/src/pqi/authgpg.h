@@ -172,6 +172,7 @@ public:
 		 *
 		 ****/
 		virtual bool LoadCertificateFromString(const std::string &pem, RsPgpId& gpg_id,std::string& error_string);
+		virtual bool LoadPGPKeyFromBinaryData(const unsigned char *data,uint32_t data_len, RsPgpId& gpg_id,std::string& error_string);
 		virtual std::string SaveCertificateToString(const RsPgpId &id,bool include_signatures) ;
 
 		// Cached certificates.
@@ -238,7 +239,7 @@ public:
 		virtual bool    loadList(std::list<RsItem *>& load);
 		/*****************************************************************/
 
-	private:
+private:
 		// Gets the certificate pointer and returns NULL if the string is invalid, or the
 		// cert was not found.
 		//
@@ -270,10 +271,9 @@ public:
 		bool    printAllKeys_locked();
 		bool    printOwnKeys_locked();
 
-		/* own thread */
-        virtual void data_tick();
+	void threadTick() override; /// @see RsTickingThread
 
-	private:
+private:
 
 		static AuthGPG *instance_gpg; // pointeur vers le singleton
 

@@ -1,23 +1,22 @@
-/****************************************************************
- *  RetroShare is distributed under the following license:
- *
- *  Copyright (C) 2008 Robert Fernie
- *
- *  This program is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU General Public License
- *  as published by the Free Software Foundation; either version 2
- *  of the License, or (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, 
- *  Boston, MA  02110-1301, USA.
- ****************************************************************/
+/*******************************************************************************
+ * retroshare-gui/src/gui/gxschannels/CreateGxsChannelMsg.cpp                  *
+ *                                                                             *
+ * Copyright 2008 by Robert Fernie     <retroshare.project@gmail.com>          *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 
 #include <QDragEnterEvent>
 #include <QMessageBox>
@@ -25,13 +24,16 @@
 #include <QMenu>
 #include <QDir>
 #include <QMimeData>
+#include <QTextDocumentFragment>
 
 #include "CreateGxsChannelMsg.h"
+#include "gui/gxs/GxsIdDetails.h"
 #include "gui/feeds/SubFileItem.h"
 #include "gui/RetroShareLink.h"
 #include "util/HandleRichText.h"
 #include "util/misc.h"
 #include "util/rsdir.h"
+#include "util/RichTextEdit.h"
 
 #include <retroshare/rsfiles.h>
 
@@ -54,7 +56,7 @@ CreateGxsChannelMsg::CreateGxsChannelMsg(const RsGxsGroupId &cId, RsGxsMessageId
 	Settings->loadWidgetInformation(this);
 	mChannelQueue = new TokenQueue(rsGxsChannels->getTokenService(), this);
 
-	headerFrame->setHeaderImage(QPixmap(":/images/channels.png"));
+	headerFrame->setHeaderImage(QPixmap(":/icons/png/channel.png"));
 
     if(!existing_post.isNull())
 		headerFrame->setHeaderText(tr("Edit Channel Post"));
@@ -63,14 +65,17 @@ CreateGxsChannelMsg::CreateGxsChannelMsg(const RsGxsGroupId &cId, RsGxsMessageId
 
 	setAttribute ( Qt::WA_DeleteOnClose, true );
 
+	buttonBox->button(QDialogButtonBox::Ok)->setText(tr("Post"));
+
 	connect(buttonBox, SIGNAL(accepted()), this, SLOT(sendMsg()));
 	connect(buttonBox, SIGNAL(rejected()), this, SLOT(cancelMsg()));
 
 	connect(addFileButton, SIGNAL(clicked() ), this , SLOT(addExtraFile()));
-	connect(addfilepushButton, SIGNAL(clicked() ), this , SLOT(addExtraFile()));	
+	connect(addfilepushButton, SIGNAL(clicked() ), this , SLOT(addExtraFile()));
+	
 	connect(addThumbnailButton, SIGNAL(clicked() ), this , SLOT(addThumbnail()));
 	connect(thumbNailCb, SIGNAL(toggled(bool)), this, SLOT(allowAutoMediaThumbNail(bool)));
-	connect(tabWidget, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(contextMenu(QPoint)));
+	connect(stackedWidget, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(contextMenu(QPoint)));
 	connect(generateCheckBox, SIGNAL(toggled(bool)), generateSpinBox, SLOT(setEnabled(bool)));
 
 	generateSpinBox->setEnabled(false);
@@ -82,7 +87,6 @@ CreateGxsChannelMsg::CreateGxsChannelMsg(const RsGxsGroupId &cId, RsGxsMessageId
 	thumbNailCb->setVisible(true);
 	thumbNailCb->setEnabled(true);
 #endif
-	//buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
 
 	setAcceptDrops(true);
 
@@ -93,7 +97,7 @@ CreateGxsChannelMsg::CreateGxsChannelMsg(const RsGxsGroupId &cId, RsGxsMessageId
 	generateSpinBox->hide();
 #endif
 }
-
+	
 CreateGxsChannelMsg::~CreateGxsChannelMsg()
 {
 	Settings->saveWidgetInformation(this);
@@ -420,7 +424,7 @@ void CreateGxsChannelMsg::addSubject(const QString& text)
 
 void CreateGxsChannelMsg::addHtmlText(const QString& text)
 {
-	msgEdit->setHtml(text) ;
+	RichTextEditWidget->setText(text) ;
 }
 
 void CreateGxsChannelMsg::addAttachment(const std::string &path)
@@ -628,8 +632,9 @@ void CreateGxsChannelMsg::sendMsg()
 
 	/* construct message bits */
 	std::string subject = std::string(misc::removeNewLine(subjectEdit->text()).toUtf8());
+
 	QString text;
-	RsHtml::optimizeHtml(msgEdit, text);
+	text = RichTextEditWidget->toHtml();
 	std::string msg = std::string(text.toUtf8());
 
 	std::list<RsGxsFile> files;
@@ -767,13 +772,16 @@ void CreateGxsChannelMsg::loadChannelPostInfo(const uint32_t &token)
     }
 
 	subjectEdit->setText(QString::fromUtf8(post.mMeta.mMsgName.c_str())) ;
-    msgEdit->setText(QString::fromUtf8(post.mMsg.c_str())) ;
+	RichTextEditWidget->setText(QString::fromUtf8(post.mMsg.c_str()));
 
     for(std::list<RsGxsFile>::const_iterator it(post.mFiles.begin());it!=post.mFiles.end();++it)
         addAttachment(it->mHash,it->mName,it->mSize,true,RsPeerId(),true);
 
-    picture.loadFromData(post.mThumbnail.mData,post.mThumbnail.mSize,"PNG");
-	thumbnail_label->setPixmap(picture);
+	if(post.mThumbnail.mData != NULL)
+	{
+		GxsIdDetails::loadPixmapFromData(post.mThumbnail.mData,post.mThumbnail.mSize,picture,GxsIdDetails::ORIGINAL);
+		thumbnail_label->setPixmap(picture);
+	}
 }
 
 void CreateGxsChannelMsg::loadChannelInfo(const uint32_t &token)
@@ -821,4 +829,14 @@ void CreateGxsChannelMsg::loadRequest(const TokenQueue *queue, const TokenReques
 				std::cerr << std::endl;
 		}
 	}
+}
+
+void CreateGxsChannelMsg::on_channelpostButton_clicked()
+{
+	stackedWidget->setCurrentIndex(0);
+}
+
+void CreateGxsChannelMsg::on_attachmentsButton_clicked()
+{
+	stackedWidget->setCurrentIndex(1);
 }

@@ -1,23 +1,23 @@
-/****************************************************************
- *  RetroShare is distributed under the following license:
- *
- *  Copyright (C) 2009 The RetroShare Team, Oleksiy Bilyanskyy
- *
- *  This program is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU General Public License
- *  as published by the Free Software Foundation; either version 2
- *  of the License, or (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor,
- *  Boston, MA  02110-1301, USA.
- ****************************************************************/
+/*******************************************************************************
+ * gui/connect/ConnectFriendWizard.cpp                                         *
+ *                                                                             *
+ * Copyright (C) 2009 retroshare team <retroshare.project@gmail.com>           *
+ * Copyright (C) 2009 Oleksiy Bilyanskyy                                       *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 
 #include <QCheckBox>
 #include <QClipboard>
@@ -80,18 +80,15 @@ ConnectFriendWizard::ConnectFriendWizard(QWidget *parent) :
 
 	mTitleFontSize = 0; // Standard
 	mTitleFontWeight = 0; // Standard
-
-    // (csoler) I'm hiding this, since it is not needed anymore with the new Home page.
-    ui->userFrame->hide();
 	
-	ui->userFileFrame->hide(); // in homepage dropmenu now
+//	ui->userFileFrame->hide(); // in homepage dropmenu now
 
 // this define comes from Qt example. I don't have mac, so it wasn't tested
 #ifndef Q_OS_MAC
 	setWizardStyle(ModernStyle);
 #endif
 
-	setStartId(Page_Intro);
+	setStartId(Page_Text);
 
 // at this moment I don't know, what information should be in help
 //	setOption(HaveHelpButton, true);
@@ -106,8 +103,8 @@ ConnectFriendWizard::ConnectFriendWizard(QWidget *parent) :
 	ui->ErrorMessagePage->registerField("errorMessage", ui->messageLabel, "text");
 
 	/* disable not used pages */
-	ui->foffRadioButton->hide();
-	ui->rsidRadioButton->hide();
+	//ui->foffRadioButton->hide();
+	//ui->rsidRadioButton->hide();
 	
 	ui->cp_Label->hide();
 	ui->requestinfolabel->hide();
@@ -129,6 +126,8 @@ ConnectFriendWizard::ConnectFriendWizard(QWidget *parent) :
     body += "\n" + GetStartedDialog::GetCutBelowText();
 	body += "\n\n" + QString::fromUtf8(rsPeers->GetRetroshareInvite().c_str());
 	
+    mIsShortInvite = false;
+
 	std::string advsetting;
 	if(rsConfig->getConfigurationOption(RS_CONFIG_ADVANCED, advsetting) && (advsetting == "YES"))
 	{
@@ -136,30 +135,20 @@ ConnectFriendWizard::ConnectFriendWizard(QWidget *parent) :
 	}
 	else
 	{
-		ui->userFrame->hide(); // certificates page - top half with own cert and it's functions
 		ui->cp_Frame->hide(); // Advanced options - key sign, whitelist, direct source ...
 		AdvancedVisible=false;
 		ui->trustLabel->hide();
 		ui->trustEdit->hide();
 	}
 	
-	unsigned int onlineCount = 0, friendCount = 0;
-    rsPeers->getPeerCount (&friendCount, &onlineCount, false);
-	if(friendCount<30)
-		ui->makefriend_infolabel->hide();
-
 	//Add warning to direct source checkbox depends general setting.
 	switch (rsFiles->filePermDirectDL())
 	{
 		case RS_FILE_PERM_DIRECT_DL_YES:
-			ui->_direct_transfer_CB->setIcon(QIcon(":/icons/warning_yellow_128.png"));
-			ui->_direct_transfer_CB->setToolTip(ui->_direct_transfer_CB->toolTip().append(tr("\nWarning: In your File-Transfer option, you select allow direct download to Yes.")));
 			ui->_direct_transfer_CB_2->setIcon(QIcon(":/icons/warning_yellow_128.png"));
 			ui->_direct_transfer_CB_2->setToolTip(ui->_direct_transfer_CB_2->toolTip().append(tr("\nWarning: In your File-Transfer option, you select allow direct download to Yes.")));
 			break ;
 		case RS_FILE_PERM_DIRECT_DL_NO:
-			ui->_direct_transfer_CB->setIcon(QIcon(":/icons/warning_yellow_128.png"));
-			ui->_direct_transfer_CB->setToolTip(ui->_direct_transfer_CB->toolTip().append(tr("\nWarning: In your File-Transfer option, you select allow direct download to No.")));
 			ui->_direct_transfer_CB_2->setIcon(QIcon(":/icons/warning_yellow_128.png"));
 			ui->_direct_transfer_CB_2->setToolTip(ui->_direct_transfer_CB_2->toolTip().append(tr("\nWarning: In your File-Transfer option, you select allow direct download to No.")));
 			break ;
@@ -282,7 +271,6 @@ QString ConnectFriendWizard::getErrorString(uint32_t error_code)
 void ConnectFriendWizard::setCertificate(const QString &certificate, bool friendRequest)
 {
 	if (certificate.isEmpty()) {
-		setStartId(Page_Intro);
 		return;
 	}
 
@@ -304,17 +292,43 @@ void ConnectFriendWizard::setCertificate(const QString &certificate, bool friend
 		{
 			mCertificate = certificate.toUtf8().constData();
 
-			// Cyril: I disabled this because it seems to be not used anymore.
-			//setStartId(friendRequest ? Page_FriendRequest : Page_Conclusion);
 			setStartId(Page_Conclusion);
 			if (friendRequest){
 				ui->cp_Label->show();
 				ui->requestinfolabel->show();
 				setTitleText(ui->ConclusionPage, tr("Friend request"));
 				ui->ConclusionPage->setSubTitle(tr("Details about the request"));
+				setButtonText(QWizard::FinishButton	, tr("Accept"));
 			}
 		}
-    } else {
+    }
+    else if(rsPeers->parseShortInvite(certificate.toUtf8().constData(),peerDetails,cert_load_error_code))
+    {
+        mIsShortInvite = true;
+
+		if(peerDetails.id == rsPeers->getOwnId())
+		{
+			setField("errorMessage", tr("This is your own certificate! You would not want to make friend with yourself. Wouldn't you?") ) ;
+			error = false;
+			setStartId(Page_ErrorMessage);
+		}
+		else
+		{
+			mCertificate = certificate.toUtf8().constData();
+
+			setStartId(Page_Conclusion);
+
+			if (friendRequest){
+				ui->cp_Label->show();
+				ui->requestinfolabel->show();
+				setTitleText(ui->ConclusionPage, tr("Friend request"));
+				ui->ConclusionPage->setSubTitle(tr("Details about the request"));
+				setButtonText(QWizard::FinishButton	, tr("Accept"));
+			}
+		}
+	}
+    else
+    {
 		// error message
 		setField("errorMessage", tr("Certificate Load Failed") + ": \n\n" + getErrorString(cert_load_error_code)) ;
 		setStartId(Page_ErrorMessage);
@@ -323,23 +337,49 @@ void ConnectFriendWizard::setCertificate(const QString &certificate, bool friend
 
 void ConnectFriendWizard::setGpgId(const RsPgpId &gpgId, const RsPeerId &sslId, bool friendRequest)
 {
-	if (!rsPeers->getGPGDetails(gpgId, peerDetails)) {
-		setField("errorMessage", tr("Cannot get peer details of PGP key %1").arg(QString::fromStdString(gpgId.toStdString())));
+	if(sslId == rsPeers->getOwnId())
+	{
+		setField("errorMessage", tr("This is your own certificate! You would not want to make friend with yourself. Wouldn't you?") ) ;
 		setStartId(Page_ErrorMessage);
-		return;
+		error = false;
 	}
 
-	/* Set ssl id when available */
-	peerDetails.id = sslId;
+	if (!rsPeers->getGPGDetails(gpgId, peerDetails))
+    {
+		mIsShortInvite = true;
 
-    //setStartId(friendRequest ? Page_FriendRequest : Page_Conclusion);
-    setStartId(Page_Conclusion);
-    if (friendRequest){
-    ui->cp_Label->show();
-    ui->requestinfolabel->show();
-    setTitleText(ui->ConclusionPage,tr("Friend request"));
-    ui->ConclusionPage->setSubTitle(tr("Details about the request"));
-    }
+        peerDetails.id = sslId;
+        peerDetails.gpg_id = gpgId;
+        peerDetails.skip_pgp_signature_validation = true;
+
+		mCertificate.clear();
+
+		setStartId(Page_Conclusion);
+
+		if (friendRequest){
+			ui->cp_Label->show();
+			ui->requestinfolabel->show();
+			setTitleText(ui->ConclusionPage, tr("Friend request"));
+			ui->ConclusionPage->setSubTitle(tr("Details about the request"));
+			setButtonText(QWizard::FinishButton	, tr("Accept"));
+		}
+	}
+    else
+	{
+		/* Set ssl id when available */
+		peerDetails.id = sslId;
+		mIsShortInvite = false;
+
+		//setStartId(friendRequest ? Page_FriendRequest : Page_Conclusion);
+		setStartId(Page_Conclusion);
+		if (friendRequest){
+			ui->cp_Label->show();
+			ui->requestinfolabel->show();
+			setTitleText(ui->ConclusionPage,tr("Friend request"));
+			ui->ConclusionPage->setSubTitle(tr("Details about the request"));
+			setButtonText(QWizard::FinishButton	, tr("Accept"));
+		}
+	}
 }
 
 ConnectFriendWizard::~ConnectFriendWizard()
@@ -366,18 +406,10 @@ static void fillGroups(ConnectFriendWizard *wizard, QComboBox *comboBox, const Q
 void ConnectFriendWizard::initializePage(int id)
 {
 	switch ((Page) id) {
-	case Page_Intro:
-		ui->textRadioButton->setChecked(true);
-		break;
 	case Page_Text:
-		connect(ui->userCertHelpButton, SIGNAL( clicked()), this, SLOT(showHelpUserCert()));
-		connect(ui->userCertIncludeSignaturesButton, SIGNAL(clicked()), this, SLOT(toggleSignatureState()));
-		connect(ui->userCertOldFormatButton, SIGNAL(clicked()), this, SLOT(toggleFormatState()));
-		connect(ui->userCertCopyButton, SIGNAL(clicked()), this, SLOT(copyCert()));
+
 		connect(ui->userCertPasteButton, SIGNAL(clicked()), this, SLOT(pasteCert()));
 		connect(ui->userCertOpenButton, SIGNAL(clicked()), this, SLOT(openCert()));
-		connect(ui->userCertSaveButton, SIGNAL(clicked()), this, SLOT(saveCert()));
-		connect(ui->userCertMailButton, SIGNAL(clicked()), this, SLOT(runEmailClient()));
 		connect(ui->friendCertEdit, SIGNAL(textChanged()), this, SLOT(friendCertChanged()));
 
 		cleanfriendCertTimer = new QTimer(this);
@@ -385,62 +417,11 @@ void ConnectFriendWizard::initializePage(int id)
 		cleanfriendCertTimer->setInterval(1000); // 1 second
 		connect(cleanfriendCertTimer, SIGNAL(timeout()), this, SLOT(cleanFriendCert()));
 
-		ui->userCertOldFormatButton->setChecked(false); 
-		ui->userCertOldFormatButton->hide() ;
-
-		toggleFormatState(true);
-		toggleSignatureState(false);
-		updateOwnCert();
-
 		cleanFriendCert();
 
 		break;
-	case Page_Cert:
-		connect(ui->userFileCreateButton, SIGNAL(clicked()), this, SLOT(generateCertificateCalled()));
-		connect(ui->friendFileNameOpenButton, SIGNAL(clicked()), this, SLOT(loadFriendCert()));
-
-		ui->friendFileNameEdit->setAcceptFile(true);
-
-		ui->CertificatePage->registerField("friendCertificateFile*", ui->friendFileNameEdit);
-		break;
-	case Page_Foff:
-		ui->userSelectionCB->addItem(tr("Any peer I've not signed"));
-		ui->userSelectionCB->addItem(tr("Friends of my friends who already trust me"));
-		ui->userSelectionCB->addItem(tr("Signed peers showing as denied"));
-
-		ui->selectedPeersTW->setHorizontalHeaderItem(0, new QTableWidgetItem(tr("")));
-		ui->selectedPeersTW->setHorizontalHeaderItem(1, new QTableWidgetItem(tr("Peer name")));
-		ui->selectedPeersTW->setHorizontalHeaderItem(2, new QTableWidgetItem(tr("Also signed by")));
-		ui->selectedPeersTW->setHorizontalHeaderItem(3, new QTableWidgetItem(tr("Peer id")));
-
-		connect(ui->makeFriendButton, SIGNAL(clicked()), this, SLOT(signAllSelectedUsers()));
-		connect(ui->userSelectionCB, SIGNAL(activated(int)), this, SLOT(updatePeersList(int)));
-
-		updatePeersList(ui->userSelectionCB->currentIndex());
-
-		ui->FofPage->setComplete(false);
-		break;
-	case Page_Rsid:
-		ui->RsidPage->registerField("friendRSID*", ui->friendRsidEdit);
-		break;
 	case Page_WebMail:
 
-	case Page_Email:
-		{
-		ui->EmailPage->registerField("addressEdit*", ui->addressEdit);
-		ui->EmailPage->registerField("subjectEdit*", ui->subjectEdit);
-
-		ui->subjectEdit->setText(tr("RetroShare Invitation"));
-		ui->inviteTextEdit->setPlainText(GetStartedDialog::GetInviteText());
-		
-		QString body = ui->inviteTextEdit->toPlainText();
-
-		body += "\n" + GetStartedDialog::GetCutBelowText();
-		body += "\n\n" + QString::fromUtf8(rsPeers->GetRetroshareInvite().c_str());
-
-		ui->inviteTextEdit->setPlainText(body);
-		}
-		break;
 	case Page_ErrorMessage:
 		break;
 	case Page_Conclusion:
@@ -551,7 +532,7 @@ void ConnectFriendWizard::initializePage(int id)
 			ui->cp_Label->setText(tr("You have a friend request from") + " " + QString::fromUtf8(peerDetails.name.c_str()));
 			ui->nameEdit->setText(QString::fromUtf8(peerDetails.name.c_str()));
 			ui->trustEdit->setText(trustString);
-			ui->emailEdit->setText(QString::fromUtf8(peerDetails.email.c_str()));
+			ui->profileIdEdit->setText(QString::fromStdString(peerDetails.gpg_id.toStdString()));
 			QString loc = QString::fromUtf8(peerDetails.location.c_str());
 			if (!loc.isEmpty())
 			{
@@ -584,84 +565,22 @@ void ConnectFriendWizard::initializePage(int id)
 				ui->ipLabel->setPixmap(QPixmap(":/images/anonymous_128_blue.png").scaledToHeight(S*2,Qt::SmoothTransformation));
 				ui->ipLabel->setToolTip("This is a Hidden node - you need tor/i2p proxy to connect");
 			}
-
-			if(peerDetails.email.empty())
+			if(mIsShortInvite)
 			{
-				ui->emailLabel->hide(); // is it ever used?
-				ui->emailEdit->hide();
+                ui->nameEdit->setText(tr("[Unknown]"));
+                ui->addKeyToKeyring_CB->setChecked(false);
+                ui->addKeyToKeyring_CB->setEnabled(false);
+				ui->signersEdit->hide();
+				ui->signersLabel->hide();
+                ui->signGPGCheckBox->setChecked(false);
+                ui->signGPGCheckBox->setEnabled(false);
+                ui->acceptNoSignGPGCheckBox->setChecked(true);
+                ui->acceptNoSignGPGCheckBox->setEnabled(false);
 			}
+
 			ui->ipEdit->setTextInteractionFlags(Qt::TextSelectableByMouse);
 
 		}
-		break;
-	case Page_FriendRequest:
-		{
-			std::cerr << "Friend request page id : " << peerDetails.id << "; gpg_id : " << peerDetails.gpg_id << std::endl;
-
-			ui->fr_avatar->setFrameType(AvatarWidget::NORMAL_FRAME);
-			setPixmap(QWizard::LogoPixmap, QPixmap(":/images/user/user_request48.png"));
-
-			ui->fr_signGPGCheckBox->setChecked(false);
-
-			//set the radio button to sign the GPG key
-			if (peerDetails.accept_connection && !peerDetails.ownsign) {
-				//gpg key connection is already accepted, don't propose to accept it again
-				ui->fr_acceptNoSignGPGCheckBox->hide();
-				ui->fr_signGPGCheckBox->show();
-				ui->fr_acceptNoSignGPGCheckBox->setChecked(false);
-			}
-			if (!peerDetails.accept_connection && peerDetails.ownsign) {
-				//gpg key is already signed, don't propose to sign it again
-				ui->fr_acceptNoSignGPGCheckBox->setChecked(true);
-				ui->fr_signGPGCheckBox->hide();
-			}
-			if (!peerDetails.accept_connection && !peerDetails.ownsign) {
-				ui->fr_acceptNoSignGPGCheckBox->setChecked(true);
-				ui->fr_signGPGCheckBox->show();
-				ui->fr_acceptNoSignGPGCheckBox->show();
-			}
-			if (peerDetails.accept_connection && peerDetails.ownsign) {
-				ui->fr_acceptNoSignGPGCheckBox->setChecked(false);
-				ui->fr_acceptNoSignGPGCheckBox->hide();
-				ui->fr_signGPGCheckBox->hide();
-			}
-
-			ui->fr_nameEdit->setText(QString::fromUtf8(peerDetails.name.c_str()));
-			ui->fr_emailEdit->setText(QString::fromUtf8(peerDetails.email.c_str()));
-
-			QString loc = QString::fromUtf8(peerDetails.location.c_str());
-			if (!loc.isEmpty())
-			{
-				loc += " (";
-				loc += QString::fromStdString(peerDetails.id.toStdString());
-				loc += ")";
-			}
-			else
-			{
-				if (!peerDetails.id.isNull())
-				{
-					loc += QString::fromStdString(peerDetails.id.toStdString());
-				}
-			}
-
-			ui->fr_nodeEdit->setText(loc);
-			
-			ui->fr_InfoTopLabel->setText(tr("You have a friend request from") + " " + QString::fromUtf8(peerDetails.name.c_str()));
-
-			fillGroups(this, ui->fr_groupComboBox, groupId);
-		}
-		break;
-	case Page_FriendRecommendations:
-		ui->frec_recommendList->setHeaderText(tr("Recommend friends"));
-		ui->frec_recommendList->setModus(FriendSelectionWidget::MODUS_CHECK);
-		ui->frec_recommendList->setShowType(FriendSelectionWidget::SHOW_GROUP | FriendSelectionWidget::SHOW_SSL);
-		ui->frec_recommendList->start();
-
-		ui->frec_toList->setHeaderText(tr("To"));
-		ui->frec_toList->setModus(FriendSelectionWidget::MODUS_CHECK);
-		ui->frec_toList->start();
-
-		ui->frec_messageEdit->setText(MessageComposer::recommendMessage());
 		break;
 	}
 }
@@ -696,10 +615,9 @@ static void sendMail(QString sAddress, QString sSubject, QString sBody)
 
 bool ConnectFriendWizard::validateCurrentPage()
 {
-	error = true;
+	error = false;
 
 	switch ((Page) currentId()) {
-	case Page_Intro:
 	case Page_WebMail:
 		break;
 	case Page_Text:
@@ -707,7 +625,8 @@ bool ConnectFriendWizard::validateCurrentPage()
 			std::string certstr = ui->friendCertEdit->toPlainText().toUtf8().constData();
 			uint32_t cert_load_error_code;
 
-			if (rsPeers->loadDetailsFromStringCert(certstr, peerDetails, cert_load_error_code)) {
+			if (rsPeers->loadDetailsFromStringCert(certstr, peerDetails, cert_load_error_code) || rsPeers->parseShortInvite(certstr,peerDetails,cert_load_error_code))
+            {
 				mCertificate = certstr;
 #ifdef FRIEND_WIZARD_DEBUG
 				std::cerr << "ConnectFriendWizard got id : " << peerDetails.id << "; gpg_id : " << peerDetails.gpg_id << std::endl;
@@ -716,121 +635,20 @@ bool ConnectFriendWizard::validateCurrentPage()
 				if(peerDetails.id == rsPeers->getOwnId())
 				{
 					setField("errorMessage", tr("This is your own certificate! You would not want to make friend with yourself. Wouldn't you?") ) ;
-					error = false;
+					error = true;
 				}
 
 				break;
 			}
 			// error message
 			setField("errorMessage", tr("Certificate Load Failed") + ": \n\n" + getErrorString(cert_load_error_code)) ;
-			error = false;
+			error = true;
 			break;
 		}
-	case Page_Cert:
-		{
-			QString fn = ui->friendFileNameEdit->text();
-			if (QFile::exists(fn)) {
-				//Todo: move read from file to p3Peers::loadCertificateFromFile
-
-				// read from file
-				std::string certstr;
-				QFile CertFile(fn);
-				if (CertFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-					certstr = QString(CertFile.readAll()).toStdString();
-					CertFile.close();
-				}
-
-				if (certstr.empty()) {
-					setField("errorMessage", QString(tr("Certificate Load Failed:can't read from file %1")).arg(fn+" ") );
-					error = false;
-					break;
-				}
-
-				uint32_t cert_error_code;
-				if (rsPeers->loadDetailsFromStringCert(certstr, peerDetails, cert_error_code)) {
-					mCertificate = certstr;
-#ifdef FRIEND_WIZARD_DEBUG
-					std::cerr << "ConnectFriendWizard got id : " << peerDetails.id << "; gpg_id : " << peerDetails.gpg_id << std::endl;
-#endif
-
-					if(peerDetails.id == rsPeers->getOwnId())
-					{
-						setField("errorMessage", tr("This is your own certificate! You would not want to make friend with yourself. Wouldn't you?") ) ;
-						error = false;
-					}
-				} else {
-					setField("errorMessage", QString(tr("Certificate Load Failed:something is wrong with %1")).arg(fn) + " : " + getErrorString(cert_error_code));
-					error = false;
-				}
-			} else {
-				setField("errorMessage", QString(tr("Certificate Load Failed:file %1 not found")).arg(fn));
-				error = false;
-			}
-			break;
-		}
-	case Page_Foff:
-		break;
-	case Page_Rsid:
-		{
-			QString rsidstring = ui->friendRsidEdit->text();
-
-			if (rsidstring.isEmpty()) {
-				return false;
-			}
-
-			// search for peer id in string
-			RsPeerId rsidstr = PeerDefs::idFromRsid(rsidstring, false);
-
-			if (rsidstr.isNull() || !rsPeers->getPeerDetails(rsidstr, peerDetails)) {
-				setField("errorMessage", tr("This Peer %1 is not available in your Network").arg(rsidstring));
-				error = false;
-			}
-			break;
-		}
-	case Page_Email:
-		{
-			QString mailaddresses = ui->addressEdit->text();
-			if (mailaddresses.isEmpty()) {
-				return false;
-			}
-
-			QString body = ui->inviteTextEdit->toPlainText();
-
-			body += "\n" + GetStartedDialog::GetCutBelowText();
-			body += "\n\n" + QString::fromUtf8(rsPeers->GetRetroshareInvite().c_str());
-
-			sendMail (mailaddresses, ui->subjectEdit->text(), body);
-		}
-		break;
 	case Page_ErrorMessage:
 		break;
 	case Page_Conclusion:
 		break;
-	case Page_FriendRequest:
-		break;
-	case Page_FriendRecommendations:
-		{
-            std::set<RsPeerId> recommendIds;
-            ui->frec_recommendList->selectedIds<RsPeerId,FriendSelectionWidget::IDTYPE_SSL>(recommendIds, false);
-
-			if (recommendIds.empty()) {
-				QMessageBox::warning(this, "RetroShare", tr("Please select at least one friend for recommendation."), QMessageBox::Ok, QMessageBox::Ok);
-				return false;
-			}
-
-            std::set<RsPeerId> toIds;
-            ui->frec_toList->selectedIds<RsPeerId,FriendSelectionWidget::IDTYPE_SSL>(toIds, false);
-
-			if (toIds.empty()) {
-				QMessageBox::warning(this, "RetroShare", tr("Please select at least one friend as recipient."), QMessageBox::Ok, QMessageBox::Ok);
-				return false;
-			}
-
-            std::set<RsPeerId>::iterator toId;
-			for (toId = toIds.begin(); toId != toIds.end(); ++toId) {
-				MessageComposer::recommendFriend(recommendIds, *toId, ui->frec_messageEdit->toHtml(), true);
-			}
-		}
 	}
 
 	return true;
@@ -839,26 +657,10 @@ bool ConnectFriendWizard::validateCurrentPage()
 int ConnectFriendWizard::nextId() const
 {
 	switch ((Page) currentId()) {
-	case Page_Intro:
-		if (ui->textRadioButton->isChecked()) return Page_Text;
-		if (ui->certRadioButton->isChecked()) return Page_Cert;
-		if (ui->foffRadioButton->isChecked()) return Page_Foff;
-		if (ui->rsidRadioButton->isChecked()) return Page_Rsid;
-		if (ui->webmailRadioButton->isChecked()) return Page_WebMail;
-		if (ui->emailRadioButton->isChecked()) return Page_Email;
-		if (ui->friendRecommendationsRadioButton->isChecked()) return Page_FriendRecommendations;
-		return ConnectFriendWizard::Page_Foff;
-	case Page_Text:
-	case Page_Cert:
-	case Page_Rsid:
-		return error ? ConnectFriendWizard::Page_Conclusion : ConnectFriendWizard::Page_ErrorMessage;
-	case Page_Foff:
+    case Page_Text:		return error?Page_ErrorMessage:Page_Conclusion;
 	case Page_WebMail:
-	case Page_Email:
 	case Page_ErrorMessage:
 	case Page_Conclusion:
-	case Page_FriendRequest:
-	case Page_FriendRecommendations:
 		return -1;
 	}
 
@@ -869,12 +671,7 @@ ServicePermissionFlags ConnectFriendWizard::serviceFlags() const
 {
     ServicePermissionFlags flags(0) ;
 
-    if (hasVisitedPage(Page_FriendRequest))
-    {
-        if(  ui->_direct_transfer_CB->isChecked()) flags |= RS_NODE_PERM_DIRECT_DL ;
-        if(  ui->_allow_push_CB->isChecked()) flags |= RS_NODE_PERM_ALLOW_PUSH ;
-        if(  ui->_require_WL_CB->isChecked()) flags |= RS_NODE_PERM_REQUIRE_WL ;
-    } else if (hasVisitedPage(Page_Conclusion)) {
+if (hasVisitedPage(Page_Conclusion)) {
         if(  ui->_direct_transfer_CB_2->isChecked()) flags |= RS_NODE_PERM_DIRECT_DL ;
         if(  ui->_allow_push_CB_2->isChecked()) flags |= RS_NODE_PERM_ALLOW_PUSH ;
         if(  ui->_require_WL_CB_2->isChecked()) flags |= RS_NODE_PERM_REQUIRE_WL ;
@@ -893,17 +690,14 @@ void ConnectFriendWizard::accept()
 		sign = ui->signGPGCheckBox->isChecked();
 		accept_connection = ui->acceptNoSignGPGCheckBox->isChecked();
 		add_key_to_keyring = ui->addKeyToKeyring_CB->isChecked() ;
-	} else if (hasVisitedPage(Page_FriendRequest)) {
-		std::cerr << "ConnectFriendWizard::accept() called with page friend request visited" << std::endl;
-
-		sign = ui->fr_signGPGCheckBox->isChecked();
-		accept_connection = ui->fr_acceptNoSignGPGCheckBox->isChecked();
-	} else {
+	} else  {
 		QDialog::accept();
 		return;
 	}
 
-	if (!mCertificate.empty() && add_key_to_keyring)
+    // add the profile pgp key to keyring
+
+    if(!mIsShortInvite && !mCertificate.empty() && add_key_to_keyring)
 	{
 		RsPgpId pgp_id ;
 		RsPeerId ssl_id ;
@@ -918,32 +712,44 @@ void ConnectFriendWizard::accept()
 
 	bool runProgressDialog = false;
 
+    // add the peer as friend, either with or without pgp signature validation, depending on whether we have the key or not
+    // Note: that is different than having a short invite or not.
+
+    // first, set data related to profile key.
+
 	if(accept_connection && !peerDetails.gpg_id.isNull()) 
 	{
 		std::cerr << "ConclusionPage::validatePage() accepting GPG key for connection." << std::endl;
-        rsPeers->addFriend(peerDetails.id, peerDetails.gpg_id,serviceFlags()) ;
-        rsPeers->setServicePermissionFlags(peerDetails.gpg_id,serviceFlags()) ;
 
-    if(ui->_addIPToWhiteList_CB_2->isChecked())
-    {
-        sockaddr_storage addr ;
-        if(sockaddr_storage_ipv4_aton(addr,peerDetails.extAddr.c_str()) && sockaddr_storage_isValidNet(addr))
-        {
-            std::cerr << "ConclusionPage::adding IP " << sockaddr_storage_tostring(addr) << " to whitelist." << std::endl;
-            rsBanList->addIpRange(addr,ui->_addIPToWhiteList_ComboBox_2->currentIndex(),RSBANLIST_TYPE_WHITELIST,std::string(tr("Added with certificate from %1").arg(ui->nameEdit->text()).toUtf8().constData()));
-        }
-    }
+        if(peerDetails.skip_pgp_signature_validation)
+			rsPeers->addSslOnlyFriend(peerDetails.id, peerDetails.gpg_id,peerDetails);
+		else
+			rsPeers->addFriend(peerDetails.id, peerDetails.gpg_id,serviceFlags()) ;
+
+		rsPeers->setServicePermissionFlags(peerDetails.gpg_id,serviceFlags()) ;
+
+		if(ui->_addIPToWhiteList_CB_2->isChecked())
+		{
+			sockaddr_storage addr ;
+			if(sockaddr_storage_ipv4_aton(addr,peerDetails.extAddr.c_str()) && sockaddr_storage_isValidNet(addr))
+			{
+				std::cerr << "ConclusionPage::adding IP " << sockaddr_storage_tostring(addr) << " to whitelist." << std::endl;
+				rsBanList->addIpRange(addr,ui->_addIPToWhiteList_ComboBox_2->currentIndex(),RSBANLIST_TYPE_WHITELIST,std::string(tr("Added with certificate from %1").arg(ui->nameEdit->text()).toUtf8().constData()));
+			}
+		}
 
 		if(sign)
 		{
 			std::cerr << "ConclusionPage::validatePage() signing GPG key." << std::endl;
 			rsPeers->signGPGCertificate(peerDetails.gpg_id); //bye default sign set accept_connection to true;
 			rsPeers->setServicePermissionFlags(peerDetails.gpg_id,serviceFlags()) ;
-		} 
+		}
 
-		if (!groupId.isEmpty()) 
-            rsPeers->assignPeerToGroup(RsNodeGroupId(groupId.toStdString()), peerDetails.gpg_id, true);
+		if (!groupId.isEmpty())
+			rsPeers->assignPeerToGroup(RsNodeGroupId(groupId.toStdString()), peerDetails.gpg_id, true);
 	}
+
+    // Then set data related to node location
 
 	if ((accept_connection) && (!peerDetails.id.isNull()))
 	{
@@ -975,9 +781,7 @@ void ConnectFriendWizard::accept()
 				rsPeers->setDynDNS(peerDetails.id, peerDetails.dyndns);
 			}
 			for(auto&& ipr : peerDetails.ipAddressList)
-				rsPeers->addPeerLocator(
-				            peerDetails.id,
-				            RsUrl(ipr.substr(0, ipr.find(' '))) );
+				rsPeers->addPeerLocator( peerDetails.id, RsUrl(ipr.substr(0, ipr.find(' '))) );
 		}
 
 	}
@@ -990,57 +794,10 @@ void ConnectFriendWizard::accept()
 	}
 
 	NotifyQt::getInstance()->notifyListChange(NOTIFY_LIST_NEIGHBOURS,1) ;
-
 	QDialog::accept();
 }
 
 //============================= TextPage =====================================
-
-void ConnectFriendWizard::updateOwnCert()
-{
-	std::string invite = rsPeers->GetRetroshareInvite( rsPeers->getOwnId(),
-	            ui->userCertIncludeSignaturesButton->isChecked() );
-
-	std::cerr << "TextPage() getting Invite: " << invite << std::endl;
-
-	ui->userCertEdit->setPlainText(QString::fromUtf8(invite.c_str()));
-}
-
-void ConnectFriendWizard::toggleFormatState(bool doUpdate)
-{
-	if (ui->userCertOldFormatButton->isChecked()) 
-	{
-		ui->userCertOldFormatButton->setToolTip(tr("Use new certificate format (safer, more robust)"));
-		ui->userCertOldFormatButton->setIcon(QIcon(":/images/ledoff1.png")) ;
-	}
-	else 
-	{
-		ui->userCertOldFormatButton->setToolTip(tr("Use old (backward compatible) certificate format"));
-		ui->userCertOldFormatButton->setIcon(QIcon(":/images/ledon1.png")) ;
-	}
-
-	if (doUpdate) {
-		updateOwnCert();
-	}
-}
-
-void ConnectFriendWizard::toggleSignatureState(bool doUpdate)
-{
-	if (ui->userCertIncludeSignaturesButton->isChecked()) {
-		ui->userCertIncludeSignaturesButton->setToolTip(tr("Remove signatures"));
-	} else {
-		ui->userCertIncludeSignaturesButton->setToolTip(tr("Include signatures"));
-	}
-
-	if (doUpdate) {
-		updateOwnCert();
-	}
-}
-
-void ConnectFriendWizard::runEmailClient()
-{
-	sendMail("", tr("RetroShare Invite"), ui->userCertEdit->toPlainText());
-}
 
 void ConnectFriendWizard::friendCertChanged()
 {
@@ -1062,19 +819,23 @@ void ConnectFriendWizard::cleanFriendCert()
 
 	} else {
 		std::string cleanCert;
-		int error_code;
+		uint32_t error_code;
 
-		if (rsPeers->cleanCertificate(cert, cleanCert, error_code)) {
+		if (rsPeers->cleanCertificate(cert, cleanCert, mIsShortInvite, error_code))
+        {
 			certValid = true;
-			if (cert != cleanCert) {
-				disconnect(ui->friendCertEdit, SIGNAL(textChanged()), this, SLOT(friendCertChanged()));
+
+			if (cert != cleanCert)
+            {
 				QTextCursor textCursor = ui->friendCertEdit->textCursor();
-				ui->friendCertEdit->setPlainText(QString::fromUtf8(cleanCert.c_str()));
-				ui->friendCertEdit->setTextCursor(textCursor);
+
+				whileBlocking(ui->friendCertEdit)->setPlainText(QString::fromUtf8(cleanCert.c_str()));
+				whileBlocking(ui->friendCertEdit)->setTextCursor(textCursor);
+
 				ui->friendCertCleanLabel->setStyleSheet("");
-				connect(ui->friendCertEdit, SIGNAL(textChanged()), this, SLOT(friendCertChanged()));
 			}
-			errorMsg = tr("Certificate appears to be valid");
+			errorMsg = tr("Valid certificate") + (mIsShortInvite?" (Short format)":" (plain format with profile key)");
+
 			ui->friendCertCleanLabel->setPixmap(QPixmap(":/images/accepted16.png"));
 		} else {
 			if (error_code > 0) {
@@ -1105,18 +866,6 @@ void ConnectFriendWizard::cleanFriendCert()
 	ui->TextPage->setComplete(certValid);
 }
 
-void ConnectFriendWizard::showHelpUserCert()
-{
-	QMessageBox::information(this, tr("Connect Friend Help"), tr("You can copy this text and send it to your friend via email or some other way"));
-}
-
-void ConnectFriendWizard::copyCert()
-{
-	QClipboard *clipboard = QApplication::clipboard();
-	clipboard->setText(ui->userCertEdit->toPlainText());
-	QMessageBox::information(this, "RetroShare", tr("Your Cert is copied to Clipboard, paste and send it to your friend via email or some other way"));
-}
-
 void ConnectFriendWizard::pasteCert()
 {
 	QClipboard *clipboard = QApplication::clipboard();
@@ -1139,23 +888,7 @@ void ConnectFriendWizard::openCert()
 	}
 }
 
-void ConnectFriendWizard::saveCert()
-{
-	QString fileName = QFileDialog::getSaveFileName(this, tr("Save as..."), "", tr("RetroShare Certificate (*.rsc );;All Files (*)"));
-	if (fileName.isEmpty())
-		return;
-
-	QFile file(fileName);
-	if (!file.open(QFile::WriteOnly))
-		return;
-
-	//Todo: move save to file to p3Peers::SaveCertificateToFile
-
-	QTextStream ts(&file);
-	ts.setCodec(QTextCodec::codecForName("UTF-8"));
-	ts << ui->userCertEdit->document()->toPlainText();
-}
-
+#ifdef TO_BE_REMOVED
 //========================== CertificatePage =================================
 
 void ConnectFriendWizard::loadFriendCert()
@@ -1335,7 +1068,9 @@ void ConnectFriendWizard::signAllSelectedUsers()
 
 //============================= RsidPage =====================================
 
+
 //============================ Emailpage =====================================
+#endif
 
 //========================= ErrorMessagePage =================================
 

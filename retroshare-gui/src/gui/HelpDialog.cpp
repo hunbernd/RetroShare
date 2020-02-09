@@ -1,23 +1,22 @@
-/****************************************************************
- *  RetroShare is distributed under the following license:
- *
- *  Copyright (C) 2006, crypton
- *
- *  This program is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU General Public License
- *  as published by the Free Software Foundation; either version 2
- *  of the License, or (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, 
- *  Boston, MA  02110-1301, USA.
- ****************************************************************/
+/*******************************************************************************
+ * gui/HelpDialog.cpp                                                          *
+ *                                                                             *
+ * Copyright (C) 2006 Crypton         <retroshare.project@gmail.com>           *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 
 #include "HelpDialog.h"
 #include "ui_HelpDialog.h"
@@ -25,10 +24,6 @@
 #include <retroshare/rsiface.h>
 #include <retroshare/rsplugin.h>
 #include "rshare.h"
-
-#ifdef ENABLE_WEBUI
-#include <microhttpd.h>
-#endif // ENABLE_WEBUI
 
 #include <QFile>
 #include <QTextStream>
@@ -56,6 +51,51 @@ static void addLibraries(QGridLayout *layout, const std::string &name, const std
 		label->setTextInteractionFlags(label->textInteractionFlags() | Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
 		layout->addWidget(label, row++, 1);
 	}
+
+	layout->addWidget(new QLabel(" "), row++, 0, 1, 3);
+}
+
+static void buildInfo(std::list<RsLibraryInfo> &infos)
+{
+	//Version
+	infos.push_back(RsLibraryInfo("Version", Rshare::retroshareVersion(true).toStdString()));
+
+	//Build mode
+#ifdef QT_DEBUG
+	infos.push_back(RsLibraryInfo("Build mode", "debug"));
+#else
+	infos.push_back(RsLibraryInfo("Build mode", "release"));
+#endif
+
+	//Congig
+	QString config(RS_BUILD_CONFIG);
+	QStringList sl = config.split(QString(" "));
+	sl = sl.filter(QString("rs"), Qt::CaseInsensitive);
+	infos.push_back(RsLibraryInfo("Additional config", sl.join(QString("<br />")).toStdString()));
+
+	//Architecture
+#if QT_VERSION >= QT_VERSION_CHECK (5, 4, 0)
+	infos.push_back(RsLibraryInfo("Architecture", QSysInfo::buildAbi().toStdString()));
+#endif
+
+	//OS
+	QString verInfo;
+#if QT_VERSION >= QT_VERSION_CHECK (5, 0, 0)
+	#if QT_VERSION >= QT_VERSION_CHECK (5, 4, 0)
+		verInfo+=QSysInfo::prettyProductName();
+	#endif
+#else
+	#ifdef Q_OS_LINUX
+	verInfo+="Linux";
+	#endif
+	#ifdef Q_OS_WIN
+	verInfo+="Windows";
+	#endif
+	#ifdef Q_OS_MAC
+	verInfo+="Mac";
+	#endif
+#endif
+	infos.push_back(RsLibraryInfo("OS", verInfo.toStdString()));
 }
 
 /** Constructor */
@@ -70,35 +110,45 @@ HelpDialog::HelpDialog(QWidget *parent) :
 	QFile licenseFile(QLatin1String(":/help/licence.html"));
 	if (licenseFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
 		QTextStream in(&licenseFile);
-		ui->license->setText(in.readAll());
+		ui->license->setHtml(in.readAll());
 	}
 
 	QFile authorsFile(QLatin1String(":/help/authors.html"));
 	if (authorsFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
 		QTextStream in(&authorsFile);
-		ui->authors->setText(in.readAll());
+		ui->authors->setHtml(in.readAll());
 	}
 
 	QFile thanksFile(QLatin1String(":/help/thanks.html"));
 	if (thanksFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
 		QTextStream in(&thanksFile);
-		ui->thanks->setText(in.readAll());
+		ui->thanks->setHtml(in.readAll());
 	}
 
 	ui->version->setText(Rshare::retroshareVersion(true));
 
-	/* Add version numbers of libretroshare */
 	std::list<RsLibraryInfo> libraries;
+	/* General info */
+	buildInfo(libraries);
+	addLibraries(ui->libraryLayout, "Info", libraries);
+
+	/* Add version numbers of libretroshare */
+	libraries.clear();
 	RsControl::instance()->getLibraries(libraries);
 	addLibraries(ui->libraryLayout, "libretroshare", libraries);
 
-#ifdef ENABLE_WEBUI
-	/* Add version numbers of RetroShare */
-	// Add versions here. Find a better place.
+	/* Add version numbers of GUI */
 	libraries.clear();
-	libraries.push_back(RsLibraryInfo("Libmicrohttpd", MHD_get_version()));
-	addLibraries(ui->libraryLayout, "RetroShare", libraries);
-#endif // ENABLE_WEBUI
+	libraries.push_back(RsLibraryInfo("Qt", QT_VERSION_STR));
+	addLibraries(ui->libraryLayout, "retroshare gui", libraries);
+
+// #ifdef RS_WEBUI
+// 	/* Add version numbers of RetroShare */
+// 	// Add versions here. Find a better place.
+// 	libraries.clear();
+// 	libraries.push_back(RsLibraryInfo("Restbed", restbed::get_version()));
+// 	addLibraries(ui->libraryLayout, "RetroShare", libraries);
+// #endif // ENABLE_WEBUI
 
 	/* Add version numbers of plugins */
 	if (rsPlugins) {

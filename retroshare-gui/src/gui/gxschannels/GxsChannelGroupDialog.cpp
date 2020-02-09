@@ -1,26 +1,26 @@
-/****************************************************************
- *  RetroShare is distributed under the following license:
- *
- *  Copyright (C) 2013 Robert Fernie
- *
- *  This program is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU General Public License
- *  as published by the Free Software Foundation; either version 2
- *  of the License, or (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, 
- *  Boston, MA  02110-1301, USA.
- ****************************************************************/
+/*******************************************************************************
+ * retroshare-gui/src/gui/gxschannels/GxsChannelGroupDialog.cpp                *
+ *                                                                             *
+ * Copyright 2013 by Robert Fernie     <retroshare.project@gmail.com>          *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 
 #include <QBuffer>
 
+#include "gui/gxs/GxsIdDetails.h"
 #include "GxsChannelGroupDialog.h"
 
 #include <retroshare/rsgxschannels.h>
@@ -62,11 +62,15 @@ const uint32_t ChannelEditDefaultsFlags = ChannelCreateDefaultsFlags;
 GxsChannelGroupDialog::GxsChannelGroupDialog(TokenQueue *tokenQueue, QWidget *parent)
     : GxsGroupDialog(tokenQueue, ChannelCreateEnabledFlags, ChannelCreateDefaultsFlags, parent)
 {
+    ui.commentGroupBox->setEnabled(false);	// These are here because comments_allowed are actually not used yet, so the group will not be changed by the setting and when
+    ui.comments_allowed->setChecked(true);	// the group info is displayed it will therefore be set to "disabled" in all cases although it is enabled.
 }
 
 GxsChannelGroupDialog::GxsChannelGroupDialog(TokenQueue *tokenExternalQueue, RsTokenService *tokenService, Mode mode, RsGxsGroupId groupId, QWidget *parent)
     : GxsGroupDialog(tokenExternalQueue, tokenService, mode, groupId, ChannelEditEnabledFlags, ChannelEditDefaultsFlags, parent)
 {
+    ui.commentGroupBox->setEnabled(false);	// These are here because comments_allowed are actually not used yet, so the group will not be changed by the setting and when
+    ui.comments_allowed->setChecked(true);	// the group info is displayed it will therefore be set to "disabled" in all cases although it is enabled.
 }
 
 void GxsChannelGroupDialog::initUi()
@@ -95,11 +99,11 @@ QPixmap GxsChannelGroupDialog::serviceImage()
 	switch (mode())
 	{
 	case MODE_CREATE:
-		return QPixmap(":/icons/png/channels.png");
+		return QPixmap(":/icons/png/channel.png");
 	case MODE_SHOW:
-		return QPixmap(":/icons/png/channels.png");
+		return QPixmap(":/icons/png/channel.png");
 	case MODE_EDIT:
-		return QPixmap(":/icons/png/channels.png");
+		return QPixmap(":/icons/png/channel.png");
 	}
 
 	return QPixmap();
@@ -176,7 +180,8 @@ bool GxsChannelGroupDialog::service_loadGroup(uint32_t token, Mode /*mode*/, RsG
 
 	if (group.mImage.mData) {
 		QPixmap pixmap;
-		if (pixmap.loadFromData(group.mImage.mData, group.mImage.mSize, "PNG")) {
+
+		if (GxsIdDetails::loadPixmapFromData(group.mImage.mData, group.mImage.mSize,pixmap,GxsIdDetails::ORIGINAL)) {
 			setLogo(pixmap);
 		}
 	}

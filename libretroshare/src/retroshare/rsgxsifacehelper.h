@@ -1,31 +1,26 @@
-#ifndef RSGXSIFACEIMPL_H
-#define RSGXSIFACEIMPL_H
-
-/*
- * libretroshare/src/gxs/: rsgxsifaceimpl.h
- *
- * RetroShare GXS. Convenience interface implementation
- *
- * Copyright 2012 by Christopher Evi-Parker
- * Copyright (C) 2018  Gioacchino Mazzurco <gio@eigenlab.org>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License Version 2 as published by the Free Software Foundation.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
- * USA.
- *
- * Please report all bugs and problems to "retroshare@lunamutt.com".
- *
- */
+/*******************************************************************************
+ * libretroshare/src/retroshare: rsgxsifacehelper.h                            *
+ *                                                                             *
+ * libretroshare: retroshare core library                                      *
+ *                                                                             *
+ * Copyright 2011 by Christopher Evi-Parker                                    *
+ * Copyright (C) 2018-2019  Gioacchino Mazzurco <gio@eigenlab.org>             *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Lesser General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Lesser General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Lesser General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
+#pragma once
 
 #include <chrono>
 #include <thread>
@@ -231,7 +226,8 @@ struct RsGxsIfaceHelper
 		mGxs.setSyncPeriod(grpId,age_in_secs);
     }
 
-    RsReputations::ReputationLevel minReputationForForwardingMessages(uint32_t group_sign_flags,uint32_t identity_flags)
+	RsReputationLevel minReputationForForwardingMessages(
+	        uint32_t group_sign_flags, uint32_t identity_flags )
     {
 		return mGxs.minReputationForForwardingMessages(group_sign_flags,identity_flags);
     }
@@ -294,25 +290,15 @@ protected:
 	 * Useful for blocking API implementation.
 	 * @param[in] token token associated to the request caller is waiting for
 	 * @param[in] maxWait maximum waiting time in milliseconds
+	 * @param[in] checkEvery time in millisecond between status checks
 	 */
 	RsTokenService::GxsRequestStatus waitToken(
 	        uint32_t token,
-	        std::chrono::milliseconds maxWait = std::chrono::milliseconds(500) )
-	{
-		auto timeout = std::chrono::steady_clock::now() + maxWait;
-		auto st = requestStatus(token);
-		while( !(st == RsTokenService::FAILED || st >= RsTokenService::COMPLETE)
-		       && std::chrono::steady_clock::now() < timeout )
-		{
-			std::this_thread::sleep_for(std::chrono::milliseconds(2));
-			st = requestStatus(token);
-		}
-		return st;
-	}
+	        std::chrono::milliseconds maxWait = std::chrono::milliseconds(500),
+	        std::chrono::milliseconds checkEvery = std::chrono::milliseconds(2))
+	{ return mTokenService.waitToken(token, maxWait, checkEvery); }
 
 private:
 	RsGxsIface& mGxs;
 	RsTokenService& mTokenService;
 };
-
-#endif // RSGXSIFACEIMPL_H

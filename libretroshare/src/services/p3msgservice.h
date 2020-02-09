@@ -37,7 +37,7 @@
 #include "services/p3service.h"
 #include "rsitems/rsmsgitems.h"
 #include "util/rsthreads.h"
-
+#include "util/rsdebug.h"
 #include "retroshare/rsgxsifacetypes.h"
 
 #include "grouter/p3grouter.h"
@@ -59,6 +59,19 @@ public:
 
 	virtual RsServiceInfo getServiceInfo();
 
+	/// @see RsMsgs::sendMail
+	uint32_t sendMail(const RsGxsId from,
+	        const std::string& subject,
+	        const std::string& body,
+	        const std::set<RsGxsId>& to = std::set<RsGxsId>(),
+	        const std::set<RsGxsId>& cc = std::set<RsGxsId>(),
+	        const std::set<RsGxsId>& bcc = std::set<RsGxsId>(),
+	        const std::vector<FileInfo>& attachments = std::vector<FileInfo>(),
+	        std::set<RsMailIdRecipientIdPair>& trackingIds =
+	            RS_DEFAULT_STORAGE_PARAM(std::set<RsMailIdRecipientIdPair>),
+	        std::string& errorMsg =
+	            RS_DEFAULT_STORAGE_PARAM(std::string) );
+
     /* External Interface */
     bool 	getMessageSummaries(std::list<Rs::Msgs::MsgInfoSummary> &msgList);
     bool 	getMessage(const std::string &mid, Rs::Msgs::MessageInfo &msg);
@@ -72,16 +85,17 @@ public:
     // msgParentId == 0 --> remove
     bool    setMsgParentId(uint32_t msgId, uint32_t msgParentId);
 
+	RS_DEPRECATED_FOR(sendMail)
     bool    MessageSend(Rs::Msgs::MessageInfo &info);
     bool    SystemMessage(const std::string &title, const std::string &message, uint32_t systemFlag);
     bool    MessageToDraft(Rs::Msgs::MessageInfo &info, const std::string &msgParentId);
     bool    MessageToTrash(const std::string &mid, bool bTrash);
 
+    bool 	getMessageTag(const std::string &msgId, Rs::Msgs::MsgTagInfo& info);
     bool 	getMessageTagTypes(Rs::Msgs::MsgTagType& tags);
     bool  	setMessageTagType(uint32_t tagId, std::string& text, uint32_t rgb_color);
     bool    removeMessageTagType(uint32_t tagId);
 
-    bool 	getMessageTag(const std::string &msgId, Rs::Msgs::MsgTagInfo& info);
     /* set == false && tagId == 0 --> remove all */
     bool 	setMessageTag(const std::string &msgId, uint32_t tagId, bool set);
 
@@ -94,7 +108,6 @@ public:
     //std::list<RsMsgItem *> &getMsgOutList();
 
     int	tick();
-    int	status();
 
     /*** Overloaded from p3Config ****/
     virtual RsSerialiser *setupSerialiser();
@@ -142,6 +155,7 @@ public:
 
 private:
 	void sendDistantMsgItem(RsMsgItem *msgitem);
+    bool locked_getMessageTag(const std::string &msgId, Rs::Msgs::MsgTagInfo& info);
 
 	/** This contains the ongoing tunnel handling contacts.
 	 * The map is indexed by the hash */
@@ -226,6 +240,8 @@ private:
     bool mShouldEnableDistantMessaging ;
 
 	p3GxsTrans& mGxsTransServ;
+
+	RS_SET_CONTEXT_DEBUG_LEVEL(3)
 };
 
 #endif // MESSAGE_SERVICE_HEADER

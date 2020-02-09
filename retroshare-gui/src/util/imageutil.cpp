@@ -1,3 +1,23 @@
+/*******************************************************************************
+ * util/imageutil.cpp                                                          *
+ *                                                                             *
+ * Copyright (c) 2010 Retroshare Team  <retroshare.project@gmail.com>          *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
+
 #include "imageutil.h"
 #include "util/misc.h"
 #include "util/rstime.h"
@@ -17,7 +37,7 @@
 
 ImageUtil::ImageUtil() {}
 
-void ImageUtil::extractImage(QWidget *window, QTextCursor cursor)
+void ImageUtil::extractImage(QWidget *window, QTextCursor cursor, QString file)
 {
 	cursor.movePosition(QTextCursor::Left, QTextCursor::MoveAnchor, 1);
 	cursor.movePosition(QTextCursor::Right, QTextCursor::KeepAnchor, 2);
@@ -32,13 +52,13 @@ void ImageUtil::extractImage(QWidget *window, QTextCursor cursor)
 		QImage image = QImage::fromData(ba);
 		if(!image.isNull())
 		{
-			QString file;
 			success = true;
-			if(misc::getSaveFileName(window, RshareSettings::LASTDIR_IMAGES, "Save Picture File", "Pictures (*.png *.xpm *.jpg)", file))
+			if(!file.isEmpty() || misc::getSaveFileName(window, RshareSettings::LASTDIR_IMAGES, "Save Picture File", "Pictures (*.png *.xpm *.jpg)", file))
 			{
-				if(!image.save(file, 0, 100))
-					if(!image.save(file + ".png", 0, 100))
-						QMessageBox::warning(window, QApplication::translate("ImageUtil", "Save image"), QApplication::translate("ImageUtil", "Cannot save the image, invalid filename"));
+				if(!image.save(file, nullptr, 100))
+					if(!image.save(file + ".png", nullptr, 100))
+						QMessageBox::warning(window, QApplication::translate("ImageUtil", "Save image"), QApplication::translate("ImageUtil", "Cannot save the image, invalid filename")
+											 + "\n" + file);
 			}
 		}
 	}
@@ -53,13 +73,11 @@ bool ImageUtil::optimizeSize(QString &html, const QImage& original, QImage &opti
 	//nothing to do if it fits into the limits
 	optimized = original;
 	if ((maxPixels <= 0) || (optimized.width()*optimized.height() <= maxPixels)) {
-		if(checkSize(html, optimized, maxBytes) <= maxBytes) {
+		int s = checkSize(html, optimized, maxBytes);
+		if((maxBytes <= 0) || (s <= maxBytes)) {
 			return true;
 		}
 	}
-
-	QVector<QRgb> ct;
-	quantization(original, ct);
 
 	//Downscale the image to fit into maxPixels
 	double whratio = (qreal)original.width() / (qreal)original.height();
@@ -78,27 +96,35 @@ bool ImageUtil::optimizeSize(QString &html, const QImage& original, QImage &opti
 		return true;
 	}
 
+	QVector<QRgb> ct;
+	quantization(original, ct);
+
 	//Use binary search to find a suitable image size + linear regression to guess the file size
-	double maxsize = (double)checkSize(html, optimized = original.scaledToWidth(maxwidth, Qt::SmoothTransformation).convertToFormat(QImage::Format_Indexed8, ct), maxBytes);
+	double maxsize = (double)checkSize(html, optimized = original.scaledToWidth(maxwidth, Qt::SmoothTransformation).convertToFormat(QImage::Format_Indexed8, ct, Qt::ThresholdDither), maxBytes);
 	if(maxsize <= maxBytes) return true;	//success
-	double minsize = (double)checkSize(html, optimized = original.scaledToWidth(minwidth, Qt::SmoothTransformation).convertToFormat(QImage::Format_Indexed8, ct), maxBytes);
+	double minsize = (double)checkSize(html, optimized = original.scaledToWidth(minwidth, Qt::SmoothTransformation).convertToFormat(QImage::Format_Indexed8, ct, Qt::ThresholdDither), maxBytes);
 	if(minsize > maxBytes) return false; //impossible
 
 //	std::cout << "maxS: " << maxsize << " minS: " << minsize << std::endl;
 //	std::cout << "maxW: " << maxwidth << " minW: " << minwidth << std::endl;
 	int region = 500;
 	bool success = false;
+	int latestgood = 0;
 	do {
 		double m = (maxsize - minsize) / ((double)maxwidth * (double)maxwidth / whratio - (double)minwidth * (double)minwidth / whratio);
 		double b = maxsize - m * ((double)maxwidth * (double)maxwidth / whratio);
 		double a = ((double)(maxBytes - region/2) - b) / m; //maxBytes - region/2 target the center of the accepted region
 		int nextwidth = (int)sqrt(a * whratio);
-		double nextsize = (double)checkSize(html, optimized = original.scaledToWidth(nextwidth, Qt::SmoothTransformation).convertToFormat(QImage::Format_Indexed8, ct), maxBytes);
+		int nextsize = checkSize(html, optimized = original.scaledToWidth(nextwidth, Qt::SmoothTransformation).convertToFormat(QImage::Format_Indexed8, ct, Qt::ThresholdDither), maxBytes);
 		if(nextsize <= maxBytes) {
 			minsize = nextsize;
 			minwidth = nextwidth;
-			if(nextsize >= (maxBytes - region)) //the file size is close anough to the limit
+			if(nextsize >= (maxBytes - region) || //the file size is close enough to the limit
+			latestgood >= nextsize) { //The algorithm does not converge anymore
 				success = true;
+			} else {
+				latestgood = nextsize;
+			}
 		} else {
 			maxsize = nextsize;
 			maxwidth = nextwidth;
@@ -163,7 +189,7 @@ bool blueLessThan(const QRgb &c1, const QRgb &c2)
 //median cut algoritmh
 void ImageUtil::quantization(const QImage &img, QVector<QRgb> &palette)
 {
-	int bits = 4;	// bits/pixel
+	int bits = 8;	// bits/pixel
 	int samplesize = 100000;	//only take this many color samples
 
 	rstime::RsScopeTimer st("Quantization");

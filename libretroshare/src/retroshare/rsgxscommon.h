@@ -1,32 +1,27 @@
-#ifndef RETROSHARE_GXS_COMMON_OBJS_INTERFACE_H
-#define RETROSHARE_GXS_COMMON_OBJS_INTERFACE_H
+/*******************************************************************************
+ * libretroshare/src/retroshare: rsgxscommon.h                                 *
+ *                                                                             *
+ * libretroshare: retroshare core library                                      *
+ *                                                                             *
+ * Copyright (C) 2012  Robert Fernie <retroshare@lunamutt.com>                 *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Lesser General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Lesser General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Lesser General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
+#pragma once
 
-/*
- * libretroshare/src/retroshare: rsgxscommong.h
- *
- * RetroShare C++ Interface.
- *
- * Copyright 2012-2012 by Robert Fernie.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License Version 2.1 as published by the Free Software Foundation.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
- * USA.
- *
- * Please report all bugs and problems to "retroshare@lunamutt.com".
- *
- */
-
-#include <inttypes.h>
+#include <cstdint>
 #include <string>
 #include <list>
 
@@ -82,10 +77,12 @@ struct RsGxsImage  : RsSerializable
 	}
 };
 
-
-#define GXS_VOTE_NONE 	0x0000
-#define GXS_VOTE_DOWN 	0x0001
-#define GXS_VOTE_UP	0x0002
+enum class RsGxsVoteType : uint32_t
+{
+	NONE = 0, /// Used to detect unset vote?
+	DOWN = 1, /// Negative vote
+	UP = 2    /// Positive vote
+};
 
 
 // Status Flags to indicate Voting....
@@ -145,19 +142,6 @@ struct RsGxsComment : RsSerializable
 		RS_SERIAL_PROCESS(mOwnVote);
 		RS_SERIAL_PROCESS(mVotes);
 	}
-
-	const std::ostream &print(std::ostream &out, std::string indent = "", std::string varName = "") const {
-		out << indent << varName << " of RsGxsComment Values ###################" << std::endl;
-		mMeta.print(out, indent + "  ", "mMeta");
-		out << indent << "  mComment: " << mComment << std::endl;
-		out << indent << "  mUpVotes: " << mUpVotes << std::endl;
-		out << indent << "  mDownVotes: " << mDownVotes << std::endl;
-		out << indent << "  mScore: " << mScore << std::endl;
-		out << indent << "  mOwnVote: " << mOwnVote << std::endl;
-		out << indent << "  mVotes.size(): " << mVotes.size() << std::endl;
-		out << indent << "######################################################" << std::endl;
-		return out;
-	}
 };
 
 
@@ -172,8 +156,8 @@ struct RsGxsCommentService
 	virtual bool getRelatedComments( uint32_t token,
 	                                 std::vector<RsGxsComment> &comments ) = 0;
 
-	virtual bool createComment(uint32_t &token, RsGxsComment &comment) = 0;
-	virtual bool createVote(uint32_t &token, RsGxsVote &vote) = 0;
+	virtual bool createNewComment(uint32_t &token, RsGxsComment &comment) = 0;
+	virtual bool createNewVote(uint32_t &token, RsGxsVote &vote) = 0;
 
 	virtual bool acknowledgeComment(
 	        uint32_t token,
@@ -184,7 +168,11 @@ struct RsGxsCommentService
 	        std::pair<RsGxsGroupId, RsGxsMessageId>& msgId ) = 0;
 };
 
+/// @deprecated use RsGxsVoteType::NONE instead @see RsGxsVoteType
+#define GXS_VOTE_NONE 0x0000
 
+/// @deprecated use RsGxsVoteType::DOWN instead @see RsGxsVoteType
+#define GXS_VOTE_DOWN 0x0001
 
-#endif
-
+/// @deprecated use RsGxsVoteType::UP instead @see RsGxsVoteType
+#define GXS_VOTE_UP	0x0002

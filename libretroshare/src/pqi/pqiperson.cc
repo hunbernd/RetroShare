@@ -366,9 +366,9 @@ int pqiperson::handleNotifyEvent_locked(NetInterface *ni, int newState,
 					  << " CONNECT_FAILED->marking so!" << std::endl;
 #endif
 
-			activepqi->shutdown(); // STOP THREAD.
+			activepqi->askForStop(); // STOP THREAD.
 			active = false;
-			activepqi = NULL;
+			activepqi = nullptr;
 		}
 #ifdef PERSON_DEBUG
 		else
@@ -406,7 +406,7 @@ int pqiperson::reset_locked()
 	std::map<uint32_t, pqiconnect *>::iterator it;
 	for(it = kids.begin(); it != kids.end(); ++it)
 	{
-		(it->second) -> shutdown(); // STOP THREAD.
+		it->second->askForStop(); // STOP THREAD.
 		(it->second) -> reset();
 	}
 
@@ -635,6 +635,13 @@ float pqiperson::getRate(bool in)
 		return 0;
 
 	return activepqi -> getRate(in);
+}
+
+uint64_t pqiperson::getTraffic(bool in)
+{
+	if ((!active) || (activepqi == NULL))
+		return 0;
+	return activepqi -> getTraffic(in);
 }
 
 void pqiperson::setMaxRate(bool in, float val)

@@ -1,39 +1,45 @@
-/*
- * Retroshare Posted List
- *
- * Copyright 2012-2012 by Robert Fernie.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License Version 2.1 as published by the Free Software Foundation.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
- * USA.
- *
- * Please report all bugs and problems to "retroshare@lunamutt.com".
- *
- */
+/*******************************************************************************
+ * retroshare-gui/src/gui/Posted/PostedListWidget.cpp                          *
+ *                                                                             *
+ * Copyright (C) 2013 by Robert Fernie       <retroshare.project@gmail.com>    *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 
 #include <QMessageBox>
 
 #include "PostedListWidget.h"
 #include "ui_PostedListWidget.h"
 
+#include "gui/gxs/GxsIdDetails.h"
 #include "PostedCreatePostDialog.h"
 #include "PostedItem.h"
 #include "gui/common/UIStateHelper.h"
+#include "gui/RetroShareLink.h"
+#include "util/HandleRichText.h"
+#include "util/DateTime.h"
 
 #include <retroshare/rsposted.h>
+#include "retroshare/rsgxscircles.h"
 
 #define POSTED_DEFAULT_LISTING_LENGTH 10
 #define POSTED_MAX_INDEX	      10000
+
+#define DEBUG_POSTED_LIST_WIDGET
+
+#define TOPIC_DEFAULT_IMAGE ":/icons/png/posted.png"
 
 /** Constructor */
 PostedListWidget::PostedListWidget(const RsGxsGroupId &postedId, QWidget *parent)
@@ -44,23 +50,19 @@ PostedListWidget::PostedListWidget(const RsGxsGroupId &postedId, QWidget *parent
 	ui->setupUi(this);
 
 	/* Setup UI helper */
-	mStateHelper->addWidget(mTokenTypeAllPosts, ui->hotSortButton);
-	mStateHelper->addWidget(mTokenTypeAllPosts, ui->newSortButton);
-	mStateHelper->addWidget(mTokenTypeAllPosts, ui->topSortButton);
+	mStateHelper->addWidget(mTokenTypeAllPosts, ui->comboBox);
 
-	mStateHelper->addWidget(mTokenTypePosts, ui->hotSortButton);
-	mStateHelper->addWidget(mTokenTypePosts, ui->newSortButton);
-	mStateHelper->addWidget(mTokenTypePosts, ui->topSortButton);
+	mStateHelper->addWidget(mTokenTypePosts, ui->comboBox);
 
 	mStateHelper->addWidget(mTokenTypeGroupData, ui->submitPostButton);
 	mStateHelper->addWidget(mTokenTypeGroupData, ui->subscribeToolButton);
 
-	connect(ui->hotSortButton, SIGNAL(clicked()), this, SLOT(getRankings()));
-	connect(ui->newSortButton, SIGNAL(clicked()), this, SLOT(getRankings()));
-	connect(ui->topSortButton, SIGNAL(clicked()), this, SLOT(getRankings()));
 	connect(ui->nextButton, SIGNAL(clicked()), this, SLOT(showNext()));
 	connect(ui->prevButton, SIGNAL(clicked()), this, SLOT(showPrev()));
 	connect(ui->subscribeToolButton, SIGNAL(subscribe(bool)), this, SLOT(subscribeGroup(bool)));
+	
+	connect(ui->comboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(getRankings(int)));
+
 
 	// default sort method.
 	mSortMethod = RsPosted::HotRankType;
@@ -70,12 +72,21 @@ PostedListWidget::PostedListWidget(const RsGxsGroupId &postedId, QWidget *parent
 
 	mTokenTypeVote = nextTokenType();
 
-	ui->hotSortButton->setChecked(true);
-
 	/* fill in the available OwnIds for signing */
 	ui->idChooser->loadIds(IDCHOOSER_ID_REQUIRED, RsGxsId());
+	
+	int S = QFontMetricsF(font()).height() ;
+
+	ui->submitPostButton->setIconSize(QSize(S*1.5,S*1.5));
+	ui->comboBox->setIconSize(QSize(S*1.5,S*1.5));
 
 	connect(ui->submitPostButton, SIGNAL(clicked()), this, SLOT(newPost()));
+	
+	ui->subscribeToolButton->setToolTip(tr( "<p>Subscribing to the links will gather \
+	                                        available posts from your subscribed friends, and make the \
+	                                        links visible to all other friends.</p><p>Afterwards you can unsubscribe from the context menu of the links list at left.</p>"));
+											
+	ui->infoframe->hide();
 
 	/* load settings */
 	processSettings(true);
@@ -118,6 +129,13 @@ QIcon PostedListWidget::groupIcon()
 	return QIcon();
 }
 
+void PostedListWidget::groupIdChanged()
+{
+	mPostIndex = 0;
+	GxsMessageFramePostWidget::groupIdChanged();
+	updateShowText();
+}
+
 /*****************************************************************************************/
 // Overloaded from FeedHolder.
 QScrollArea *PostedListWidget::getScrollArea()
@@ -125,17 +143,21 @@ QScrollArea *PostedListWidget::getScrollArea()
 	return ui->scrollArea;
 }
 
-void PostedListWidget::deleteFeedItem(QWidget */*item*/, uint32_t /*type*/)
+void PostedListWidget::deleteFeedItem(FeedItem *, uint32_t /*type*/)
 {
+#ifdef DEBUG_POSTED_LIST_WIDGET
 	std::cerr << "PostedListWidget::deleteFeedItem() Nah";
 	std::cerr << std::endl;
+#endif
 	return;
 }
 
 void PostedListWidget::openChat(const RsPeerId & /*peerId*/)
 {
+#ifdef DEBUG_POSTED_LIST_WIDGET
 	std::cerr << "PostedListWidget::openChat() Nah";
 	std::cerr << std::endl;
+#endif
 	return;
 }
 
@@ -186,32 +208,30 @@ void PostedListWidget::updateShowText()
 	ui->showLabel->setText(showText);
 }
 
-void PostedListWidget::getRankings()
+void PostedListWidget::getRankings(int i)
 {
 	if (groupId().isNull())
 		return;
 
+#ifdef DEBUG_POSTED_LIST_WIDGET
 	std::cerr << "PostedListWidget::getRankings()";
 	std::cerr << std::endl;
+#endif
 
 	int oldSortMethod = mSortMethod;
-
-	QObject* button = sender();
-	if(button == ui->hotSortButton)
+	
+	switch(i)
 	{
+	default:
+	case 0:
 		mSortMethod = RsPosted::HotRankType;
-	}
-	else if(button == ui->topSortButton)
-	{
-		mSortMethod = RsPosted::TopRankType;
-	}
-	else if(button == ui->newSortButton)
-	{
+		break;
+	case 1:
 		mSortMethod = RsPosted::NewRankType;
-	}
-	else
-	{
-		return;
+		break;
+	case 2:
+		mSortMethod = RsPosted::TopRankType;
+		break;
 	}
 
 	if (oldSortMethod != mSortMethod)
@@ -256,6 +276,7 @@ void PostedListWidget::submitVote(const RsGxsGrpMsgIdPair &msgId, bool up)
 		vote.mVoteType = GXS_VOTE_DOWN;
 	}//if (up)
 
+#ifdef DEBUG_POSTED_LIST_WIDGET
 	std::cerr << "PostedListWidget::submitVote()";
 	std::cerr << std::endl;
 
@@ -263,9 +284,10 @@ void PostedListWidget::submitVote(const RsGxsGrpMsgIdPair &msgId, bool up)
 	std::cerr << "ThreadId : " << vote.mMeta.mThreadId << std::endl;
 	std::cerr << "ParentId : " << vote.mMeta.mParentId << std::endl;
 	std::cerr << "AuthorId : " << vote.mMeta.mAuthorId << std::endl;
+#endif
 
 	uint32_t token;
-	rsPosted->createVote(token, vote);
+	rsPosted->createNewVote(token, vote);
 	mTokenQueue->queueRequest(token, TOKENREQ_MSGINFO, RS_TOKREQ_ANSTYPE_ACK, mTokenTypeVote);
 }
 
@@ -301,6 +323,81 @@ void PostedListWidget::insertPostedDetails(const RsPostedGroup &group)
 {
 	mStateHelper->setWidgetEnabled(ui->submitPostButton, IS_GROUP_SUBSCRIBED(group.mMeta.mSubscribeFlags));
 	ui->subscribeToolButton->setSubscribed(IS_GROUP_SUBSCRIBED(group.mMeta.mSubscribeFlags));
+	ui->subscribeToolButton->setHidden(IS_GROUP_SUBSCRIBED(group.mMeta.mSubscribeFlags)) ;
+
+	/* IMAGE */
+	QPixmap topicImage;
+	if (group.mGroupImage.mData != NULL) {
+		GxsIdDetails::loadPixmapFromData(group.mGroupImage.mData, group.mGroupImage.mSize, topicImage,GxsIdDetails::ORIGINAL);
+	} else {
+		topicImage = QPixmap(TOPIC_DEFAULT_IMAGE);
+	}
+	ui->logoLabel->setPixmap(topicImage);
+	ui->namelabel->setText(QString::fromUtf8(group.mMeta.mGroupName.c_str()));
+	ui->poplabel->setText(QString::number( group.mMeta.mPop));
+	
+	RetroShareLink link;
+	
+	if (IS_GROUP_SUBSCRIBED(group.mMeta.mSubscribeFlags)) {
+		
+		ui->infoframe->hide();										
+
+	} else {
+		
+		ui->infoPosts->setText(QString::number(group.mMeta.mVisibleMsgCount));
+		
+		if(group.mMeta.mLastPost==0)
+            ui->infoLastPost->setText(tr("Never"));
+        else
+		
+			ui->infoLastPost->setText(DateTime::formatLongDateTime(group.mMeta.mLastPost));
+		
+			QString formatDescription = QString::fromUtf8(group.mDescription.c_str());
+
+			unsigned int formatFlag = RSHTML_FORMATTEXT_EMBED_LINKS;
+
+			formatDescription = RsHtml().formatText(NULL, formatDescription, formatFlag);
+
+			ui->infoDescription->setText(formatDescription);
+        
+			ui->infoAdministrator->setId(group.mMeta.mAuthorId) ;
+			
+			link = RetroShareLink::createMessage(group.mMeta.mAuthorId, "");
+			ui->infoAdministrator->setText(link.toHtml());
+		
+		    ui->createdinfolabel->setText(DateTime::formatLongDateTime(group.mMeta.mPublishTs));
+
+			QString distrib_string ( "[unknown]" );
+            
+        	switch(group.mMeta.mCircleType)
+		{
+		case GXS_CIRCLE_TYPE_PUBLIC: distrib_string = tr("Public") ;
+			break ;
+		case GXS_CIRCLE_TYPE_EXTERNAL: 
+		{
+			RsGxsCircleDetails det ;
+
+			// !! What we need here is some sort of CircleLabel, which loads the circle and updates the label when done.
+
+			if(rsGxsCircles->getCircleDetails(group.mMeta.mCircleId,det)) 
+				distrib_string = tr("Restricted to members of circle \"")+QString::fromUtf8(det.mCircleName.c_str()) +"\"";
+			else
+				distrib_string = tr("Restricted to members of circle ")+QString::fromStdString(group.mMeta.mCircleId.toStdString()) ;
+		}
+			break ;
+		case GXS_CIRCLE_TYPE_YOUR_EYES_ONLY: distrib_string = tr("Your eyes only");
+			break ;
+		case GXS_CIRCLE_TYPE_LOCAL: distrib_string = tr("You and your friend nodes");
+			break ;
+		default:
+			std::cerr << "(EE) badly initialised group distribution ID = " << group.mMeta.mCircleType << std::endl;
+		}
+ 
+		ui->infoDistribution->setText(distrib_string);
+		
+		ui->infoframe->show();										
+		
+	}
 }
 
 /*********************** **** **** **** ***********************/
@@ -377,8 +474,10 @@ static bool CmpPINew(const GxsFeedItem *a, const GxsFeedItem *b)
 void PostedListWidget::applyRanking()
 {
 	/* uses current settings to sort posts, then add to layout */
+#ifdef DEBUG_POSTED_LIST_WIDGET
 	std::cerr << "PostedListWidget::applyRanking()";
 	std::cerr << std::endl;
+#endif
 
 	shallowClearPosts();
 
@@ -387,25 +486,33 @@ void PostedListWidget::applyRanking()
 	{
 		default:
 		case RsPosted::HotRankType:
+#ifdef DEBUG_POSTED_LIST_WIDGET
 			std::cerr << "PostedListWidget::applyRanking() HOT";
 			std::cerr << std::endl;
+#endif
 			qSort(mPostItems.begin(), mPostItems.end(), CmpPIHot);
 			break;
 		case RsPosted::NewRankType:
+#ifdef DEBUG_POSTED_LIST_WIDGET
 			std::cerr << "PostedListWidget::applyRanking() NEW";
 			std::cerr << std::endl;
+#endif
 			qSort(mPostItems.begin(), mPostItems.end(), CmpPINew);
 			break;
 		case RsPosted::TopRankType:
+#ifdef DEBUG_POSTED_LIST_WIDGET
 			std::cerr << "PostedListWidget::applyRanking() TOP";
 			std::cerr << std::endl;
+#endif
 			qSort(mPostItems.begin(), mPostItems.end(), CmpPITop);
 			break;
 	}
 	mLastSortMethod = mSortMethod;
 
+#ifdef DEBUG_POSTED_LIST_WIDGET
 	std::cerr << "PostedListWidget::applyRanking() Sorted mPostList";
 	std::cerr << std::endl;
+#endif
 
 	/* go through list (skipping out-of-date items) to get */
 	QLayout *alayout = ui->scrollAreaWidgetContents->layout();
@@ -413,42 +520,54 @@ void PostedListWidget::applyRanking()
 	time_t min_ts = 0;
 	foreach (PostedItem *item, mPostItems)
 	{
+#ifdef DEBUG_POSTED_LIST_WIDGET
 		std::cerr << "PostedListWidget::applyRanking() Item: " << item;
 		std::cerr << std::endl;
+#endif
 		
 		if (item->getPost().mMeta.mPublishTs < min_ts)
 		{
+#ifdef DEBUG_POSTED_LIST_WIDGET
 			std::cerr << "\t Skipping OLD";
 			std::cerr << std::endl;
+#endif
 			item->hide();
 			continue;
 		}
 
 		if (counter >= mPostIndex + mPostShow)
 		{
+#ifdef DEBUG_POSTED_LIST_WIDGET
 			std::cerr << "\t END - Counter too high";
 			std::cerr << std::endl;
+#endif
 			item->hide();
 		}
 		else if (counter >= mPostIndex)
 		{
+#ifdef DEBUG_POSTED_LIST_WIDGET
 			std::cerr << "\t Adding to Layout";
 			std::cerr << std::endl;
+#endif
 			/* add it in! */
 			alayout->addWidget(item);
 			item->show();
 		}
 		else
 		{
+#ifdef DEBUG_POSTED_LIST_WIDGET
 			std::cerr << "\t Skipping to Low";
 			std::cerr << std::endl;
+#endif
 			item->hide();
 		}
 		++counter;
 	}
 
+#ifdef DEBUG_POSTED_LIST_WIDGET
 	std::cerr << "PostedListWidget::applyRanking() Loaded New Order";
 	std::cerr << std::endl;
+#endif
 
 	// trigger a redraw.
 	ui->scrollAreaWidgetContents->update();
@@ -456,7 +575,8 @@ void PostedListWidget::applyRanking()
 
 void PostedListWidget::blank()
 {
-    clearPosts();
+	clearPosts();
+	ui->infoframe->hide();
 }
 void PostedListWidget::clearPosts()
 {
@@ -476,7 +596,9 @@ bool PostedListWidget::navigatePostItem(const RsGxsMessageId & /*msgId*/)
 
 void PostedListWidget::shallowClearPosts()
 {
+#ifdef DEBUG_POSTED_LIST_WIDGET
 	std::cerr << "PostedListWidget::shallowClearPosts()" << std::endl;
+#endif
 
 	std::list<PostedItem *> postedItems;
 	std::list<PostedItem *>::iterator pit;
@@ -488,24 +610,30 @@ void PostedListWidget::shallowClearPosts()
 		QLayoutItem *litem = alayout->itemAt(i);
 		if (!litem)
 		{
+#ifdef DEBUG_POSTED_LIST_WIDGET
 			std::cerr << "PostedListWidget::shallowClearPosts() missing litem";
 			std::cerr << std::endl;
+#endif
 			continue;
 		}
 
 		PostedItem *item = dynamic_cast<PostedItem *>(litem->widget());
 		if (item)
 		{
+#ifdef DEBUG_POSTED_LIST_WIDGET
 			std::cerr << "PostedListWidget::shallowClearPosts() item: " << item;
 			std::cerr << std::endl;
+#endif
 
 			postedItems.push_back(item);
 		}
+#ifdef DEBUG_POSTED_LIST_WIDGET
 		else
 		{
 			std::cerr << "PostedListWidget::shallowClearPosts() Found Child, which is not a PostedItem???";
 			std::cerr << std::endl;
 		}
+#endif
 	}
 
 	for(pit = postedItems.begin(); pit != postedItems.end(); ++pit)
@@ -558,15 +686,19 @@ void PostedListWidget::insertPosts(const uint32_t &token)
 		// modify post content
 		if(mPosts.find(p.mMeta.mMsgId) != mPosts.end())
 		{
+#ifdef DEBUG_POSTED_LIST_WIDGET
 			std::cerr << "PostedListWidget::updateCurrentDisplayComplete() updating MsgId: " << p.mMeta.mMsgId;
 			std::cerr << std::endl;
+#endif
 
 			mPosts[p.mMeta.mMsgId]->setPost(p);
 		}
 		else
 		{
+#ifdef DEBUG_POSTED_LIST_WIDGET
 			std::cerr << "PostedListWidget::updateCurrentDisplayComplete() loading New MsgId: " << p.mMeta.mMsgId;
 			std::cerr << std::endl;
+#endif
 			/* insert new entry */
 			loadPost(p);
 		}
@@ -601,8 +733,10 @@ void PostedListWidget::setAllMessagesReadDo(bool read, uint32_t &token)
 
 void PostedListWidget::loadRequest(const TokenQueue *queue, const TokenRequest &req)
 {
+#ifdef DEBUG_POSTED_LIST_WIDGET
 	std::cerr << "PostedListWidget::loadRequest() UserType: " << req.mUserType;
 	std::cerr << std::endl;
+#endif
 
 	if (queue == mTokenQueue)
 	{

@@ -3,7 +3,8 @@
  *                                                                             *
  * libretroshare: retroshare core library                                      *
  *                                                                             *
- * Copyright 2012-2012 by Cyril Soler <csoler@users.sourceforge.net>           *
+ * Copyright 2012 Cyril Soler <csoler@users.sourceforge.net>                   *
+ * Copyright 2019 Gioacchino Mazzurco <gio@altermundi.net>                     *
  *                                                                             *
  * This program is free software: you can redistribute it and/or modify        *
  * it under the terms of the GNU Lesser General Public License as              *
@@ -21,9 +22,74 @@
  *******************************************************************************/
 #pragma once
 
-#include <stdlib.h>
+#include <cstdlib>
 #include <iostream>
-#include <util/stacktrace.h>
+#include <memory>
+
+#include "util/stacktrace.h"
+
+/**
+ * @brief Shorthand macro to declare optional functions output parameters
+ * To define an optional output paramether use the following syntax
+ *
+\code{.cpp}
+bool myFunnyFunction(
+	int mandatoryParamether,
+	BigType& myOptionalOutput = RS_DEFAULT_STORAGE_PARAM(BigType) )
+\endcode
+ *
+ * The function caller then can call myFunnyFunction either passing
+ * myOptionalOutput parameter or not.
+ * @see RsGxsChannels methods for real usage examples.
+ *
+ * @details
+ * When const references are used to pass function parameters it is easy do make
+ * those params optional by defining a default value in the function
+ * declaration, because a temp is accepted as default parameter in those cases.
+ * It is not as simple when one want to make optional a non-const reference
+ * parameter that is usually used as output, in that case as a temp is in theory
+ * not acceptable.
+ * Yet it is possible to overcome that limitation with the following trick:
+ * If not passed as parameter the storage for the output parameter can be
+ * dinamically allocated directly by the function call, to avoid leaking memory
+ * on each function call the pointer to that storage is made unique so once the
+ * function returns it goes out of scope and is automatically deleted.
+ * About performance overhead: std::unique_ptr have very good performance and
+ * modern compilers may be even able to avoid the dynamic allocation in this
+ * case, any way the allocation would only happen if the parameter is not
+ * passed, so any effect on performace would happen only in case where the
+ * function is called without the parameter.
+ */
+#define RS_DEFAULT_STORAGE_PARAM(Type,...) *std::unique_ptr<Type>(new Type(__VA_ARGS__))
+
+
+/** @brief Safely dynamic cast between std::unique_ptr of different types
+ * std::unique_ptr semantic rely on the invariant that only one instance own
+ * the object, when casting between differents types one would be tempted to do
+ * it in a one liner that easly end up breaking that condition ending up in a
+ * double delete and crash or in a silent memleak.
+ * With this function one can do that with same comfort of a plain dynamic_cast,
+ * plus the std::unique_ptr safety.
+ * @param[inout] src reference to source pointer. If the cast is successfull it
+ *	is released, otherwise it is left untouched.
+ * @param[out] dst reference to destination pointer. If the cast is successful
+ *	it get reseated to the object address, otherwise it is left untouched.
+ * @return true on success, false otherwise
+ */
+template <class T_SRC, class T_DST>
+bool rs_unique_cast(
+        std::unique_ptr<T_SRC>& src, std::unique_ptr<T_DST>& dst )
+{
+	T_DST* dstPtr = dynamic_cast<T_DST*>(src.get());
+	if(dstPtr)
+	{
+		src.release();
+		dst.reset(dstPtr);
+		return true;
+	}
+	return false;
+}
+
 
 void *rs_malloc(size_t size) ;
 

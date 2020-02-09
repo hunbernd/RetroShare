@@ -257,8 +257,8 @@
 #include "util/rsmemory.h"
 #include "util/stacktrace.h"
 
-#ifdef RS_DEEP_SEARCH
-#	include "deep_search/deep_search.h"
+#ifdef RS_DEEP_CHANNEL_INDEX
+#	include "deep_search/channelsindex.hpp"
 #endif
 
 /***
@@ -1981,7 +1981,7 @@ bool RsGxsNetService::locked_processTransac(RsNxsTransacItem *item)
         return false;
 }
 
-void RsGxsNetService::data_tick()
+void RsGxsNetService::threadTick()
 {
     static const double timeDelta = 0.5;
 
@@ -3034,7 +3034,8 @@ void RsGxsNetService::locked_genReqMsgTransaction(NxsTransaction* tr)
             //  - if author is locally banned, do not download.
             //  - if author is not locally banned, download, whatever friends' opinion might be.
 
-        	if(mReputations->overallReputationLevel(syncItem->authorId) == RsReputations::REPUTATION_LOCALLY_NEGATIVE)
+			if( mReputations->overallReputationLevel(syncItem->authorId) ==
+			        RsReputationLevel::LOCALLY_NEGATIVE )
             {
 #ifdef NXS_NET_DEBUG_1
                 GXSNETDEBUG_PG(item->PeerId(),grpId) << ", Identity " << syncItem->authorId << " is banned. Not requesting message!" << std::endl;
@@ -3239,7 +3240,9 @@ void RsGxsNetService::locked_genReqGrpTransaction(NxsTransaction* tr)
         // FIXTESTS global variable rsReputations not available in unittests!
 
 #warning csoler 2016-12-23: Update the code below to correctly send/recv dependign on reputation
-		if(!grpSyncItem->authorId.isNull() && mReputations->overallReputationLevel(grpSyncItem->authorId) == RsReputations::REPUTATION_LOCALLY_NEGATIVE)
+		if( !grpSyncItem->authorId.isNull() &&
+		        mReputations->overallReputationLevel(grpSyncItem->authorId) ==
+		        RsReputationLevel::LOCALLY_NEGATIVE )
 		{
 #ifdef NXS_NET_DEBUG_0
 			GXSNETDEBUG_PG(tr->mTransaction->PeerId(),grpId) << "  Identity " << grpSyncItem->authorId << " is banned. Not syncing group." << std::endl;
@@ -5145,13 +5148,13 @@ TurtleRequestId RsGxsNetService::turtleSearchRequest(const std::string& match_st
     return mGxsNetTunnel->turtleSearchRequest(match_string,this) ;
 }
 
-#ifndef RS_DEEP_SEARCH
+#ifndef RS_DEEP_CHANNEL_INDEX
 static bool termSearch(const std::string& src, const std::string& substring)
 {
 		/* always ignore case */
 	return src.end() != std::search( src.begin(), src.end(), substring.begin(), substring.end(), RsRegularExpression::CompareCharIC() );
 }
-#endif // ndef RS_DEEP_SEARCH
+#endif // ndef RS_DEEP_CHANNEL_INDEX
 
 bool RsGxsNetService::retrieveDistantSearchResults(TurtleRequestId req,std::map<RsGxsGroupId,RsGxsGroupSummary>& group_infos)
 {
@@ -5206,11 +5209,11 @@ void RsGxsNetService::receiveTurtleSearchResults(
 
 		for (const RsGxsGroupSummary& gps : group_infos)
 		{
-#ifndef RS_DEEP_SEARCH
+#ifndef RS_DEEP_CHANNEL_INDEX
 			/* Only keep groups that are not locally known, and groups that are
 			 * not already in the mDistantSearchResults structure. */
 			if(grpMeta[gps.mGroupId]) continue;
-#else // ndef RS_DEEP_SEARCH
+#else // ndef RS_DEEP_CHANNEL_INDEX
 			/* When deep search is enabled search results may bring more info
 			 * then we already have also about post that are indexed by xapian,
 			 * so we don't apply this filter in this case. */
@@ -5290,7 +5293,8 @@ void RsGxsNetService::receiveTurtleSearchResults(TurtleRequestId req,const unsig
 #ifdef NXS_NET_DEBUG_8
 	GXSNETDEBUG___ << " passing the grp data to observer." << std::endl;
 #endif
-    mObserver->receiveNewGroups(new_grps);
+	mObserver->receiveNewGroups(new_grps);
+	mObserver->receiveDistantSearchResults(req, grpId);
 }
 
 bool RsGxsNetService::search( const std::string& substring,
@@ -5298,9 +5302,9 @@ bool RsGxsNetService::search( const std::string& substring,
 {
 	group_infos.clear();
 
-#ifdef RS_DEEP_SEARCH
-	std::vector<DeepSearch::SearchResult> results;
-	DeepSearch::search(substring, results);
+#ifdef RS_DEEP_CHANNEL_INDEX
+	std::vector<DeepChannelsSearchResult> results;
+	DeepChannelsIndex::search(substring, results);
 
 	for(auto dsr : results)
 	{
@@ -5320,7 +5324,7 @@ bool RsGxsNetService::search( const std::string& substring,
 				if((rit = uQ.find("name")) != uQ.end())
 					s.mGroupName = rit->second;
 				if((rit = uQ.find("signFlags")) != uQ.end())
-					s.mSignFlags = std::stoul(rit->second);
+					s.mSignFlags = static_cast<uint32_t>(std::stoul(rit->second));
 				if((rit = uQ.find("publishTs")) != uQ.end())
 					s.mPublishTs = static_cast<rstime_t>(std::stoll(rit->second));
 				if((rit = uQ.find("authorId")) != uQ.end())
@@ -5336,7 +5340,7 @@ bool RsGxsNetService::search( const std::string& substring,
 			}
 		}
 	}
-#else // RS_DEEP_SEARCH
+#else // RS_DEEP_CHANNEL_INDEX
 	RsGxsGrpMetaTemporaryMap grpMetaMap;
 	{
 		RS_STACK_MUTEX(mNxsMutex) ;
@@ -5362,7 +5366,7 @@ bool RsGxsNetService::search( const std::string& substring,
 
 			group_infos.push_back(s);
 		}
-#endif // RS_DEEP_SEARCH
+#endif // RS_DEEP_CHANNEL_INDEX
 
 #ifdef NXS_NET_DEBUG_8
 	GXSNETDEBUG___ << "  performing local substring search in response to distant request. Found " << group_infos.size() << " responses." << std::endl;

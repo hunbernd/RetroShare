@@ -206,11 +206,11 @@ struct RSTrafficClue : RsSerializable
 
 struct RsConfigNetStatus : RsSerializable
 {
-	RsConfigNetStatus()
+	RsConfigNetStatus() : netLocalOk(true)
 	{
 		localPort = extPort = 0 ;
 		firewalled = forwardPort = false ;
-		DHTActive = uPnPActive = netLocalOk = netUpnpOk = netDhtOk = netStunOk = netExtAddressOk = false ;
+		DHTActive = uPnPActive = netUpnpOk = netDhtOk = netStunOk = netExtAddressOk = false ;
 		uPnPState = 0 ;
 		//DHTPeers = 0 ;
         netDhtNetSize = netDhtRsNetSize = 0;
@@ -235,7 +235,8 @@ struct RsConfigNetStatus : RsSerializable
 	int			uPnPState;
 
 	/* Flags for Network Status */
-	bool 		netLocalOk;		/* That we've talked to someone! */
+	RS_DEPRECATED
+	bool 		netLocalOk; /// As of today it's meaningless
 	bool		netUpnpOk;		/* upnp is enabled and active */
 	bool		netDhtOk;		/* response from dht */
 	bool		netStunOk;		/* recvd stun / udp packets */
@@ -409,6 +410,7 @@ public:
 	 * @return returns 1 on succes and 0 otherwise
 	 */
     virtual int GetCurrentDataRates( float &inKb, float &outKb ) = 0;
+    virtual int GetTrafficSum( uint64_t &inb, uint64_t &outb ) = 0;
 };
 
 #endif

@@ -1,29 +1,24 @@
-
-/*
- * "$Id: p3face-server.cc,v 1.5 2007-04-15 18:45:23 rmf24 Exp $"
- *
- * RetroShare C++ Interface.
- *
- * Copyright 2004-2006 by Robert Fernie.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License Version 2 as published by the Free Software Foundation.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
- * USA.
- *
- * Please report all bugs and problems to "retroshare@lunamutt.com".
- *
- */
-
+/*******************************************************************************
+ * libretroshare/src/rsserver: p3face-server.cc                                *
+ *                                                                             *
+ * libretroshare: retroshare core library                                      *
+ *                                                                             *
+ * Copyright 2015 by Robert Fernie   <retroshare.project@gmail.com>            *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Lesser General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Lesser General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Lesser General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 
 #include "util/rstime.h"
 #include "rsserver/p3face.h"
@@ -40,9 +35,10 @@
 #include "pqi/p3linkmgr.h"
 #include "pqi/p3netmgr.h"
 
-int rsserverzone = 101;
-
 #include "util/rsdebug.h"
+
+#include "retroshare/rsevents.h"
+#include "services/rseventsservice.h"
 
 
 /****
@@ -86,6 +82,12 @@ RsServer::RsServer() :
     coreMutex("RsServer"), mShutdownCallback([](int){}),
     coreReady(false)
 {
+	{
+		RsEventsService* tmpRsEvtPtr = new RsEventsService();
+		rsEvents = tmpRsEvtPtr;
+		startServiceThread(tmpRsEvtPtr, "RsEventsService");
+	}
+
 	// This is needed asap.
 	//
 	mNotify = new p3Notify() ;
@@ -137,7 +139,7 @@ RsServer::~RsServer()
 
 
         /* Thread Fn: Run the Core */
-void 	RsServer::data_tick()
+void RsServer::threadTick()
 {
 	rstime::rs_usleep(mTimeDelta * 1000000);
 
@@ -267,8 +269,6 @@ void 	RsServer::data_tick()
         std::string out;
         rs_sprintf(out, "RsServer::run() WARNING Excessively Long Cycle Time: %g secs => Please DEBUG", cycleTime);
         std::cerr << out << std::endl;
-
-        rslog(RSL_ALERT, rsserverzone, out);
     }
 #endif
 }

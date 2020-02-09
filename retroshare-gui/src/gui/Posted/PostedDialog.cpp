@@ -1,25 +1,22 @@
-/*
- * Retroshare Posted Dialog
- *
- * Copyright 2012-2012 by Robert Fernie.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License Version 2.1 as published by the Free Software Foundation.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
- * USA.
- *
- * Please report all bugs and problems to "retroshare@lunamutt.com".
- *
- */
+/*******************************************************************************
+ * retroshare-gui/src/gui/Posted/PostedDialog.cpp                              *
+ *                                                                             *
+ * Copyright (C) 2013 by Robert Fernie       <retroshare.project@gmail.com>    *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 
 #include "PostedDialog.h"
 #include "PostedItem.h"
@@ -38,6 +35,7 @@ public:
 	PostedGroupInfoData() : RsUserdata() {}
 
 public:
+	QMap<RsGxsGroupId, QIcon> mIcon;
 	QMap<RsGxsGroupId, QString> mDescription;
 };
 
@@ -101,19 +99,21 @@ QString PostedDialog::icon(IconType type)
 {
 	switch (type) {
 	case ICON_NAME:
-		return ":/icons/png/posted.png";
+		return ":/icons/png/postedlinks.png";
 	case ICON_NEW:
 		return ":/icons/png/add.png";
 	case ICON_YOUR_GROUP:
-		return ":/images/folder16.png";
-	case ICON_SUBSCRIBED_GROUP:
-		return ":/images/folder_red.png";
-	case ICON_POPULAR_GROUP:
-		return ":/images/folder_green.png";
-	case ICON_OTHER_GROUP:
-		return ":/images/folder_yellow.png";
-	case ICON_DEFAULT:
 		return "";
+	case ICON_SUBSCRIBED_GROUP:
+		return "";
+	case ICON_POPULAR_GROUP:
+		return "";
+	case ICON_OTHER_GROUP:
+		return "";
+	case ICON_SEARCH:
+		return ":/images/find.png";
+	case ICON_DEFAULT:
+		return ":/icons/png/posted.png";
 	}
 
 	return "";
@@ -162,6 +162,12 @@ void PostedDialog::loadGroupSummaryToken(const uint32_t &token, std::list<RsGrou
 	for (groupIt = groups.begin(); groupIt != groups.end(); ++groupIt) {
 		RsPostedGroup &group = *groupIt;
 		groupInfo.push_back(group.mMeta);
+		
+		if (group.mGroupImage.mData != NULL) {
+			QPixmap image;
+			GxsIdDetails::loadPixmapFromData(group.mGroupImage.mData, group.mGroupImage.mSize, image,GxsIdDetails::ORIGINAL);
+			postedData->mIcon[group.mMeta.mGroupId] = image;
+		}
 
 		if (!group.mDescription.empty()) {
 			postedData->mDescription[group.mMeta.mGroupId] = QString::fromUtf8(group.mDescription.c_str());
@@ -183,5 +189,10 @@ void PostedDialog::groupInfoToGroupItemInfo(const RsGroupMetaData &groupInfo, Gr
 	QMap<RsGxsGroupId, QString>::const_iterator descriptionIt = postedData->mDescription.find(groupInfo.mGroupId);
 	if (descriptionIt != postedData->mDescription.end()) {
 		groupItemInfo.description = descriptionIt.value();
+	}
+	
+	QMap<RsGxsGroupId, QIcon>::const_iterator iconIt = postedData->mIcon.find(groupInfo.mGroupId);
+	if (iconIt != postedData->mIcon.end()) {
+		groupItemInfo.icon = iconIt.value();
 	}
 }

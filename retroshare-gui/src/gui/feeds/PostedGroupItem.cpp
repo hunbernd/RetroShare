@@ -1,29 +1,29 @@
-/****************************************************************
- *  RetroShare is distributed under the following license:
- *
- *  Copyright (C) 2014 RetroShare Team
- *
- *  This program is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU General Public License
- *  as published by the Free Software Foundation; either version 2
- *  of the License, or (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, 
- *  Boston, MA  02110-1301, USA.
- ****************************************************************/
+/*******************************************************************************
+ * gui/feeds/PostedGroupItem.cpp                                               *
+ *                                                                             *
+ * Copyright (c) 2014, Retroshare Team <retroshare.project@gmail.com>          *
+ *                                                                             *
+ * This program is free software: you can redistribute it and/or modify        *
+ * it under the terms of the GNU Affero General Public License as              *
+ * published by the Free Software Foundation, either version 3 of the          *
+ * License, or (at your option) any later version.                             *
+ *                                                                             *
+ * This program is distributed in the hope that it will be useful,             *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                *
+ * GNU Affero General Public License for more details.                         *
+ *                                                                             *
+ * You should have received a copy of the GNU Affero General Public License    *
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.       *
+ *                                                                             *
+ *******************************************************************************/
 
 #include "PostedGroupItem.h"
 #include "ui_PostedGroupItem.h"
 
 #include "FeedHolder.h"
 #include "gui/RetroShareLink.h"
+#include "gui/gxs/GxsIdDetails.h"
 
 /****
  * #define DEBUG_ITEM 1
@@ -135,13 +135,22 @@ void PostedGroupItem::fill()
 //	ui->nameLabel->setText(groupName());
 
 	ui->descLabel->setText(QString::fromUtf8(mGroup.mDescription.c_str()));
-
-	//TODO - nice icon for subscribed group
-	if (IS_GROUP_PUBLISHER(mGroup.mMeta.mSubscribeFlags)) {
-		ui->logoLabel->setPixmap(QPixmap(":/images/posted_64.png"));
+	
+	if (mGroup.mGroupImage.mData != NULL) {
+		QPixmap postedImage;
+		GxsIdDetails::loadPixmapFromData(mGroup.mGroupImage.mData, mGroup.mGroupImage.mSize, postedImage,GxsIdDetails::ORIGINAL);
+		ui->logoLabel->setPixmap(QPixmap(postedImage));
 	} else {
 		ui->logoLabel->setPixmap(QPixmap(":/images/posted_64.png"));
 	}
+
+
+	//TODO - nice icon for subscribed group
+//	if (IS_GROUP_PUBLISHER(mGroup.mMeta.mSubscribeFlags)) {
+//		ui->logoLabel->setPixmap(QPixmap(":/images/posted_64.png"));
+//	} else {
+//		ui->logoLabel->setPixmap(QPixmap(":/images/posted_64.png"));
+//	}
 
 	if (IS_GROUP_SUBSCRIBED(mGroup.mMeta.mSubscribeFlags)) {
 		ui->subscribeButton->setEnabled(false);
@@ -180,13 +189,13 @@ void PostedGroupItem::doExpand(bool open)
 	if (open)
 	{
 		ui->expandFrame->show();
-		ui->expandButton->setIcon(QIcon(QString(":/images/edit_remove24.png")));
+		ui->expandButton->setIcon(QIcon(QString(":/icons/png/up-arrow.png")));
 		ui->expandButton->setToolTip(tr("Hide"));
 	}
 	else
 	{
 		ui->expandFrame->hide();
-		ui->expandButton->setIcon(QIcon(QString(":/images/edit_add24.png")));
+		ui->expandButton->setIcon(QIcon(QString(":/icons/png/down-arrow.png")));
 		ui->expandButton->setToolTip(tr("Expand"));
 	}
 
