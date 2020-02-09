@@ -51,6 +51,51 @@ static void addLibraries(QGridLayout *layout, const std::string &name, const std
 		label->setTextInteractionFlags(label->textInteractionFlags() | Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
 		layout->addWidget(label, row++, 1);
 	}
+
+	layout->addWidget(new QLabel(" "), row++, 0, 1, 3);
+}
+
+static void buildInfo(std::list<RsLibraryInfo> &infos)
+{
+	//Version
+	infos.push_back(RsLibraryInfo("Version", Rshare::retroshareVersion(true).toStdString()));
+
+	//Build mode
+#ifdef QT_DEBUG
+	infos.push_back(RsLibraryInfo("Build mode", "debug"));
+#else
+	infos.push_back(RsLibraryInfo("Build mode", "release"));
+#endif
+
+	//Congig
+	QString config(RS_BUILD_CONFIG);
+	QStringList sl = config.split(QString(" "));
+	sl = sl.filter(QString("rs"), Qt::CaseInsensitive);
+	infos.push_back(RsLibraryInfo("Additional config", sl.join(QString("<br />")).toStdString()));
+
+	//Architecture
+#if QT_VERSION >= QT_VERSION_CHECK (5, 4, 0)
+	infos.push_back(RsLibraryInfo("Architecture", QSysInfo::buildAbi().toStdString()));
+#endif
+
+	//OS
+	QString verInfo;
+#if QT_VERSION >= QT_VERSION_CHECK (5, 0, 0)
+	#if QT_VERSION >= QT_VERSION_CHECK (5, 4, 0)
+		verInfo+=QSysInfo::prettyProductName();
+	#endif
+#else
+	#ifdef Q_OS_LINUX
+	verInfo+="Linux";
+	#endif
+	#ifdef Q_OS_WIN
+	verInfo+="Windows";
+	#endif
+	#ifdef Q_OS_MAC
+	verInfo+="Mac";
+	#endif
+#endif
+	infos.push_back(RsLibraryInfo("OS", verInfo.toStdString()));
 }
 
 /** Constructor */
@@ -82,10 +127,20 @@ HelpDialog::HelpDialog(QWidget *parent) :
 
 	ui->version->setText(Rshare::retroshareVersion(true));
 
-	/* Add version numbers of libretroshare */
 	std::list<RsLibraryInfo> libraries;
+	/* General info */
+	buildInfo(libraries);
+	addLibraries(ui->libraryLayout, "Info", libraries);
+
+	/* Add version numbers of libretroshare */
+	libraries.clear();
 	RsControl::instance()->getLibraries(libraries);
 	addLibraries(ui->libraryLayout, "libretroshare", libraries);
+
+	/* Add version numbers of GUI */
+	libraries.clear();
+	libraries.push_back(RsLibraryInfo("Qt", QT_VERSION_STR));
+	addLibraries(ui->libraryLayout, "retroshare gui", libraries);
 
 // #ifdef RS_WEBUI
 // 	/* Add version numbers of RetroShare */

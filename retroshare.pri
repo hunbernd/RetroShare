@@ -19,6 +19,8 @@
 # SPDX-FileCopyrightText: Retroshare Team <contact@retroshare.cc>
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
+# Save the currently used config, to be used in the about dialog
+DEFINES += "RS_BUILD_CONFIG=\"\\\"$${CONFIG}\\\"\""
 
 ################################################################################
 ## Documented build options (CONFIG) goes here as all the rest depend on them ##

@@ -288,7 +288,7 @@ p, li { white-space: pre-wrap; }
      </widget>
      <widget class="QWidget" name="tab_6">
       <attribute name="title">
-       <string>Libraries</string>
+       <string>Build info</string>
       </attribute>
       <layout class="QVBoxLayout" name="verticalLayout">
        <item>

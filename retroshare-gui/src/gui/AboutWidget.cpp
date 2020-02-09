@@ -965,8 +965,27 @@ void AboutWidget::on_copy_button_clicked()
 	verInfo+=" ";
     QString qtver = QString("QT ")+QT_VERSION_STR;
     verInfo+=qtver;
-    verInfo+="\n\n";
+	verInfo+="\n";
 
+	//Architecture
+#if QT_VERSION >= QT_VERSION_CHECK (5, 4, 0)
+	verInfo+= QSysInfo::buildAbi() + "\n";
+#endif
+
+	//Build mode
+#ifdef QT_DEBUG
+	verInfo+= "debug ";
+#else
+	verInfo+= "release ";
+#endif
+
+	//Congig
+	QString config(RS_BUILD_CONFIG);
+	QStringList sl = config.split(QString(" "));
+	sl = sl.filter(QString("rs"), Qt::CaseInsensitive);
+	verInfo+= sl.join(QString(" "));
+
+	verInfo+="\n\n";
     /* Add version numbers of libretroshare */
     std::list<RsLibraryInfo> libraries;
     RsControl::instance()->getLibraries(libraries);
