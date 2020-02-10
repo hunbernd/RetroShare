@@ -184,7 +184,7 @@ title %COMSPEC%
 call :cleanup
 
 rem For deployment with CI we need the archive file name
-endlocal & set pack-file-name=%Archive%
+endlocal & set packfilename=%Archive%
 exit /B 0
 
 :error

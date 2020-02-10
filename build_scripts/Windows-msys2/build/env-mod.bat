@@ -1,0 +1,1 @@
+set RsArchiveAdd=-azureautobuild%extrainfo%
