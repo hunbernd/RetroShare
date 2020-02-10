@@ -32,6 +32,8 @@ if "%~1" NEQ "" (
 			set ParamClang=1
 		) else if "%%~a"=="noupdate" (
 			set ParamNoupdate=1
+		) else if "%%~a"=="nothing" (
+			
 		) else if "%%~a"=="CONFIG+" (
 			set RS_QMAKE_CONFIG=%RS_QMAKE_CONFIG% %1
 			if "%%~b"=="rs_jsonapi" set ParamJsonApi=1
