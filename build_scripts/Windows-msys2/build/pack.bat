@@ -1,4 +1,4 @@
-@echo off
+rem @echo off
 
 setlocal
 
@@ -38,10 +38,10 @@ if not exist "%GetRsVersion%" (
 call "%GetRsVersion%" "%RsBuildPath%\retroshare-gui\src\%RsBuildConfig%\retroshare.exe" RsVersion
 if errorlevel 1 %cecho% error "Revision not found."& goto error
 
-if "%RsVersion.Major%"=="" %cecho% error "Major version not found."& goto error
-if "%RsVersion.Minor%"=="" %cecho% error "Minor version not found."& goto error
-if "%RsVersion.Mini%"=="" %cecho% error "Mini number not found".& goto error
-if "%RsVersion.Extra%"=="" %cecho% error "Extra number not found".& goto error
+if "%RsVersion.Major%"=="" %cecho% error "Major version not found."
+if "%RsVersion.Minor%"=="" %cecho% error "Minor version not found."
+if "%RsVersion.Mini%"=="" %cecho% error "Mini number not found."
+if "%RsVersion.Extra%"=="" %cecho% error "Extra number not found."
 
 set RsVersion=%RsVersion.Major%.%RsVersion.Minor%.%RsVersion.Mini%
 
