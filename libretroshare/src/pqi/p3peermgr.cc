@@ -74,12 +74,20 @@ static struct RsLog::logInfo p3peermgrzoneInfo = {RsLog::Default, "p3peermgr"};
 static const std::string kConfigDefaultProxyServerIpAddr = "127.0.0.1";
 static const uint16_t    kConfigDefaultProxyServerPortTor = 9050; // standard port.
 static const uint16_t    kConfigDefaultProxyServerPortI2P = 4447; // I2Pd's standard port
+static const uint16_t    kConfigDefaultProxyServerPortLoki = 53; // Lokinet's standard port
+#ifdef WINDOWS_SYS
+static const std::string kConfigDefaultProxyServerIpAddrLoki = "127.0.0.1";
+#else
+static const std::string kConfigDefaultProxyServerIpAddrLoki = "127.3.2.1";
+#endif
 
 static const std::string kConfigKeyExtIpFinder = "USE_EXTR_IP_FINDER";
 static const std::string kConfigKeyProxyServerIpAddrTor = "PROXY_SERVER_IPADDR";
 static const std::string kConfigKeyProxyServerPortTor = "PROXY_SERVER_PORT";
 static const std::string kConfigKeyProxyServerIpAddrI2P = "PROXY_SERVER_IPADDR_I2P";
 static const std::string kConfigKeyProxyServerPortI2P = "PROXY_SERVER_PORT_I2P";
+static const std::string kConfigKeyProxyServerIpAddrLoki = "PROXY_SERVER_IPADDR_LOKI";
+static const std::string kConfigKeyProxyServerPortLoki = "PROXY_SERVER_PORT_LOKI";
 
 void  printConnectState(std::ostream &out, peerState &peer);
 
@@ -141,9 +149,16 @@ p3PeerMgrIMPL::p3PeerMgrIMPL(const RsPeerId& ssl_own_id, const RsPgpId& gpg_own_
 				kConfigDefaultProxyServerIpAddr.c_str());
 		sockaddr_storage_ipv4_setport(mProxyServerAddressI2P,
 				kConfigDefaultProxyServerPortI2P);
+		// Lokinet
+		sockaddr_storage_clear(mProxyServerAddressLoki);
+		sockaddr_storage_ipv4_aton(mProxyServerAddressLoki,
+				kConfigDefaultProxyServerIpAddrLoki.c_str());
+		sockaddr_storage_ipv4_setport(mProxyServerAddressLoki,
+				kConfigDefaultProxyServerPortLoki);
 
 		mProxyServerStatusTor = RS_NET_PROXY_STATUS_UNKNOWN ;
 		mProxyServerStatusI2P = RS_NET_PROXY_STATUS_UNKNOWN;
+		mProxyServerStatusLoki = RS_NET_PROXY_STATUS_UNKNOWN;
 	}
 
 #ifdef PEER_DEBUG
@@ -642,6 +657,13 @@ bool p3PeerMgrIMPL::setProxyServerAddress(const uint32_t type, const struct sock
 			mProxyServerAddressTor = proxy_addr;
 		}
 		break;
+	case RS_HIDDEN_TYPE_LOKI:
+		if (!sockaddr_storage_same(mProxyServerAddressLoki, proxy_addr))
+		{
+			IndicateConfigChanged(); /**** INDICATE MSG CONFIG CHANGED! *****/
+			mProxyServerAddressLoki = proxy_addr;
+		}
+		break;
 	case RS_HIDDEN_TYPE_UNKNOWN:
 	default:
 #ifdef PEER_DEBUG
@@ -683,6 +705,9 @@ bool p3PeerMgrIMPL::getProxyServerStatus(const uint32_t type, uint32_t& proxy_st
 	case RS_HIDDEN_TYPE_TOR:
 		proxy_status = mProxyServerStatusTor;
 		break;
+	case RS_HIDDEN_TYPE_LOKI:
+		proxy_status = mProxyServerStatusLoki;
+		break;
 	case RS_HIDDEN_TYPE_UNKNOWN:
 	default:
 #ifdef PEER_DEBUG
@@ -711,6 +736,9 @@ bool p3PeerMgrIMPL::getProxyServerAddress(const uint32_t type, struct sockaddr_s
 		break;
 	case RS_HIDDEN_TYPE_TOR:
 		proxy_addr = mProxyServerAddressTor;
+		break;
+	case RS_HIDDEN_TYPE_LOKI:
+		proxy_addr = mProxyServerAddressLoki;
 		break;
 	case RS_HIDDEN_TYPE_UNKNOWN:
 	default:
@@ -2197,9 +2225,10 @@ bool p3PeerMgrIMPL::saveList(bool &cleanup, std::list<RsItem *>& saveData)
 	bool useExtAddrFinder = mNetMgr->getIPServersEnabled();
 
 	/* gather these information before mPeerMtx is locked! */
-	struct sockaddr_storage proxy_addr_tor, proxy_addr_i2p;
+	struct sockaddr_storage proxy_addr_tor, proxy_addr_i2p, proxy_addr_loki;
 	getProxyServerAddress(RS_HIDDEN_TYPE_TOR, proxy_addr_tor);
 	getProxyServerAddress(RS_HIDDEN_TYPE_I2P, proxy_addr_i2p);
+	getProxyServerAddress(RS_HIDDEN_TYPE_LOKI, proxy_addr_loki);
 
 	mPeerMtx.lock(); /****** MUTEX LOCKED *******/
 
@@ -2340,6 +2369,20 @@ bool p3PeerMgrIMPL::saveList(bool &cleanup, std::list<RsItem *>& saveData)
 	kv.value = sockaddr_storage_porttostring(proxy_addr_i2p);
 	vitem->tlvkvs.pairs.push_back(kv) ;
 
+	// Lokinet
+#ifdef PEER_DEBUG
+	std::cerr << "Saving proxyServerAddress for Lokinet: " << sockaddr_storage_tostring(proxy_addr_loki);
+	std::cerr << std::endl;
+#endif
+
+	kv.key = kConfigKeyProxyServerIpAddrLoki;
+	kv.value = sockaddr_storage_iptostring(proxy_addr_loki);
+	vitem->tlvkvs.pairs.push_back(kv) ;
+
+	kv.key = kConfigKeyProxyServerPortLoki;
+	kv.value = sockaddr_storage_porttostring(proxy_addr_loki);
+	vitem->tlvkvs.pairs.push_back(kv) ;
+
 	saveData.push_back(vitem);
 
 	/* save groups */
@@ -2436,6 +2479,8 @@ bool  p3PeerMgrIMPL::loadList(std::list<RsItem *>& load)
     uint16_t    proxyPortTor = kConfigDefaultProxyServerPortTor;
     std::string proxyIpAddressI2P = kConfigDefaultProxyServerIpAddr;
     uint16_t    proxyPortI2P = kConfigDefaultProxyServerPortI2P;
+    std::string proxyIpAddressLoki = kConfigDefaultProxyServerIpAddrLoki;
+    uint16_t    proxyPortLoki = kConfigDefaultProxyServerPortLoki;
 
     if (load.empty()) {
 	    std::cerr << "p3PeerMgrIMPL::loadList() list is empty, it may be a configuration problem."  << std::endl;
@@ -2590,6 +2635,25 @@ bool  p3PeerMgrIMPL::loadList(std::list<RsItem *>& load)
 				    std::cerr << std::endl ;
 #endif
 			    }
+				// Lokinet
+				else if (kit->key == kConfigKeyProxyServerIpAddrLoki)
+				{
+					proxyIpAddressLoki = kit->value;
+#ifdef PEER_DEBUG
+					std::cerr << "Loaded proxyIpAddress for Lokinet: " << proxyIpAddressLoki;
+					std::cerr << std::endl ;
+#endif
+
+				}
+				else if (kit->key == kConfigKeyProxyServerPortLoki)
+				{
+					uint16_t p = atoi(kit->value.c_str());
+					proxyPortLoki = p;
+#ifdef PEER_DEBUG
+					std::cerr << "Loaded proxyPort for Lokinet: " << proxyPortLoki;
+					std::cerr << std::endl ;
+#endif
+				}
 		    }
 
 		    delete(*it);
@@ -2727,6 +2791,16 @@ bool  p3PeerMgrIMPL::loadList(std::list<RsItem *>& load)
     {
 	    setProxyServerAddress(RS_HIDDEN_TYPE_I2P, proxy_addr);
     }
+
+	// Lokinet
+	sockaddr_storage_clear(proxy_addr);
+	sockaddr_storage_ipv4_aton(proxy_addr, proxyIpAddressLoki.c_str());
+	sockaddr_storage_ipv4_setport(proxy_addr, proxyPortLoki);
+
+	if (sockaddr_storage_isValidNet(proxy_addr))
+	{
+		setProxyServerAddress(RS_HIDDEN_TYPE_LOKI, proxy_addr);
+	}
 
     load.clear() ;
     return true;

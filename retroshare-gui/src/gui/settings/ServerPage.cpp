@@ -27,6 +27,7 @@
 #include "util/misc.h"
 #include "util/qtthreadsutils.h"
 #include "util/RsNetUtil.h"
+#include <util/rsnet.h>
 
 #include <iostream>
 
@@ -214,6 +215,8 @@ ServerPage::ServerPage(QWidget * parent, Qt::WindowFlags flags)
     connect(ui.hiddenpage_proxyPort_tor,    SIGNAL(editingFinished()),this,SLOT(saveAddresses()));
     connect(ui.hiddenpage_proxyAddress_i2p, SIGNAL(editingFinished()),this,SLOT(saveAddresses()));
     connect(ui.hiddenpage_proxyPort_i2p,    SIGNAL(editingFinished()),this,SLOT(saveAddresses()));
+    connect(ui.hiddenpage_proxyAddress_loki, SIGNAL(editingFinished()),this,SLOT(saveAddresses()));
+    connect(ui.hiddenpage_proxyPort_loki,    SIGNAL(editingFinished()),this,SLOT(saveAddresses()));
 
     connect(ui.totalDownloadRate,SIGNAL(valueChanged(int)),this,SLOT(saveRates()));
     connect(ui.totalUploadRate,  SIGNAL(valueChanged(int)),this,SLOT(saveRates()));
@@ -475,6 +478,10 @@ void ServerPage::load()
         rsPeers->getProxyServer(RS_HIDDEN_TYPE_I2P, proxyaddr, proxyport, status);
         whileBlocking(ui.hiddenpage_proxyAddress_i2p) -> setText(QString::fromStdString(proxyaddr));
         whileBlocking(ui.hiddenpage_proxyPort_i2p) -> setValue(proxyport);
+        // Lokinet
+        rsPeers->getProxyServer(RS_HIDDEN_TYPE_LOKI, proxyaddr, proxyport, status);
+        whileBlocking(ui.hiddenpage_proxyAddress_loki) -> setText(QString::fromStdString(proxyaddr));
+	    whileBlocking(ui.hiddenpage_proxyPort_loki) -> setValue(proxyport);
 
     }
 
@@ -1218,6 +1225,10 @@ void ServerPage::loadHiddenNode()
     rsPeers->getProxyServer(RS_HIDDEN_TYPE_I2P, proxyaddr, proxyport, status);
     whileBlocking(ui.hiddenpage_proxyAddress_i2p) -> setText(QString::fromStdString(proxyaddr));
     whileBlocking(ui.hiddenpage_proxyPort_i2p) -> setValue(proxyport);
+	// Lokinet
+	rsPeers->getProxyServer(RS_HIDDEN_TYPE_LOKI, proxyaddr, proxyport, status);
+	whileBlocking(ui.hiddenpage_proxyAddress_loki) -> setText(QString::fromStdString(proxyaddr));
+	whileBlocking(ui.hiddenpage_proxyPort_loki) -> setValue(proxyport);
 
     QString expected = "";
     switch (mHiddenType) {
@@ -1399,6 +1410,25 @@ void ServerPage::updateOutProxyIndicator()
         ui.iconlabel_i2p_outgoing_2->setPixmap(FilesDefs::getPixmapFromQtResourcePath(ICON_STATUS_UNKNOWN)) ;
 		ui.iconlabel_i2p_outgoing_2->setToolTip(tr("SAMv3 is not accessible! Is i2p running and SAM enabled?")) ;
     }
+
+	// Lokinet
+	std::string ip;
+	std::string cname;
+	bool success = rsGetRecordByNameSpecDNS(ui.hiddenpage_proxyAddress_loki->text().toStdString(), ui.hiddenpage_proxyPort_loki->text().toInt(), "localhost.loki", DNST_A, ip, 1);
+	success = success && rsGetRecordByNameSpecDNS(ui.hiddenpage_proxyAddress_loki->text().toStdString(), ui.hiddenpage_proxyPort_loki->text().toInt(), "localhost.loki", DNST_CNAME, cname, 1);
+	if(success)
+	{
+		ui.iconlabel_loki_outgoing->setPixmap(FilesDefs::getPixmapFromQtResourcePath(ICON_STATUS_OK)) ;
+		QString tt(tr("Proxy seems to work.")) ;
+		tt = tt + "\n" + QString::fromStdString(ip);
+		tt = tt + "\n" + QString::fromStdString(cname);
+		ui.iconlabel_loki_outgoing->setToolTip(tt) ;
+	}
+	else
+	{
+		ui.iconlabel_loki_outgoing->setPixmap(FilesDefs::getPixmapFromQtResourcePath(ICON_STATUS_UNKNOWN)) ;
+		ui.iconlabel_loki_outgoing->setToolTip(tr("Lokinet is not enabled")) ;
+	}
 }
 
 void ServerPage::updateInProxyIndicator()
@@ -1658,6 +1688,11 @@ void ServerPage::loadCommon()
 	whileBlocking(ui.hiddenpage_proxyAddress_i2p_2)->setText(QString::fromStdString(proxyaddr)); // this one is for sam tab
     whileBlocking(ui.hiddenpage_proxyPort_i2p) -> setValue(proxyport);
 
+    // Lokinet
+    rsPeers->getProxyServer(RS_HIDDEN_TYPE_LOKI, proxyaddr, proxyport, status);
+    whileBlocking(ui.hiddenpage_proxyAddress_loki)->setText(QString::fromStdString(proxyaddr));
+    whileBlocking(ui.hiddenpage_proxyPort_loki)->setValue(proxyport);
+
     // don't use whileBlocking here
 	ui.cb_enableBob->setChecked(mSamSettings.enable);
 
@@ -1681,6 +1716,15 @@ void ServerPage::saveCommon()
 
     if ((new_proxyaddr != orig_proxyaddr) || (new_proxyport != orig_proxyport)) {
         rsPeers->setProxyServer(RS_HIDDEN_TYPE_TOR, new_proxyaddr, new_proxyport);
+    }
+    // Loki
+    rsPeers->getProxyServer(RS_HIDDEN_TYPE_LOKI, orig_proxyaddr, orig_proxyport, status);
+
+    new_proxyaddr = ui.hiddenpage_proxyAddress_loki -> text().toStdString();
+    new_proxyport = ui.hiddenpage_proxyPort_loki -> value();
+
+    if ((new_proxyaddr != orig_proxyaddr) || (new_proxyport != orig_proxyport)) {
+        rsPeers->setProxyServer(RS_HIDDEN_TYPE_LOKI, new_proxyaddr, new_proxyport);
     }
 
 	saveSam();

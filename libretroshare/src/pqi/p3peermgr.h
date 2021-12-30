@@ -423,8 +423,10 @@ private:
 
     struct sockaddr_storage mProxyServerAddressTor;
     struct sockaddr_storage mProxyServerAddressI2P;
+	struct sockaddr_storage mProxyServerAddressLoki;
     uint32_t mProxyServerStatusTor ;
     uint32_t mProxyServerStatusI2P ;
+	uint32_t mProxyServerStatusLoki ;
 
 };
 

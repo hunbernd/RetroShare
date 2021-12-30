@@ -73,8 +73,9 @@ const uint32_t RS_HIDDEN_TYPE_NONE	= 0x0000;
 const uint32_t RS_HIDDEN_TYPE_UNKNOWN	= 0x0001;
 const uint32_t RS_HIDDEN_TYPE_TOR	= 0x0002;
 const uint32_t RS_HIDDEN_TYPE_I2P	= 0x0004;
+const uint32_t RS_HIDDEN_TYPE_LOKI	= 0x0008;
 /* mask to match all valid hidden types */
-const uint32_t RS_HIDDEN_TYPE_MASK	= RS_HIDDEN_TYPE_I2P | RS_HIDDEN_TYPE_TOR;
+const uint32_t RS_HIDDEN_TYPE_MASK	= RS_HIDDEN_TYPE_I2P | RS_HIDDEN_TYPE_TOR | RS_HIDDEN_TYPE_LOKI;
 
 /* Visibility parameter for discovery */
 const uint32_t RS_VS_DISC_OFF		= 0x0000;

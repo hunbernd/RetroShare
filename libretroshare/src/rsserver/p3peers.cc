@@ -1068,7 +1068,7 @@ bool p3Peers::setProxyServer(const uint32_t type, const std::string &addr_str, c
         std::cerr << "p3Peers::setProxyServer() " << std::endl;
     #endif
 
-		if(port < 1024)
+		if(port < 1024 && type != RS_HIDDEN_TYPE_LOKI)
         {
             std::cerr << "(EE) attempt to set proxy server address to something not allowed: " << addr_str << ":" << port << std::endl;
             return false ;
