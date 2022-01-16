@@ -4,10 +4,6 @@
 [submodule "cmark"]
 	path = supportlibs/cmark
 	url = https://github.com/commonmark/cmark.git
-[submodule "build_scripts/OBS"]
-	path = build_scripts/OBS
-	url = https://github.com/RetroShare/OBS.git
-	update = none
 [submodule "supportlibs/udp-discovery-cpp"]
 	path = supportlibs/udp-discovery-cpp
 	url = https://github.com/truvorskameikin/udp-discovery-cpp.git
@@ -33,3 +29,6 @@
 	path = libretroshare
 	url = https://github.com/RetroShare/libretroshare
 	branch = master
+; include OBS only if it is not windows
+[includeIf "gitdir:/**"]
+	path = .gitmodules-obs

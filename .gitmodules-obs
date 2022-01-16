@@ -1,0 +1,3 @@
+[submodule "build_scripts/OBS"]
+	path = build_scripts/OBS
+	url = https://github.com/RetroShare/OBS.git
