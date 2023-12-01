@@ -51,6 +51,11 @@ retroshare_plugins:CONFIG -= no_retroshare_plugins
 CONFIG *= retroshare_service
 no_retroshare_service:CONFIG -= retroshare_service
 
+# To disable RetroShare profileupgradetool append the following assignation to
+# qmake command line "CONFIG+=no_retroshare_profileupgradetool"
+CONFIG *= retroshare_profileupgradetool
+no_retroshare_profileupgradetool:CONFIG -= retroshare_profileupgradetool
+
 # To disable RetroShare FriendServer append the following assignation to
 # qmake command line "CONFIG+=no_retroshare_friendserver"
 CONFIG *= retroshare_friendserver

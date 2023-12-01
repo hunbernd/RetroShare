@@ -55,6 +55,13 @@ retroshare_service {
     retroshare_service.target = retroshare_service
 }
 
+retroshare_profileupgradetool {
+    SUBDIRS += retroshare_profileupgradetool
+    retroshare_profileupgradetool.file = retroshare-profileupgradetool/src/profileupgradetool.pro
+    retroshare_profileupgradetool.depends = libretroshare
+    retroshare_profileupgradetool.target = retroshare_profileupgradetool
+}
+
 retroshare_friendserver {
     SUBDIRS += retroshare_friendserver
     retroshare_friendserver.file = retroshare-friendserver/src/retroshare-friendserver.pro
