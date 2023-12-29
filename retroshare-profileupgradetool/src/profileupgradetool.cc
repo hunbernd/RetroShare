@@ -31,6 +31,7 @@
 #include "retroshare/rspeers.h"
 #include "retroshare/rsinit.h"
 #include "retroshare/rsiface.h"
+#include "rsserver/rsloginhandler.h"
 
 #include "util/stacktrace.h"
 #include "util/rsprint.h"
@@ -38,14 +39,6 @@
 #include "util/rskbdinput.h"
 #include "util/rsdir.h"
 #include "util/rsdebug.h"
-
-#ifdef RS_JSONAPI
-#	include "retroshare/rsjsonapi.h"
-
-#	ifdef RS_WEBUI
-#		include "retroshare/rswebui.h"
-#	endif // def RS_WEBUI
-#endif // def RS_JSONAPI
 
 static CrashStackTrace gCrashStackTrace;
 
@@ -71,7 +64,6 @@ std::string colored(int color,const std::string& s)
     }
 }
 
-#ifdef RS_SERVICE_TERMINAL_LOGIN
 class RsServiceNotify: public NotifyClient
 {
 public:
@@ -89,7 +81,6 @@ public:
 		return !password.empty();
 	}
 };
-#endif // def RS_SERVICE_TERMINAL_LOGIN
 
 static std::atomic<bool> keepRunning(true);
 static int receivedSignal = 0;
@@ -102,6 +93,32 @@ void signalHandler(int signal)
 	keepRunning = false;
 }
 
+
+RsInit::LoadCertificateStatus attemptLogin(const RsPeerId& account, const std::string& password)
+{
+	if(rsLoginHelper->isLoggedIn()) return RsInit::ERR_ALREADY_RUNNING;
+
+	{
+		if(!RsAccounts::SelectAccount(account))
+			return RsInit::ERR_UNKNOWN;
+
+		if(!password.empty())
+		{
+			rsNotify->cachePgpPassphrase(password);
+			rsNotify->setDisableAskPassword(true);
+		}
+		std::string _ignore_lockFilePath;
+		RsInit::LoadCertificateStatus ret = RsInit::LockAndLoadCertificates(false, _ignore_lockFilePath);
+
+		bool is_hidden_node = false;
+		bool is_auto_tor = false ;
+		bool is_first_time = false ;
+
+		RsAccounts::getCurrentAccountOptions(is_hidden_node,is_auto_tor,is_first_time);
+
+		return ret;
+	}
+}
 
 int main(int argc, char* argv[])
 {
@@ -159,115 +176,27 @@ int main(int argc, char* argv[])
 	if ((argc >= 2) && (0 == strncmp(argv[1], "-psn", 4))) argc = 1;
 #endif
 
-	std::string prefUserString;
+	std::string prefUserString = "list";
 	RsConfigOptions conf;
-
-#ifdef RS_JSONAPI
-	conf.jsonApiPort = RsJsonApi::DEFAULT_PORT;	// enable JSON API by default
-#ifdef RS_WEBUI
-	std::string webui_base_directory = RsWebUi::DEFAULT_BASE_DIRECTORY;
-#endif
-#endif
+	conf.sslLevel = 0;
 
 	argstream as(argc,argv);
 	as >> option( 's', "stderr", conf.outStderr,
 	              "output to stderr instead of log file." )
-	   >> option( 'u',"udp", conf.udpListenerOnly,
-	              "Only listen to UDP." )
        >> parameter( 'c',"base-dir", conf.optBaseDir, "directory", "Set base directory.", false )
        >> parameter( 'l', "log-file", conf.logfname, "logfile", "Set Log filename.", false )
-       >> parameter( 'd', "debug-level", conf.debugLevel, "level", "Set debug level.", false )
-       >> parameter( 'i', "ip-address", conf.forcedInetAddress, "IP", "Force IP address to use (if cannot be detected).", false )
-       >> parameter( 'o', "opmode", conf.opModeStr, "opmode", "Set Operating mode (Full, NoTurtle, Gaming, Minimal).", false )
-       >> parameter( 'p', "port", conf.forcedPort, "port", "Set listenning port to use.", false )
-       >> parameter( 't', "tor", conf.userSuppliedTorExecutable, "tor", "Set Tor executable full path.", false )
-       >> parameter(      "ssllevel", conf.sslLevel ,"level" ,"Minimum SSL level allowed, set to 0 to allow login with old profiles.",false);
-
-#ifdef RS_SERVICE_TERMINAL_LOGIN
+	   >> parameter( 'd', "debug-level", conf.debugLevel, "level", "Set debug level.", false );
 	as >> parameter( 'U', "user-id", prefUserString, "ID",
 	                 "[node Id] Selected account to use and asks for passphrase"
 	                 ". Use \"-U list\" in order to list available accounts.",
 	                 false );
-#endif // def RS_SERVICE_TERMINAL_LOGIN
-
-#ifdef RS_JSONAPI
-	as >> parameter( 'J', "jsonApiPort", conf.jsonApiPort, "TCP Port",
-	                 "Enable JSON API on the specified port", false )
-	   >> parameter( 'P', "jsonApiBindAddress", conf.jsonApiBindAddress,
-	                 "TCP bind address", "JSON API Bind Address default "
-	                                     "127.0.0.1.", false );
-#endif // def RS_JSONAPI
-
-#if (defined(RS_JSONAPI) && defined(RS_WEBUI)) && defined(RS_SERVICE_TERMINAL_WEBUI_PASSWORD)
-	bool askWebUiPassword = false;
-	as >> parameter( 'B', "webui-directory", webui_base_directory, "Place where to find the html/js files for the webui.",false );
-	as >> option( 'W', "webui-password", askWebUiPassword, "Ask WebUI password on the console." );
-#endif /* defined(RS_JSONAPI) && defined(RS_WEBUI) \
-	        && defined(RS_SERVICE_TERMINAL_WEBUI_PASSWORD) */
-
-
-#ifdef LOCALNET_TESTING
-	as >> parameter( 'R', "restrict-port" , portRestrictions, "port1-port2",
-	                 "Apply port restriction", false);
-#endif
-
-#ifdef RS_AUTOLOGIN
-	as >> option( 'a', "auto-login", conf.autoLogin,
-	              "enable auto-login." );
-#endif
 
 	as >> help( 'h', "help", "Display this Help" );
 	as.defaultErrorHandling(true, true);
 
-    if(!conf.userSuppliedTorExecutable.empty())
-        RsTor::setTorExecutablePath(conf.userSuppliedTorExecutable);
-
-#if (defined(RS_JSONAPI) && defined(RS_WEBUI)) && defined(RS_SERVICE_TERMINAL_WEBUI_PASSWORD)
-	std::string webui_pass1;
-	if(askWebUiPassword)
-	{
-		std::string webui_pass2 = "N";
-
-		while(keepRunning)
-		{
-            webui_pass1 = RsUtil::rs_getpass( colored(COLOR_GREEN,"Please register a password for the web interface: "));
-            webui_pass2 = RsUtil::rs_getpass( colored(COLOR_GREEN,"Please enter the same password again            : "));
-
-			if(webui_pass1 != webui_pass2)
-			{
-                std::cout << colored(COLOR_RED,"Passwords do not match!") << std::endl;
-				continue;
-			}
-			if(webui_pass1.empty())
-			{
-                std::cout << colored(COLOR_RED,"Password cannot be empty!") << std::endl;
-				continue;
-			}
-
-			break;
-		}
-	}
-#ifdef RS_SERVICE_TERMINAL_WEBUI_PASSWORD
-    if(askWebUiPassword && !webui_pass1.empty())
-    {
-        rsWebUi->setHtmlFilesDirectory(webui_base_directory);
-        conf.webUIPasswd = webui_pass1;	// cannot be set using rsWebUI methods because it calls the still non-existent rsJsonApi
-        conf.enableWebUI = true;
-
-        // JsonApi is started below in InitRetroShare(). Not calling restart here avoids multiple restart.
-    }
-#endif
-#endif /* defined(RS_JSONAPI) && defined(RS_WEBUI)
-	&& defined(RS_SERVICE_TERMINAL_WEBUI_PASSWORD) */
-
 	conf.main_executable_path = argv[0];
 
 	int initResult = RsInit::InitRetroShare(conf);
-
-#ifdef RS_JSONAPI
-    RsInit::startupWebServices(conf,true);
-    rstime::rs_usleep(1000000); // waits for jas->restart to print stuff
-#endif
 
 	if(initResult != RS_INIT_OK)
 	{
@@ -276,9 +205,7 @@ int main(int argc, char* argv[])
 		return -initResult;
 	}
 
-#ifdef RS_SERVICE_TERMINAL_LOGIN
-	if(!prefUserString.empty()) // Login from terminal requested
-	{
+	RsLoginHelper::Location selectedaccount;
 		if(prefUserString == "list")
 		{
 			std::vector<RsLoginHelper::Location> locations;
@@ -316,6 +243,7 @@ int main(int argc, char* argv[])
 				if(nacc < locations.size())
 				{
 					prefUserString = locations[nacc].mLocationId.toStdString();
+					selectedaccount = locations[nacc];
 					break;
 				}
 				nacc=0; // allow to continue if something goes wrong.
@@ -335,7 +263,7 @@ int main(int argc, char* argv[])
 		rsNotify->registerNotifyClient(notify);
 
 		// supply empty passwd so that it is properly asked 3 times on console
-		RsInit::LoadCertificateStatus result = rsLoginHelper->attemptLogin(ssl_id, "");
+		RsInit::LoadCertificateStatus result = attemptLogin(ssl_id, "");
 
 		switch(result)
 		{
@@ -356,41 +284,66 @@ int main(int argc, char* argv[])
 			RsErr() << "Cannot login. Check your passphrase." << std::endl
 			        << std::endl;
 			return -result;
-		}
+		}        
 
-        if(RsAccounts::isTorAuto())
-        {
+// Successful login, start the profile upgrade
+		std::cout << "Successful login, start the profile upgrade" << std::endl;
+		RsPgpId PGPId = selectedaccount.mPgpId;
 
-            std::cerr << colored(COLOR_GREEN,"(II) Hidden service is ready:") << std::endl;
+		bool is_hidden_node = false;
+		bool is_auto_tor = false ;
+		bool is_first_time = false ;
+		RsAccounts::getCurrentAccountOptions(is_hidden_node,is_auto_tor,is_first_time);
 
-            std::string service_id ;
-            std::string onion_address ;
-            uint16_t service_port ;
-            uint16_t service_target_port ;
-            uint16_t proxy_server_port ;
-            std::string service_target_address ;
-            std::string proxy_server_address ;
+		std::string genLoc = selectedaccount.mLocationName + " upgraded"; // TODO make configurable
 
-            RsTor::getHiddenServiceInfo(service_id,onion_address,service_port,service_target_address,service_target_port);
-            RsTor::getProxyServerInfo(proxy_server_address,proxy_server_port) ;
+		std::string sslPasswd; //TODO többször kéri a jelszót
+		RsLoginHandler::getSSLPassword(selectedaccount.mLocationId,true,sslPasswd);
 
-            std::cerr << colored(COLOR_GREEN,"  onion address  : ") << onion_address << std::endl;
-            std::cerr << colored(COLOR_GREEN,"  service_id     : ") << service_id << std::endl;
-            std::cerr << colored(COLOR_GREEN,"  service port   : ") << service_port << std::endl;
-            std::cerr << colored(COLOR_GREEN,"  target port    : ") << service_target_port << std::endl;
-            std::cerr << colored(COLOR_GREEN,"  target address : ") << service_target_address << std::endl;
 
-            std::cerr << colored(COLOR_GREEN,"Setting proxy server to ") << service_target_address << ":" << service_target_port << std::endl;
+		RsPeerId sslId;
+		std::cerr << "GenCertDialog::genPerson() Generating SSL cert with gpg id : " << PGPId << std::endl;
+		std::string err;
 
-            rsPeers->setLocalAddress(rsPeers->getOwnId(), service_target_address, service_target_port);
-            rsPeers->setHiddenNode(rsPeers->getOwnId(), onion_address, service_port);
-            rsPeers->setProxyServer(RS_HIDDEN_TYPE_TOR, proxy_server_address,proxy_server_port) ;
-        }
-	}
-#endif // def RS_SERVICE_TERMINAL_LOGIN
+
+		std::cout << "RsAccounts::GenerateSSLCertificate" << std::endl;
+		bool okGen = RsAccounts::createNewAccount(PGPId, "", genLoc, "", is_hidden_node, is_auto_tor, sslPasswd, sslId, err);
+
+		std::cout << "New location SSL ID: " << sslId << std::endl;
+
+//		if (okGen)
+//		{
+//			/* complete the process */
+//			RsInit::LoadPassword(sslPasswd);
+//			if (Rshare::loadCertificate(sslId, false)) {
+
+//				// Normally we should clear the cached passphrase as soon as possible. However,some other GUI components may still need it at start.
+//				// (csoler) This is really bad: we have to guess that 30 secs will be enough. I have no better way to do this.
+
+//				QTimer::singleShot(30000, []() { rsNotify->clearPgpPassphrase(); } );
+
+//				accept();
+//			}
+//		}
+//		else
+//		{
+//			// Now clear the cached passphrase
+//			rsNotify->clearPgpPassphrase();
+
+//			/* Message Dialog */
+//			QMessageBox::warning(this,
+//								 tr("Profile generation failure"),
+//								 tr("Failed to generate your new certificate, maybe PGP password is wrong!"),
+//								 QMessageBox::Ok);
+
+//			reject();
+//		}
+
+		std::cout << "Profile upgrade end" << std::endl; //TODO
+// End of profile upgarde
 
 	rsControl->setShutdownCallback([&](int){keepRunning = false;});
-
+	rsControl->rsGlobalShutDown();
 	while(keepRunning)
 		std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
