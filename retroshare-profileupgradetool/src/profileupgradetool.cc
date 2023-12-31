@@ -39,6 +39,7 @@
 #include "util/rskbdinput.h"
 #include "util/rsdir.h"
 #include "util/rsdebug.h"
+#include "util/folderiterator.h"
 
 static CrashStackTrace gCrashStackTrace;
 
@@ -62,6 +63,40 @@ std::string colored(int color,const std::string& s)
     default:
         return s;
     }
+}
+
+void copyFileBetweenProfiles(std::string oldid, std::string newid, std::string newfile){
+	//std::cout << "--- " << oldid << "\t" << newid << "\t" << newfile << std::endl;
+	std::string oldfile = newfile;
+	oldfile.replace(oldfile.find(newid), newid.length(), oldid);
+	std::cout << "Copying " << oldfile << " --> " << newfile << std::endl;
+	RsDirUtil::copyFile(oldfile, newfile);
+}
+
+void copyFilesBetweenProfiles(std::string oldid, std::string newid, std::string newdir, std::string ending){
+	//std::cout << "--- " << oldid << "\t" << newid << "\t" << newdir << std::endl;
+	RsDirUtil::checkCreateDirectory(newdir);
+	std::string olddir = newdir;
+	olddir.replace(olddir.find(newid), newid.length(), oldid);
+	std::cout << "Copying files " << olddir << " --> " << newdir << std::endl;
+	librs::util::FolderIterator dirIt(olddir,false);
+	if(!dirIt.isValid())
+	{
+		return;
+	}
+
+	for(;dirIt.isValid();dirIt.next())
+	{
+		if(dirIt.file_type() == librs::util::FolderIterator::TYPE_FILE)
+			if(dirIt.file_name().size() >= ending.size() && dirIt.file_name().substr( dirIt.file_name().size() - ending.size()) == ending)
+			{
+				std::string newfile = dirIt.file_fullpath();
+				newfile.replace(newfile.find(oldid), oldid.length(), newid);
+				std::cout << "\t" << dirIt.file_name() << std::endl;
+				RsDirUtil::copyFile(dirIt.file_fullpath(), newfile);
+			}
+	}
+	dirIt.closedir();
 }
 
 class RsServiceNotify: public NotifyClient
@@ -309,35 +344,34 @@ int main(int argc, char* argv[])
 		std::cout << "RsAccounts::GenerateSSLCertificate" << std::endl;
 		bool okGen = RsAccounts::createNewAccount(PGPId, "", genLoc, "", is_hidden_node, is_auto_tor, sslPasswd, sslId, err);
 
-		std::cout << "New location SSL ID: " << sslId << std::endl;
+		if (okGen)
+		{
+			std::cout << std::endl << "New location SSL ID: " << sslId << std::endl;
+			std::string newid = sslId.toStdString();
+			std::string oldid = selectedaccount.mLocationId.toStdString();
 
-//		if (okGen)
-//		{
+			//Copy stuff from the old to the new location
+			std::string path;
+			//SSL password
+			path = RsAccounts::AccountKeysDirectory() + "/" + "ssl_passphrase.pgp";
+			copyFileBetweenProfiles(oldid, newid, path);
+			//GXS databases
+			path = RsAccounts::AccountDirectory() + "/gxs";
+			copyFilesBetweenProfiles(oldid, newid, path, "_db");
+			//GUI settings
+			copyFileBetweenProfiles(oldid, newid, RsAccounts::AccountDirectory() + "/RetroShare.conf");
+			copyFileBetweenProfiles(oldid, newid, RsAccounts::AccountDirectory() + "/RSPeers.conf");
+			//
+
 //			/* complete the process */
 //			RsInit::LoadPassword(sslPasswd);
 //			if (Rshare::loadCertificate(sslId, false)) {
-
-//				// Normally we should clear the cached passphrase as soon as possible. However,some other GUI components may still need it at start.
-//				// (csoler) This is really bad: we have to guess that 30 secs will be enough. I have no better way to do this.
-
-//				QTimer::singleShot(30000, []() { rsNotify->clearPgpPassphrase(); } );
-
-//				accept();
 //			}
-//		}
-//		else
-//		{
-//			// Now clear the cached passphrase
-//			rsNotify->clearPgpPassphrase();
-
-//			/* Message Dialog */
-//			QMessageBox::warning(this,
-//								 tr("Profile generation failure"),
-//								 tr("Failed to generate your new certificate, maybe PGP password is wrong!"),
-//								 QMessageBox::Ok);
-
-//			reject();
-//		}
+		}
+		else
+		{
+			std::cerr << "Failed to generate new profile" << std::endl;
+		}
 
 		std::cout << "Profile upgrade end" << std::endl; //TODO
 // End of profile upgarde
