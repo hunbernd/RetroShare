@@ -99,6 +99,8 @@ void copyFilesBetweenProfiles(std::string oldid, std::string newid, std::string 
 	dirIt.closedir();
 }
 
+std::string PGPpassword;	//Cache the PGP password, so it won't be asked 3 times
+
 class RsServiceNotify: public NotifyClient
 {
 public:
@@ -111,6 +113,7 @@ public:
 	{
         std::string question1 = title + colored(COLOR_GREEN,"Please enter your PGP password for key:\n    ")  + question + " :";
 		password = RsUtil::rs_getpass(question1.c_str()) ;
+		PGPpassword = password;
 		cancel = false ;
 
 		return !password.empty();
@@ -332,7 +335,9 @@ int main(int argc, char* argv[])
 
 		std::string genLoc = selectedaccount.mLocationName + " upgraded"; // TODO make configurable
 
-		std::string sslPasswd; //TODO többször kéri a jelszót
+		rsNotify->cachePgpPassphrase(PGPpassword);
+		rsNotify->setDisableAskPassword(true);
+		std::string sslPasswd;
 		RsLoginHandler::getSSLPassword(selectedaccount.mLocationId,true,sslPasswd);
 
 
@@ -342,6 +347,8 @@ int main(int argc, char* argv[])
 
 
 		std::cout << "RsAccounts::GenerateSSLCertificate" << std::endl;
+		rsNotify->cachePgpPassphrase(PGPpassword);
+		rsNotify->setDisableAskPassword(true);
 		bool okGen = RsAccounts::createNewAccount(PGPId, "", genLoc, "", is_hidden_node, is_auto_tor, sslPasswd, sslId, err);
 
 		if (okGen)
