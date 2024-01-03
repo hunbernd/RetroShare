@@ -32,6 +32,7 @@
 #include "retroshare/rsinit.h"
 #include "retroshare/rsiface.h"
 #include "rsserver/rsloginhandler.h"
+#include "pqi/authssl.h"
 
 #include "util/stacktrace.h"
 #include "util/rsprint.h"
@@ -40,6 +41,7 @@
 #include "util/rsdir.h"
 #include "util/rsdebug.h"
 #include "util/folderiterator.h"
+#include "reencryptor.h"
 
 static CrashStackTrace gCrashStackTrace;
 
@@ -324,6 +326,14 @@ int main(int argc, char* argv[])
 			return -result;
 		}        
 
+		std::cout << "Successfull login to the old account" << std::endl;
+		std::cout << "Attempting to decrypt config files" << std::endl;
+		ReEncryptor reencryptor;
+		std::string cfgfolder = RsAccounts::AccountDirectory() + "/config";
+		reencryptor.LoadCfgFiles(cfgfolder);
+		//std::cout << "--- " << AuthSSL::instance().OwnId() << "\t" << AuthSSL::instance().getOwnLocation() << std::endl;
+		AuthSSL::instance().CloseAuth();
+
 // Successful login, start the profile upgrade
 		std::cout << "Successful login, start the profile upgrade" << std::endl;
 		RsPgpId PGPId = selectedaccount.mPgpId;
@@ -368,12 +378,12 @@ int main(int argc, char* argv[])
 			//GUI settings
 			copyFileBetweenProfiles(oldid, newid, RsAccounts::AccountDirectory() + "/RetroShare.conf");
 			copyFileBetweenProfiles(oldid, newid, RsAccounts::AccountDirectory() + "/RSPeers.conf");
-			//
 
-//			/* complete the process */
-//			RsInit::LoadPassword(sslPasswd);
-//			if (Rshare::loadCertificate(sslId, false)) {
-//			}
+			//Load the new SSL cert
+			std::string _ignore_lockFilePath;
+			RsInit::LockAndLoadCertificates(false, _ignore_lockFilePath);
+			//std::cout << "--- " << AuthSSL::instance().OwnId() << "\t" << AuthSSL::instance().getOwnLocation() << std::endl;
+
 		}
 		else
 		{

@@ -24,7 +24,8 @@ TARGET = retroshare-profileupgradetool
 
 !include("../../libretroshare/src/use_libretroshare.pri"):error("Including")
 
-SOURCES += profileupgradetool.cc
+SOURCES += profileupgradetool.cc \
+    reencryptor.cpp
 
 ################################# Linux ##########################################
 
@@ -101,4 +102,7 @@ win32-g++|win32-clang-g++ {
 }
 
 ################################### COMMON stuff ##################################
+
+HEADERS += \
+    reencryptor.h
 
