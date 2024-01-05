@@ -25,7 +25,7 @@ public:
 
 private:
 	std::list<FileData*> files;
-	RsPeerId oldid;
+	std::string oldid;
 	FileData* AttemptLoadCfgFile(std::string cfgFname, std::string signFname);
 };
 

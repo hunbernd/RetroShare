@@ -5,7 +5,7 @@
 
 ReEncryptor::ReEncryptor()
 {
-	oldid = AuthSSL::instance().OwnId();
+	oldid = AuthSSL::instance().OwnId().toStdString();
 }
 
 ReEncryptor::~ReEncryptor()
@@ -33,7 +33,7 @@ void ReEncryptor::LoadCfgFile(std::string filename)
 		files.push_back(fd);
 	} else if((fd = AttemptLoadCfgFile(cfgFnameBackup, signFnameBackup)) != nullptr)
 	{
-		std::cerr << "Successfully loaded configfile from backup " << cfgFname << std::endl;
+		std::cerr << "Successfully loaded configfile from backup " << cfgFnameBackup << std::endl;
 		fd->filename = cfgFname; //Keep the original filename, insteadof the backup file
 		files.push_back(fd);
 	} else {
@@ -59,6 +59,44 @@ void ReEncryptor::LoadCfgFiles(std::string folder)
 			}
 	}
 	dirIt.closedir();
+}
+
+void ReEncryptor::SaveFiles()
+{
+	std::string newid = AuthSSL::instance().OwnId().toStdString();
+	for (auto it = files.begin(); it != files.end(); ++it)
+	{
+		FileData* fd = *it;
+		std::string newfile = fd->filename;
+		newfile.replace(newfile.find(oldid), oldid.length(), newid);
+
+		//------------
+		std::string cfgFname = newfile;
+		std::string signFname = newfile + ".sgn";
+
+		std::cerr << "(II) Saving configuration file " << cfgFname << std::endl;
+
+		uint32_t bioflags = BIN_FLAGS_HASH_DATA | BIN_FLAGS_WRITEABLE;
+		BinEncryptedFileInterface *cfg_bio = new BinEncryptedFileInterface(cfgFname.c_str(), bioflags);
+
+		cfg_bio->senddata(fd->data, fd->size);
+
+		/* store the hash */
+		RsFileHash strHash = cfg_bio->gethash();
+		delete cfg_bio;
+
+		/* sign data */
+		std::string signature;
+		AuthSSL::getAuthSSL()->SignData(strHash.toByteArray(),strHash.SIZE_IN_BYTES, signature);
+
+		/* write signature to configuration */
+		BinMemInterface *signbio = new BinMemInterface(signature.c_str(),
+				signature.length(), BIN_FLAGS_READABLE);
+
+		signbio->writetofile(signFname.c_str());
+		delete signbio;
+		//------------
+	}
 }
 
 FileData* ReEncryptor::AttemptLoadCfgFile(std::string cfgFname, std::string signFname)

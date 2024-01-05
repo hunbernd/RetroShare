@@ -384,6 +384,8 @@ int main(int argc, char* argv[])
 			RsInit::LockAndLoadCertificates(false, _ignore_lockFilePath);
 			//std::cout << "--- " << AuthSSL::instance().OwnId() << "\t" << AuthSSL::instance().getOwnLocation() << std::endl;
 
+			//Save config files
+			reencryptor.SaveFiles();
 		}
 		else
 		{
