@@ -67,19 +67,21 @@ std::string colored(int color,const std::string& s)
     }
 }
 
-void copyFileBetweenProfiles(std::string oldid, std::string newid, std::string newfile){
-	//std::cout << "--- " << oldid << "\t" << newid << "\t" << newfile << std::endl;
-	std::string oldfile = newfile;
-	oldfile.replace(oldfile.find(newid), newid.length(), oldid);
+void copyFileBetweenProfiles(std::string olddir, std::string newdir, std::string file){
+	//std::cout << "--- " << olddir << "\t" << newdir << "\t" << file << std::endl;
+	std::string oldfile = RsDirUtil::makePath(olddir, file);
+	std::string newfile = RsDirUtil::makePath(newdir, file);
 	std::cout << "Copying " << oldfile << " --> " << newfile << std::endl;
 	RsDirUtil::copyFile(oldfile, newfile);
 }
 
-void copyFilesBetweenProfiles(std::string oldid, std::string newid, std::string newdir, std::string ending){
-	//std::cout << "--- " << oldid << "\t" << newid << "\t" << newdir << std::endl;
+void copyFilesBetweenProfiles(std::string olddatadir, std::string newdatadir, std::string subdir, std::string ending = ""){
+	//std::cout << "--- " << olddatadir << "\t" << newdatadir << "\t" << subdir << std::endl;
+	std::string olddir = RsDirUtil::makePath(olddatadir, subdir);
+	std::string newdir = RsDirUtil::makePath(newdatadir, subdir);
+	if(!RsDirUtil::checkDirectory(olddir))
+		return; //Don't do anything if directory not exist in the old profile
 	RsDirUtil::checkCreateDirectory(newdir);
-	std::string olddir = newdir;
-	olddir.replace(olddir.find(newid), newid.length(), oldid);
 	std::cout << "Copying files " << olddir << " --> " << newdir << std::endl;
 	librs::util::FolderIterator dirIt(olddir,false);
 	if(!dirIt.isValid())
@@ -90,13 +92,14 @@ void copyFilesBetweenProfiles(std::string oldid, std::string newid, std::string 
 	for(;dirIt.isValid();dirIt.next())
 	{
 		if(dirIt.file_type() == librs::util::FolderIterator::TYPE_FILE)
-			if(dirIt.file_name().size() >= ending.size() && dirIt.file_name().substr( dirIt.file_name().size() - ending.size()) == ending)
+		{
+			if(ending.empty() || (dirIt.file_name().size() >= ending.size() && dirIt.file_name().substr( dirIt.file_name().size() - ending.size()) == ending))
 			{
-				std::string newfile = dirIt.file_fullpath();
-				newfile.replace(newfile.find(oldid), oldid.length(), newid);
-				std::cout << "\t" << dirIt.file_name() << std::endl;
-				RsDirUtil::copyFile(dirIt.file_fullpath(), newfile);
+				copyFileBetweenProfiles(olddir, newdir, dirIt.file_name());
 			}
+		} else if(dirIt.file_type() == librs::util::FolderIterator::TYPE_DIR) {
+			copyFilesBetweenProfiles(olddatadir, newdatadir, RsDirUtil::makePath(subdir, dirIt.file_name()), ending);
+		}
 	}
 	dirIt.closedir();
 }
@@ -336,6 +339,7 @@ int main(int argc, char* argv[])
 
 // Successful login, start the profile upgrade
 		std::cout << "Successful login, start the profile upgrade" << std::endl;
+		std::string oldaccountdir = RsAccounts::AccountDirectory();
 		RsPgpId PGPId = selectedaccount.mPgpId;
 
 		bool is_hidden_node = false;
@@ -374,18 +378,20 @@ int main(int argc, char* argv[])
 			std::cout << std::endl << "New location SSL ID: " << sslId << std::endl;
 			std::string newid = sslId.toStdString();
 			std::string oldid = selectedaccount.mLocationId.toStdString();
+			std::string newaccountdir = RsAccounts::AccountDirectory();
 
 			//Copy stuff from the old to the new location
-			std::string path;
 			//SSL password
-			path = RsAccounts::AccountKeysDirectory() + "/" + "ssl_passphrase.pgp";
-			copyFileBetweenProfiles(oldid, newid, path);
+			copyFileBetweenProfiles(oldaccountdir, newaccountdir, "keys/ssl_passphrase.pgp");
 			//GXS databases
-			path = RsAccounts::AccountDirectory() + "/gxs";
-			copyFilesBetweenProfiles(oldid, newid, path, "_db");
+			copyFilesBetweenProfiles(oldaccountdir, newaccountdir, "gxs", "_db");
 			//GUI settings
-			copyFileBetweenProfiles(oldid, newid, RsAccounts::AccountDirectory() + "/RetroShare.conf");
-			copyFileBetweenProfiles(oldid, newid, RsAccounts::AccountDirectory() + "/RSPeers.conf");
+			copyFileBetweenProfiles(oldaccountdir, newaccountdir, "RetroShare.conf");
+			copyFileBetweenProfiles(oldaccountdir, newaccountdir, "RSPeers.conf");
+			//Tor
+			copyFilesBetweenProfiles(oldaccountdir, newaccountdir, "hidden_service");
+			//Stickers
+			copyFilesBetweenProfiles(oldaccountdir, newaccountdir, "stickers");
 
 			//Load the new SSL cert
 			std::string _ignore_lockFilePath;
