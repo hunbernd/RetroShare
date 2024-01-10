@@ -343,7 +343,15 @@ int main(int argc, char* argv[])
 		bool is_first_time = false ;
 		RsAccounts::getCurrentAccountOptions(is_hidden_node,is_auto_tor,is_first_time);
 
-		std::string genLoc = selectedaccount.mLocationName + " upgraded"; // TODO make configurable
+		std::string newlocname = selectedaccount.mLocationName + " upgraded";
+		std::cout << std::endl << std::endl << "Select a name for your new location." << std::endl;
+		std::cout << "Or leave empty to accept " << colored(COLOR_YELLOW,newlocname) << std::endl << std::endl;
+		std::cout << colored(COLOR_GREEN,"Please enter the new location's name: ") << std::endl;
+		std::cout.flush();
+
+		std::string genLoc;
+		std::getline(std::cin, genLoc);
+		if(genLoc.empty()) genLoc = newlocname;
 
 		rsNotify->cachePgpPassphrase(PGPpassword);
 		rsNotify->setDisableAskPassword(true);
@@ -386,13 +394,23 @@ int main(int argc, char* argv[])
 
 			//Save config files
 			reencryptor.SaveFiles();
+
+			std::cout << std::endl << std::endl << "--------------------------------------------" << std::endl;
+			std::cout << colored(COLOR_GREEN,"New profile creation was successful") << std::endl;
+			std::cout << "PGP id: " << selectedaccount.mPgpId.toStdString() << std::endl;
+			std::cout << "PGP name: " << selectedaccount.mPgpName << std::endl;
+			std::cout << "Location id: " << newid << std::endl;
+			std::cout << "Location name: " << genLoc << std::endl;
+
+			std::cout << std::endl << colored(COLOR_YELLOW,"Warning") << " Downloads won't be migrated by this tool." << std::endl;
+			std::cout << std::endl << "If your downloads or partials folder under the default location inside your retroshare profile folder, you may copy the files manually, and change the folders under Preferences->Files->Directorioes" << std::endl << std::endl << std::endl;
 		}
 		else
 		{
-			std::cerr << "Failed to generate new profile" << std::endl;
+			std::cerr << colored(COLOR_RED,"Failed to generate new profile") << std::endl;
 		}
 
-		std::cout << "Profile upgrade end" << std::endl; //TODO
+		//std::cout << "Profile upgrade ended" << std::endl;
 // End of profile upgarde
 
 	rsControl->setShutdownCallback([&](int){keepRunning = false;});
