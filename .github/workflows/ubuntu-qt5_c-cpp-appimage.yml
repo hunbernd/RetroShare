@@ -4,9 +4,9 @@ on:
   push:
     paths-ignore:
     - '**/*.md'
-  pull_request:
-    paths-ignore:
-    - '**/*.md'
+#  pull_request:
+#    paths-ignore:
+#    - '**/*.md'
 
 jobs:
   build:
@@ -25,14 +25,20 @@ jobs:
       run: sudo apt-get install g++ cmake qt5-qmake qtmultimedia5-dev libqt5x11extras5-dev libasio-dev libbz2-dev libjson-c-dev libssl-dev libsqlcipher-dev libupnp-dev libxss-dev rapidjson-dev libbotan-2-dev doxygen libsecret-1-dev libxml2-dev libxslt1-dev libcurl4-openssl-dev
     - name: print working directory
       run: pwd && ls -la
+    - name: patch desktop file
+      run: |
+        sed -i 's/retroshare.xpm/retroshare/' data/retroshare.desktop && \
+        sed -i 's|/usr/bin/retroshare|retroshare|' data/retroshare.desktop
     - name: qmake
       run: |
-        qmake \
+        qmake PREFIX=/usr \
+        CONFIG+=release \
         CONFIG+=rs_autologin \
         CONFIG+=rs_webui \
-        CONFIG+=rs_jsonapi
+        CONFIG+=rs_jsonapi \
+        CONFIG+=no_retroshare_plugins
     - name: make
-      run: make
+      run: make -j$(nproc)
     - name: make check
       run: make check
     - uses: miurahr/install-linuxdeployqt-action@v1.0.1
